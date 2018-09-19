@@ -1,0 +1,202 @@
+第1轮，第1次，共7组参数的实验比较结果如下：
+交叉验证拟合效果如下:
+0.8588888888888889
+0.8955555555555555
+0.8833333333333333
+0.88
+0.88
+0.8355555555555556
+0.89
+训练集拟合效果如下:
+0.8811111111111111
+0.8922222222222222
+0.8855555555555555
+0.89
+0.88
+0.8477777777777777
+0.9011111111111111
+验证集拟合效果如下：
+0.8222222222222222
+0.8
+0.8222222222222222
+0.7555555555555555
+0.8555555555555555
+0.7333333333333333
+0.7888888888888889
+最佳模型结果如下：
+第1个模型训练结果如下：
+<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyModule2(
+    (fc1): Linear(in_features=9, out_features=10, bias=True)
+    (fc2): Linear(in_features=10, out_features=20, bias=True)
+    (fc3): Linear(in_features=20, out_features=10, bias=True)
+    (fc4): Linear(in_features=10, out_features=2, bias=True)
+    (dropout1): Dropout(p=0.3)
+    (dropout2): Dropout(p=0.2)
+  ),
+)
+第2个模型训练结果如下：
+<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyModule2(
+    (fc1): Linear(in_features=9, out_features=10, bias=True)
+    (fc2): Linear(in_features=10, out_features=20, bias=True)
+    (fc3): Linear(in_features=20, out_features=10, bias=True)
+    (fc4): Linear(in_features=10, out_features=2, bias=True)
+    (dropout1): Dropout(p=0.3)
+    (dropout2): Dropout(p=0.2)
+  ),
+)
+第3个模型训练结果如下：
+<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyModule2(
+    (fc1): Linear(in_features=9, out_features=10, bias=True)
+    (fc2): Linear(in_features=10, out_features=20, bias=True)
+    (fc3): Linear(in_features=20, out_features=10, bias=True)
+    (fc4): Linear(in_features=10, out_features=2, bias=True)
+    (dropout1): Dropout(p=0.3)
+    (dropout2): Dropout(p=0.2)
+  ),
+)
+第4个模型训练结果如下：
+<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyModule2(
+    (fc1): Linear(in_features=9, out_features=10, bias=True)
+    (fc2): Linear(in_features=10, out_features=20, bias=True)
+    (fc3): Linear(in_features=20, out_features=10, bias=True)
+    (fc4): Linear(in_features=10, out_features=2, bias=True)
+    (dropout1): Dropout(p=0.3)
+    (dropout2): Dropout(p=0.2)
+  ),
+)
+第5个模型训练结果如下：
+<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyModule2(
+    (fc1): Linear(in_features=9, out_features=10, bias=True)
+    (fc2): Linear(in_features=10, out_features=20, bias=True)
+    (fc3): Linear(in_features=20, out_features=10, bias=True)
+    (fc4): Linear(in_features=10, out_features=2, bias=True)
+    (dropout1): Dropout(p=0.3)
+    (dropout2): Dropout(p=0.2)
+  ),
+)
+第6个模型训练结果如下：
+<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyModule2(
+    (fc1): Linear(in_features=9, out_features=10, bias=True)
+    (fc2): Linear(in_features=10, out_features=20, bias=True)
+    (fc3): Linear(in_features=20, out_features=10, bias=True)
+    (fc4): Linear(in_features=10, out_features=2, bias=True)
+    (dropout1): Dropout(p=0.3)
+    (dropout2): Dropout(p=0.2)
+  ),
+)
+第7个模型训练结果如下：
+<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyModule2(
+    (fc1): Linear(in_features=9, out_features=10, bias=True)
+    (fc2): Linear(in_features=10, out_features=20, bias=True)
+    (fc3): Linear(in_features=20, out_features=10, bias=True)
+    (fc4): Linear(in_features=10, out_features=2, bias=True)
+    (dropout1): Dropout(p=0.3)
+    (dropout2): Dropout(p=0.2)
+  ),
+)
+第1轮，第2次，共7组参数的实验比较结果如下：
+交叉验证拟合效果如下:
+0.88
+0.84
+0.8511111111111112
+0.8888888888888888
+0.6155555555555555
+0.6511111111111111
+0.6088888888888889
+训练集拟合效果如下:
+0.8833333333333333
+0.8477777777777777
+0.8622222222222222
+0.6211111111111111
+0.6155555555555555
+0.6511111111111111
+0.6088888888888889
+验证集拟合效果如下：
+0.8444444444444444
+0.8333333333333334
+0.8555555555555555
+0.6
+0.6
+0.6
+0.6
+最佳模型结果如下：
+第1个模型训练结果如下：
+<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyModule2(
+    (fc1): Linear(in_features=9, out_features=10, bias=True)
+    (fc2): Linear(in_features=10, out_features=20, bias=True)
+    (fc3): Linear(in_features=20, out_features=10, bias=True)
+    (fc4): Linear(in_features=10, out_features=2, bias=True)
+    (dropout1): Dropout(p=0.3)
+    (dropout2): Dropout(p=0.2)
+  ),
+)
+第2个模型训练结果如下：
+<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyModule2(
+    (fc1): Linear(in_features=9, out_features=10, bias=True)
+    (fc2): Linear(in_features=10, out_features=20, bias=True)
+    (fc3): Linear(in_features=20, out_features=10, bias=True)
+    (fc4): Linear(in_features=10, out_features=2, bias=True)
+    (dropout1): Dropout(p=0.3)
+    (dropout2): Dropout(p=0.2)
+  ),
+)
+第3个模型训练结果如下：
+<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyModule2(
+    (fc1): Linear(in_features=9, out_features=10, bias=True)
+    (fc2): Linear(in_features=10, out_features=20, bias=True)
+    (fc3): Linear(in_features=20, out_features=10, bias=True)
+    (fc4): Linear(in_features=10, out_features=2, bias=True)
+    (dropout1): Dropout(p=0.3)
+    (dropout2): Dropout(p=0.2)
+  ),
+)
+第4个模型训练结果如下：
+<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyModule2(
+    (fc1): Linear(in_features=9, out_features=10, bias=True)
+    (fc2): Linear(in_features=10, out_features=20, bias=True)
+    (fc3): Linear(in_features=20, out_features=10, bias=True)
+    (fc4): Linear(in_features=10, out_features=2, bias=True)
+    (dropout1): Dropout(p=0.3)
+    (dropout2): Dropout(p=0.2)
+  ),
+)
+第5个模型训练结果如下：
+<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyModule1(
+    (fc1): Linear(in_features=9, out_features=10, bias=True)
+    (fc2): Linear(in_features=10, out_features=10, bias=True)
+    (fc3): Linear(in_features=10, out_features=2, bias=True)
+    (dropout): Dropout(p=0.5)
+  ),
+)
+第6个模型训练结果如下：
+<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyModule1(
+    (fc1): Linear(in_features=9, out_features=10, bias=True)
+    (fc2): Linear(in_features=10, out_features=10, bias=True)
+    (fc3): Linear(in_features=10, out_features=2, bias=True)
+    (dropout): Dropout(p=0.5)
+  ),
+)
+第7个模型训练结果如下：
+<class 'skorch.net.NeuralNetClassifier'>[initialized](
+  module_=MyModule2(
+    (fc1): Linear(in_features=9, out_features=10, bias=True)
+    (fc2): Linear(in_features=10, out_features=20, bias=True)
+    (fc3): Linear(in_features=20, out_features=10, bias=True)
+    (fc4): Linear(in_features=10, out_features=2, bias=True)
+    (dropout1): Dropout(p=0.3)
+    (dropout2): Dropout(p=0.2)
+  ),
+)
