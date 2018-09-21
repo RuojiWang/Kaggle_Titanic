@@ -1,9 +1,30 @@
 #coding=utf-8
+#下面的代码主要是2018-9-19计算7000/700次的分析
+#你妈卖批的，这两个pickle文件居然无法读取煞笔？？这个可能要回去查阅一下源代码
+#但是就找到当时的文件应该已经不能用了吧，估计只有去调试一下源代码才行
+#虽然我没有那拿到具体的最优模型但是当时查看也不过是86.6%而已吧
+#以下是我对现在面临的几个问题的解答：
+#（1）如何确定最佳模型？
+#衡量模型准确率的标准就是泛化性能，然而泛化性能一个比较好的衡量方式就是交叉验证
+#交叉验证应该还是只能够选择超参吧，剩下的就只有从防止过拟合来入手了
+#防止过拟合的方式看来就只有加入early stopping之类的现在pytorch skorch已经有了
+#至于7000/700次计算中的700分析中的在未知数据集上面的最优（准确率）模型那就说不清楚了。
+#从这个角度上来分析的话，其实未知数据集上的最优模型肯定是一个玄学玄幻的事情，没有办法。
+#所以换句话说86.6%准确率的模型未必一定比85.9%准确率的模型在未知数据集上效果更佳
+#不过700次分析的平均值大概可以衡量这个超参的效果如何，但是也仅此而已了。
+#（2）修改网络结构的提升完全没有预期中那么大。
+#就这个问题而言，修改网络结构带来的提升并没有想象中那么大，可能仅仅是0.05%左右的提升
+#这种提升对在未知数据集上面到底有没有作用还说不清楚，说不定在未知数据集上还会准确率下降。
+#（3）自动化模型设计模型
+#上面的网络结构的修改提升比较有限也让我对于自动化模型设计有了一点想法
+#我之前一直认为
+#（4）节约计算量和计算时间
+#
+#（5）下一步的优化方向
 import os
 import sys
 import random
 import pickle
-import datetime
 import numpy as np
 import pandas as pd
 sys.path.append("D:\\Workspace\\Titanic")
@@ -25,6 +46,13 @@ from hyperopt import fmin, tpe, hp, space_eval, rand, Trials, partial, STATUS_OK
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
+def cal_nnclf_acc(clf, X_train, Y_train):
+    
+    Y_train_pred = clf.predict(X_train.values.astype(np.float32))
+    count = (Y_train_pred == Y_train).sum()
+    acc = count/len(Y_train)
+    
+    return acc
 
 data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
 data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
@@ -1702,324 +1730,16 @@ net = NeuralNetClassifier(
     callbacks=[skorch.callbacks.EarlyStopping(patience=10)]
 )
 
-def cal_nnclf_acc(clf, X_train, Y_train):
-    
-    Y_train_pred = clf.predict(X_train.values.astype(np.float32))
-    count = (Y_train_pred == Y_train).sum()
-    acc = count/len(Y_train)
-    
-    return acc
-
-def print_nnclf_acc(acc):
-    
-    print("the accuracy rate of the model on the whole train dataset is:", acc)
-  
-def print_best_params_acc(trials):
-    
-    trials_list =[]
-    #从trials中读取最大的准确率信息咯
-    #item和result其实指向了一个dict对象
-    for item in trials.trials:
-        trials_list.append(item)
-    
-    #按照关键词进行排序，关键词即为item['result']['loss']
-    trials_list.sort(key=lambda item: item["result"]["loss"])
-    
-    print("best parameter is:", trials_list[0])
-    print()
-    
-def exist_files(title):
-    
-    return os.path.exists(title+"_best_model.pickle")
-    
-def save_inter_params(trials, space_nodes, best_nodes, title):
- 
-    files = open(str(title+"_intermediate_parameters.pickle"), "wb")
-    pickle.dump([trials, space_nodes, best_nodes], files)
-    files.close()
-
-def load_inter_params(title):
-  
-    files = open(str(title+"_intermediate_parameters.pickle"), "rb")
-    trials, space_nodes, best_nodes = pickle.load(files)
-    files.close()
-    
-    return trials, space_nodes ,best_nodes
-    
-def save_best_model(best_model, title):
-    
-    files = open(str(title+"_best_model.pickle"), "wb")
-    pickle.dump(best_model, files)
-    files.close()
-    
-def load_best_model(title):
-    
-    files = open(str(title+"_best_model.pickle"), "rb")
-    best_model = pickle.load(files)
-    files.close()
-    
-    return best_model
-    
-def record_best_model_acc(clf, acc, best_model, best_acc):
-    
-    flag = False
-    
-    if not isclose(best_acc, acc):
-        if best_acc < acc:
-            flag = True
-            best_acc = acc
-            best_model = clf
-            
-    return best_model, best_acc, flag
-
-def noise_augment_data(mean, std, X_train, Y_train, columns):
-    
-    X_noise_train = X_train.copy()
-    X_noise_train.is_copy = False
-    
-    row = X_train.shape[0]
-    for i in range(0, row):
-        for j in columns:
-            X_noise_train.iloc[i,[j]] +=  random.gauss(mean, std)
-
-    return X_noise_train, Y_train
-    
-#我觉得这个中文文档介绍hyperopt还是比较好https://www.jianshu.com/p/35eed1567463
-def nn_f(params):
-    
-    print("mean", params["mean"])
-    print("std", params["std"])
-    print("lr", params["lr"])
-    print("optimizer__weight_decay", params["optimizer__weight_decay"])
-    print("criterion", params["criterion"])
-    print("batch_size", params["batch_size"])
-    print("optimizer__betas", params["optimizer__betas"])
-    print("module", params["module"])    
-    
-    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], X_train_scaled, Y_train, columns=[3, 4, 5, 6, 7, 8])
-    
-    clf = NeuralNetClassifier(lr = params["lr"],
-                              optimizer__weight_decay = params["optimizer__weight_decay"],
-                              criterion = params["criterion"],
-                              batch_size = params["batch_size"],
-                              optimizer__betas = params["optimizer__betas"],
-                              module=params["module"],
-                              max_epochs = params["max_epochs"],
-                              callbacks=[skorch.callbacks.EarlyStopping(patience=params["patience"])],
-                              device = best_nodes["device"],
-                              optimizer = best_nodes["optimizer"]
-                              )
-    
-    skf = StratifiedKFold(Y_noise_train, n_folds=5, shuffle=True, random_state=None)
-    
-    clf.module.init_weight(params["init_mode"])
-    
-    metric = cross_val_score(clf, X_noise_train.values.astype(np.float32), Y_noise_train.values.astype(np.longlong), cv=skf, scoring="accuracy").mean()
-    
-    print(metric)
-    print()    
-    return -metric
-
-def display_search_progress(search_times, nn_f):
-    
-    print("search times:", search_times)
-    return nn_f
-    
-def parse_space(trials, space_nodes, best_nodes):
-    
-    trials_list =[]
-    for item in trials.trials:
-        trials_list.append(item)
-    trials_list.sort(key=lambda item: item['result']['loss'])
-    
-    best_nodes["title"] = space_nodes["title"][trials_list[0]["misc"]["vals"]["title"][0]]
-    best_nodes["path"] = space_nodes["path"][trials_list[0]["misc"]["vals"]["path"][0]]
-    best_nodes["mean"] = space_nodes["mean"][trials_list[0]["misc"]["vals"]["mean"][0]]
-    best_nodes["std"] = space_nodes["std"][trials_list[0]["misc"]["vals"]["std"][0]]
-    best_nodes["batch_size"] = space_nodes["batch_size"][trials_list[0]["misc"]["vals"]["batch_size"][0]]
-    best_nodes["criterion"] = space_nodes["criterion"][trials_list[0]["misc"]["vals"]["criterion"][0]]
-    best_nodes["max_epochs"] = space_nodes["max_epochs"][trials_list[0]["misc"]["vals"]["max_epochs"][0]]
-    best_nodes["lr"] = trials_list[0]["misc"]["vals"]["lr"][0]
-    best_nodes["module"] = space_nodes["module"][trials_list[0]["misc"]["vals"]["module"][0]] 
-    best_nodes["optimizer__betas"] = space_nodes["optimizer__betas"][trials_list[0]["misc"]["vals"]["optimizer__betas"][0]]
-    best_nodes["optimizer__weight_decay"] = space_nodes["optimizer__weight_decay"][trials_list[0]["misc"]["vals"]["optimizer__weight_decay"][0]]
-    best_nodes["init_mode"] = space_nodes["init_mode"][trials_list[0]["misc"]["vals"]["init_mode"][0]]
-    best_nodes["patience"] = space_nodes["patience"][trials_list[0]["misc"]["vals"]["patience"][0]]
-    best_nodes["device"] = space_nodes["device"][trials_list[0]["misc"]["vals"]["device"][0]]
-    best_nodes["optimizer"] = space_nodes["optimizer"][trials_list[0]["misc"]["vals"]["optimizer"][0]]
-    
-    return best_nodes
-    
-def predict(best_nodes, max_evals=10):
-    
-    best_acc = 0.0
-    best_model = 0.0
-    if (exist_files(best_nodes["title"])):
-        best_model = load_best_model(best_nodes["title"])
-        best_acc = cal_nnclf_acc(best_model, X_train_scaled, Y_train)
-         
-    for i in range(0, max_evals):
-        
-        print(str(i+1)+"/"+str(max_evals)+" prediction progress have been made.")
-        
-        clf = NeuralNetClassifier(lr = best_nodes["lr"],
-                                  optimizer__weight_decay = best_nodes["optimizer__weight_decay"],
-                                  criterion = best_nodes["criterion"],
-                                  batch_size = best_nodes["batch_size"],
-                                  optimizer__betas = best_nodes["optimizer__betas"],
-                                  module=best_nodes["module"],
-                                  max_epochs = best_nodes["max_epochs"],
-                                  callbacks = [skorch.callbacks.EarlyStopping(patience=best_nodes["patience"])],
-                                  device = best_nodes["device"],
-                                  optimizer = best_nodes["optimizer"]
-                                  )
-        
-        #在这重新初始化一次基本就会得到差异很大的结果吧
-        #现在可以看到确实是经过了权重初始化模型重新训练的
-        #但是这个best_model的数据怎么还是上一回的数据？
-        clf.module.init_weight(best_nodes["init_mode"])
-        
-        clf.fit(X_train_scaled.values.astype(np.float32), Y_train.values.astype(np.longlong)) 
-        
-        metric = cal_nnclf_acc(clf, X_train_scaled, Y_train)
-        print_nnclf_acc(metric)
-        
-        #那么现在的best_model应该就不会被修改了吧
-        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
-        #通过下面的两行代码可以发现clf确实每次都是新创建的，但是module每次都是重复使用的
-        #print(id(clf))
-        #print(id(clf.module))
-    
-        if (flag):
-            save_best_model(best_model, best_nodes["title"])
-            Y_pred = best_model.predict(X_test_scaled.values.astype(np.float32))
-            
-            data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
-            output = pd.DataFrame(data = data)
-            output.to_csv(best_nodes["path"], index=False)
-            print("prediction file has been written.")
-        print()
-     
-    #因为下面的clf中的module已经被重新训练了，所以已经是新的模型了，还是直接输出best_acc   
-    #metric = cal_nnclf_acc(best_model, X_train_scaled, Y_train)
-    print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
-    
-#我真的曹乐，做不做数据集增强好像差别很大哦，不添加噪声准确率高得多呢。。好像也不是
-#上回那个貌似是巧合而已，我多运行了几次发现加了噪声好像是要高一点点呢。。
-#倒是patience设置为10的时候绝壁没有设置为5的时候效果好呢。。不看运行输出真还不知道
-#现在我的代码应用到下一个版本的时候只需要修改space、space_nodes以及best_nodes和parse_space
-#predict函数内data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
-space = {"title":hp.choice("title", ["titanic"]),
-         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
-         "mean":hp.choice("mean", [0]),
-         #"std":hp.choice("std", [0]),
-         "std":hp.choice("std", [0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20]),
-         "max_epochs":hp.choice("max_epochs",[400]),
-         "patience":hp.choice("patience", [1,2,3,4,5,6,7,8,9,10]),
-         "lr":hp.uniform("lr", 0.0001, 0.0015),  
-         "optimizer__weight_decay":hp.choice("optimizer__weight_decay",
-            [0.000, 0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009,
-             0.010, 0.011, 0.012, 0.013, 0.014, 0.015, 0.016, 0.017, 0.018, 0.019]),  
-         "criterion":hp.choice("criterion", [torch.nn.NLLLoss, torch.nn.CrossEntropyLoss]),
-
-         "batch_size":hp.choice("batch_size", [1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024]),
-         "optimizer__betas":hp.choice("optimizer__betas",
-                                      [[0.86, 0.9991], [0.86, 0.9993], [0.86, 0.9995], [0.86, 0.9997], [0.86, 0.9999],
-                                       [0.88, 0.9991], [0.88, 0.9993], [0.88, 0.9995], [0.88, 0.9997], [0.88, 0.9999],
-                                       [0.90, 0.9991], [0.90, 0.9993], [0.90, 0.9995], [0.90, 0.9997], [0.90, 0.9999],
-                                       [0.92, 0.9991], [0.92, 0.9993], [0.92, 0.9995], [0.92, 0.9997], [0.92, 0.9999],
-                                       [0.94, 0.9991], [0.94, 0.9993], [0.94, 0.9995], [0.94, 0.9997], [0.94, 0.9999]]),
-         "module":hp.choice("module", [module1, module2, module3, module4, module5, module6, module7, module8,
-                                       module9, module10, module11, module12, module13, module14, module15, module16,
-                                       module17, module18, module19, module20, module21, module22, module23, module24]),
-         "init_mode":hp.choice("init_mode", [1, 2, 3, 4]),         
-         "device":hp.choice("device", ["cpu"]),
-         "optimizer":hp.choice("optimizer", [torch.optim.Adam])
-         }
-
-space_nodes = {"title":["titanic"],
-               "path":["path"],
-               "mean":[0],
-               #"std":[0],
-               "std":[0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20],
-               "max_epochs":[400],
-               "patience":[1,2,3,4,5,6,7,8,9,10],
-               "lr":[0.0001],
-               "optimizer__weight_decay":[0.000, 0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009,
-                                          0.010, 0.011, 0.012, 0.013, 0.014, 0.015, 0.016, 0.017, 0.018, 0.019],
-               "criterion":[torch.nn.NLLLoss, torch.nn.CrossEntropyLoss],
-               "batch_size":[1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024],
-               "optimizer__betas":[[0.86, 0.9991], [0.86, 0.9993], [0.86, 0.9995], [0.86, 0.9997], [0.86, 0.9999],
-                                   [0.88, 0.9991], [0.88, 0.9993], [0.88, 0.9995], [0.88, 0.9997], [0.88, 0.9999],
-                                   [0.90, 0.9991], [0.90, 0.9993], [0.90, 0.9995], [0.90, 0.9997], [0.90, 0.9999],
-                                   [0.92, 0.9991], [0.92, 0.9993], [0.92, 0.9995], [0.92, 0.9997], [0.92, 0.9999],
-                                   [0.94, 0.9991], [0.94, 0.9993], [0.94, 0.9995], [0.94, 0.9997], [0.94, 0.9999]],
-               "module":[module1, module2, module3, module4, module5, module6, module7, module8,
-                         module9, module10, module11, module12, module13, module14, module15, module16,
-                         module17, module18, module19, module20, module21, module22, module23, module24],
-               "init_mode":[1, 2, 3, 4],
-               "device":["cpu"],
-               "optimizer":[torch.optim.Adam]
-               }
-
-best_nodes = {"title":"titanic",
-              "path":"path",
-              "mean":0,
-              "std":0.1,
-              "max_epochs":400,
-              "patience":5,
-              "lr":0.0001,
-              "optimizer__weight_decay":0.005,
-              "criterion":torch.nn.NLLLoss,
-              "batch_size":1,
-              "optimizer__betas":[0.86, 0.999],
-              "module":module3,
-              "init_mode":1,
-              "device":"cpu",
-              "optimizer":torch.optim.Adam
-              }
-
-"""
-#我觉得这边需要添加一个计算计时的功能
-start_time = datetime.datetime.now()
-
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-
-best_params = fmin(nn_f, space, algo=algo, max_evals=10, trials=trials)
-print_best_params_acc(trials)
-
-best_nodes = parse_space(trials, space_nodes, best_nodes)
-#save_inter_params保存的是本次搜索到的参数
-save_inter_params(trials, space_nodes, best_nodes, "titanic")
-trials, space_nodes, best_nodes = load_inter_params("titanic")
-
-#predict中的best_model保存的是本机运行过程中最佳模型
-#现在还有一个奇怪的问题，predict中似乎还是不对，因为初始正确率太高了吧
-#经过我测试，我发现predict中初始正确率确实有在变化，所以应该木问题吧
-#现在就是将所有容易改变的东西都放到space、space_nodes、best_nodes以及parse_space
-#这样的做法有利于避免我忘记修改代码细节从而导致影响模型的训练过程
-#我感觉除了和模型相关的超参我已经搞定的差不多了，今后主要决策和模型相关的超参
-#比如说是模型的层数、每层的节点数、初始化的方式、初始化的范围、偏置的设置值
-#明天的工作就先从模型生成器开始咯。。
-predict(best_nodes, max_evals=10)
-
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-#模型一旦被修改了之后pickle中的文件再读出来就没用啦
-#还好我及时保存了老版本的模型，不然感觉就心酸了。。。
-#不过其实没保存问题也不大的吧，直接重新计算一次。。。
-#同一日期下的中间结果和最佳模型是配套的，虽然这中间结果未必产生了最佳模型
-files = open("titanic_intermediate_parameters.pickle", "rb")
+files = open("C:/Users/1/Desktop/titanic_intermediate_parameters_2018-9-19202626.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
 files.close()
 print(best_nodes)
 #print(space_nodes)
+print()
 
-files = open("titanic_best_model.pickle", "rb")
+files = open("C:/Users/1/Desktop/titanic_best_model_2018-9-19202611.pickle", "rb")
 best_model = pickle.load(files)
 files.close()
 best_acc = cal_nnclf_acc(best_model, X_train_scaled, Y_train)
 print(best_acc)
+
