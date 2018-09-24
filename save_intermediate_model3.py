@@ -2,7 +2,10 @@
 #下面的代码主要是2018-9-19计算7000/700次的分析
 #你妈卖批的，这两个pickle文件居然无法读取煞笔？？这个可能要回去查阅一下源代码
 #但是就找到当时的文件应该已经不能用了吧，估计只有去调试一下源代码才行
-#虽然我没有那拿到具体的最优模型但是当时查看也不过是86.6%而已吧
+#暂时不知道什么原因反正在这边就是可以读取显示，但是那天在办公室就是不行呢？？
+#我在家里赶紧试了一下save_intermediate_model1到3是否都能够运行，是可以运行的
+#如果周二上班的时候办公室那边无法读取文件，那肯定就是办公室那边的问题，因为文件是好的
+#虽然我没有那拿到具体的最优模型但是当时查看也不过是86.6%而已吧，现在看到其实是86.75%
 #以下是我对现在面临的几个问题的解答：
 #（1）如何确定最佳模型？
 #衡量模型准确率的标准就是泛化性能，然而泛化性能一个比较好的衡量方式就是交叉验证
@@ -12,15 +15,36 @@
 #从这个角度上来分析的话，其实未知数据集上的最优模型肯定是一个玄学玄幻的事情，没有办法。
 #所以换句话说86.6%准确率的模型未必一定比85.9%准确率的模型在未知数据集上效果更佳
 #不过700次分析的平均值大概可以衡量这个超参的效果如何，但是也仅此而已了。
+#而且肯定没有办法知道一对模型在未知数据集上哪个效果好，如果有办法那就是世界首富了。。
 #（2）修改网络结构的提升完全没有预期中那么大。
 #就这个问题而言，修改网络结构带来的提升并没有想象中那么大，可能仅仅是0.05%左右的提升
 #这种提升对在未知数据集上面到底有没有作用还说不清楚，说不定在未知数据集上还会准确率下降。
+#解决这个问题的办法只有一个：将网络结构作为超参搜索那就可以确定最优网络结构咯。
+#这样从超参的结构的角度进行模型结构的选择，当然至于执行700次分析肯定还是说不准未知数据表现的
 #（3）自动化模型设计模型
 #上面的网络结构的修改提升比较有限也让我对于自动化模型设计有了一点想法
-#我之前一直认为
+#我之前一直认为模型的结构设计是提升模型准确率的主要手段，现在看来提升比较有限的
+#虽然说有限但是肯定比自己手动设计靠谱一些的，现在准备将层数、每层节点数以及dropout作为结构超参
+#以后可能还会添加卷积项等各种更复杂的神经网络元素咯，可能会阅读pytorch的代码才知道咋写程序吧
 #（4）节约计算量和计算时间
-#
+#节约时间和计算量的办法大概就是将尽量多的超参选择放到同一次大计算里面去吧
+#也就是尽量少的用手动分批的方式计算，中间涉及到重复的计算
 #（5）下一步的优化方向
+#大致是以下两个方向咯：1）自动化网络结构的设计。2)加入类似数据集增强的其他方式提升模型效果
+#问题1）这个问题的本质是找到一组参数表示即将搭建的module，我现在似乎还不知道去哪里寻找这组参数
+#现在开始考虑如何通过一组参数自己构造模型的代码呢？
+#问题2）主要是通过模型融合的办法吧（stacking averaging）、Ensemble、GAN咯
+#临时想到了问题3）就是如何修改现在的超参，我觉得初始化方式似乎可以修改一下咯，几乎都是1最佳
+#deep learning那本书中初始化的观点大致是：通常情况下，我们可以为每个单元的偏置设置启发式挑
+#选的常数，仅随机初始化权重。额外的参数——例如编码预测条件方差的参数——通常和偏差一样设置为
+#启发式选择的常数。也许完全确知的唯一特性是初始参数需要在不同单元间‘‘破坏对称性’’。如果具
+#有相同激活函数的两个隐藏单元连接到相同的输入，那么这些单元必须具有不同的初始参数。如果它
+#们具有相同的初始参数，然后应用到确定性损失和模型的确定性学习算法将一直以相同的方式更新这两个单元。
+#通常情况下，我们可以为每个单元的偏置设置启发式挑选的常数，仅随机初始化权重。额外的参数——例如编码
+#预测条件方差的参数——通常和偏差一样设置为启发式选择的常数。我们几乎总是初始化模型的权重为高斯或均
+#匀分布中随机抽取的值。高斯或均匀分布的选择似乎不会有很大的差别，但也没有被详尽地研究。然而，初始分布的
+#大小确实对优化过程的结果和网络泛化能力都有很大的影响。学习率的问题可以重新确定一下吗？好像不需要吧每次
+#获得的最佳学习率都在该范围内呢。patience应该也不需要修改，不同的网络可能最佳patience真不一样吧
 import os
 import sys
 import random
@@ -54,8 +78,8 @@ def cal_nnclf_acc(clf, X_train, Y_train):
     
     return acc
 
-data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -1730,16 +1754,27 @@ net = NeuralNetClassifier(
     callbacks=[skorch.callbacks.EarlyStopping(patience=10)]
 )
 
-files = open("C:/Users/1/Desktop/titanic_intermediate_parameters_2018-9-19202626.pickle", "rb")
+files = open("titanic_intermediate_parameters_2018-9-19202626.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
 files.close()
 print(best_nodes)
 #print(space_nodes)
 print()
 
-files = open("C:/Users/1/Desktop/titanic_best_model_2018-9-19202611.pickle", "rb")
+files = open("titanic_best_model_2018-9-19202611.pickle", "rb")
 best_model = pickle.load(files)
 files.close()
 best_acc = cal_nnclf_acc(best_model, X_train_scaled, Y_train)
 print(best_acc)
 
+#以下是最优超参的输出至少std和init_mode和之前的输出是一毛一样的
+#那至少说明了初始化超参中其他方式似乎真的毫无价值，准备开始替换吧
+#{'title': 'titanic', 'path': 'path', 'mean': 0, 'std': 0.1, 'max_epochs': 400, 'patience': 5, 'lr': 0.000820206995765613, 'optimizer__weight_decay': 0.004, 'criterion': <class 'torch.nn.modules.loss.NLLLoss'>, 'batch_size': 64, 'optimizer__betas': [0.88, 0.9995], 'module': MyModule2(
+#  (fc1): Linear(in_features=9, out_features=50, bias=True)
+#  (fc2): Linear(in_features=50, out_features=50, bias=True)
+#  (fc3): Linear(in_features=50, out_features=2, bias=True)
+#  (dropout1): Dropout(p=0.1)
+#  (dropout2): Dropout(p=0.2)
+#), 'init_mode': 1, 'device': 'cpu', 'optimizer': <class 'torch.optim.adam.Adam'>}
+#
+#0.867564534231201

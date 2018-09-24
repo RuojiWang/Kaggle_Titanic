@@ -26,8 +26,8 @@ def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
 
-data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -177,32 +177,36 @@ class MyModule1(nn.Module):
         X = F.softmax(self.fc3(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
-        if (mode==1):
-            pass#就是使用默认设置的意思咯
+    def init_module(self, weight_mode, bias):
         
-        elif (mode==2):
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
+        
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
-            torch.nn.init.normal_(self.fc1.bias.data, 0)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
+            torch.nn.init.normal_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
-    
-        elif (mode==3):
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
+        
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
-    
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
+        
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
-        
-        return self   
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
+            
+        return self
     
 class MyModule2(nn.Module):
     def __init__(self):
@@ -221,32 +225,36 @@ class MyModule2(nn.Module):
         X = F.softmax(self.fc3(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
-        if (mode==1):
-            pass#就是使用默认设置的意思咯
+    def init_module(self, weight_mode, bias):
         
-        elif (mode==2):
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
+        
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
-    
-        elif (mode==3):
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
+        
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
-    
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
+        
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
-        
-        return self 
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
+            
+        return self
     
 class MyModule3(nn.Module):
     def __init__(self):
@@ -265,32 +273,36 @@ class MyModule3(nn.Module):
         X = F.softmax(self.fc3(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
-        if (mode==1):
-            pass#就是使用默认设置的意思咯
+    def init_module(self, weight_mode, bias):
         
-        elif (mode==2):
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
+        
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
-    
-        elif (mode==3):
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
+        
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
-    
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
+        
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
-        
-        return self 
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
+            
+        return self
 
 class MyModule4(nn.Module):
     def __init__(self):
@@ -309,32 +321,36 @@ class MyModule4(nn.Module):
         X = F.softmax(self.fc3(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
-        if (mode==1):
-            pass#就是使用默认设置的意思咯
+    def init_module(self, weight_mode, bias):
         
-        elif (mode==2):
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
+        
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
-    
-        elif (mode==3):
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
+        
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
-    
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
+        
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
-        
-        return self 
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
+            
+        return self
 
 class MyModule5(nn.Module):
     def __init__(self):
@@ -355,37 +371,42 @@ class MyModule5(nn.Module):
         X = F.softmax(self.fc4(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
-        if (mode==1):
-            pass#就是使用默认设置的意思咯
+    def init_module(self, weight_mode, bias):
         
-        elif (mode==2):
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
+        
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
-    
-        elif (mode==3):
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
+        
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
-    
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
+        
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
-        
-        return self   
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
+            
+        return self 
     
 class MyModule6(nn.Module):
     def __init__(self):
@@ -406,36 +427,41 @@ class MyModule6(nn.Module):
         X = F.softmax(self.fc4(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
-        if (mode==1):
-            pass#就是使用默认设置的意思咯
+    def init_module(self, weight_mode, bias):
         
-        elif (mode==2):
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
+        
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
-    
-        elif (mode==3):
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
+        
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
-    
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
+        
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
-        
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
+            
         return self
     
 class MyModule7(nn.Module):
@@ -457,36 +483,41 @@ class MyModule7(nn.Module):
         X = F.softmax(self.fc4(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
-        if (mode==1):
-            pass#就是使用默认设置的意思咯
+    def init_module(self, weight_mode, bias):
         
-        elif (mode==2):
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
+        
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
-    
-        elif (mode==3):
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
+        
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
-    
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
+        
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
-        
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
+            
         return self
 
 class MyModule8(nn.Module):
@@ -508,37 +539,43 @@ class MyModule8(nn.Module):
         X = F.softmax(self.fc4(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
-        if (mode==1):
-            pass#就是使用默认设置的意思咯
+    def init_module(self, weight_mode, bias):
         
-        elif (mode==2):
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
+        
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
-    
-        elif (mode==3):
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
+        
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
-    
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
+        
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
-        
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
+            
         return self
+
 
 class MyModule9(nn.Module):
     def __init__(self):
@@ -562,42 +599,49 @@ class MyModule9(nn.Module):
         X = F.softmax(self.fc5(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
-        if (mode==1):
-            pass#就是使用默认设置的意思咯
+    def init_module(self, weight_mode, bias):
         
-        elif (mode==2):
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
+        
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
-    
-        elif (mode==3):
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
+        
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
-    
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
+        
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
-        
-        return self   
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
+            
+        return self
+ 
     
             
 class MyModule10(nn.Module):
@@ -622,42 +666,49 @@ class MyModule10(nn.Module):
         X = F.softmax(self.fc5(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
-        if (mode==1):
-            pass#就是使用默认设置的意思咯
+    def init_module(self, weight_mode, bias):
         
-        elif (mode==2):
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
+        
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
-    
-        elif (mode==3):
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
+        
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
-    
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
+        
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
-        
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
+            
         return self
+
 
 class MyModule11(nn.Module):
     def __init__(self):
@@ -681,42 +732,49 @@ class MyModule11(nn.Module):
         X = F.softmax(self.fc5(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
-        if (mode==1):
-            pass#就是使用默认设置的意思咯
+    def init_module(self, weight_mode, bias):
         
-        elif (mode==2):
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
+        
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
-    
-        elif (mode==3):
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
+        
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
-    
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
+        
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
-        
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
+            
         return self
+
 
 class MyModule12(nn.Module):
     def __init__(self):
@@ -740,41 +798,47 @@ class MyModule12(nn.Module):
         X = F.softmax(self.fc5(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
-        if (mode==1):
-            pass#就是使用默认设置的意思咯
+    def init_module(self, weight_mode, bias):
         
-        elif (mode==2):
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
+        
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
-    
-        elif (mode==3):
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
+        
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
-    
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
+        
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
-        
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
+            
         return self
        
 class MyModule13(nn.Module):
@@ -801,46 +865,52 @@ class MyModule13(nn.Module):
         X = F.softmax(self.fc6(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
+    def init_module(self, weight_mode, bias):
         
-        if (mode==1):
-            pass#就是什么都不做的意思
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
         
-        elif (mode==2):
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
         
-        elif (mode==3):
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
         
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc6.weight.data)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             
         return self
     
@@ -868,46 +938,52 @@ class MyModule14(nn.Module):
         X = F.softmax(self.fc6(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
+    def init_module(self, weight_mode, bias):
         
-        if (mode==1):
-            pass#就是什么都不做的意思
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
         
-        elif (mode==2):
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
         
-        elif (mode==3):
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
         
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc6.weight.data)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             
         return self
 
@@ -935,46 +1011,52 @@ class MyModule15(nn.Module):
         X = F.softmax(self.fc6(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
+    def init_module(self, weight_mode, bias):
         
-        if (mode==1):
-            pass#就是什么都不做的意思
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
         
-        elif (mode==2):
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
         
-        elif (mode==3):
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
         
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc6.weight.data)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             
         return self
     
@@ -1002,46 +1084,52 @@ class MyModule16(nn.Module):
         X = F.softmax(self.fc6(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
+    def init_module(self, weight_mode, bias):
         
-        if (mode==1):
-            pass#就是什么都不做的意思
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
         
-        elif (mode==2):
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
         
-        elif (mode==3):
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
         
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc6.weight.data)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             
         return self
     
@@ -1071,51 +1159,58 @@ class MyModule17(nn.Module):
         X = F.softmax(self.fc7(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
+    def init_module(self, weight_mode, bias):
         
-        if (mode==1):
-            pass#就是什么都不做的意思
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
         
-        elif (mode==2):
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
         
-        elif (mode==3):
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
         
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc6.weight.data)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc7.weight.data)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             
         return self
     
@@ -1145,51 +1240,58 @@ class MyModule18(nn.Module):
         X = F.softmax(self.fc7(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
+    def init_module(self, weight_mode, bias):
         
-        if (mode==1):
-            pass#就是什么都不做的意思
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
         
-        elif (mode==2):
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
         
-        elif (mode==3):
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
         
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc6.weight.data)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc7.weight.data)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             
         return self
 
@@ -1219,51 +1321,58 @@ class MyModule19(nn.Module):
         X = F.softmax(self.fc7(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
+    def init_module(self, weight_mode, bias):
         
-        if (mode==1):
-            pass#就是什么都不做的意思
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
         
-        elif (mode==2):
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
         
-        elif (mode==3):
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
         
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc6.weight.data)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc7.weight.data)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             
         return self
         
@@ -1293,51 +1402,58 @@ class MyModule20(nn.Module):
         X = F.softmax(self.fc7(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
+    def init_module(self, weight_mode, bias):
         
-        if (mode==1):
-            pass#就是什么都不做的意思
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
         
-        elif (mode==2):
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
         
-        elif (mode==3):
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
         
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc6.weight.data)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc7.weight.data)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             
         return self
     
@@ -1369,56 +1485,64 @@ class MyModule21(nn.Module):
         X = F.softmax(self.fc8(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
+    def init_module(self, weight_mode, bias):
         
-        if (mode==1):
-            pass#就是什么都不做的意思
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
         
-        elif (mode==2):
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             torch.nn.init.normal_(self.fc8.weight.data)
-            torch.nn.init.constant_(self.fc8.bias.data, 0)
+            torch.nn.init.constant_(self.fc8.bias.data, bias)
         
-        elif (mode==3):
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc8.weight.data)
-            torch.nn.init.constant_(self.fc8.bias.data, 0)
+            torch.nn.init.constant_(self.fc8.bias.data, bias)
         
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc6.weight.data)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc7.weight.data)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc8.weight.data)
+            torch.nn.init.constant_(self.fc8.bias.data, bias)
             
         return self
     
@@ -1450,56 +1574,64 @@ class MyModule22(nn.Module):
         X = F.softmax(self.fc8(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
+    def init_module(self, weight_mode, bias):
         
-        if (mode==1):
-            pass#就是什么都不做的意思
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
         
-        elif (mode==2):
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             torch.nn.init.normal_(self.fc8.weight.data)
-            torch.nn.init.constant_(self.fc8.bias.data, 0)
+            torch.nn.init.constant_(self.fc8.bias.data, bias)
         
-        elif (mode==3):
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc8.weight.data)
-            torch.nn.init.constant_(self.fc8.bias.data, 0)
+            torch.nn.init.constant_(self.fc8.bias.data, bias)
         
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc6.weight.data)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc7.weight.data)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc8.weight.data)
+            torch.nn.init.constant_(self.fc8.bias.data, bias)
             
         return self
     
@@ -1531,56 +1663,64 @@ class MyModule23(nn.Module):
         X = F.softmax(self.fc8(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
+    def init_module(self, weight_mode, bias):
         
-        if (mode==1):
-            pass#就是什么都不做的意思
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
         
-        elif (mode==2):
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             torch.nn.init.normal_(self.fc8.weight.data)
-            torch.nn.init.constant_(self.fc8.bias.data, 0)
+            torch.nn.init.constant_(self.fc8.bias.data, bias)
         
-        elif (mode==3):
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc8.weight.data)
-            torch.nn.init.constant_(self.fc8.bias.data, 0)
+            torch.nn.init.constant_(self.fc8.bias.data, bias)
         
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc6.weight.data)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc7.weight.data)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc8.weight.data)
+            torch.nn.init.constant_(self.fc8.bias.data, bias)
             
         return self
     
@@ -1612,56 +1752,64 @@ class MyModule24(nn.Module):
         X = F.softmax(self.fc8(X), dim=-1)
         return X
 
-    def init_weight(self, mode):
+    def init_module(self, weight_mode, bias):
         
-        if (mode==1):
-            pass#就是什么都不做的意思
+        if (weight_mode==1):
+            pass#就是什么都不做的意思，使用默认值的意思
         
-        elif (mode==2):
+        elif (weight_mode==2):
             torch.nn.init.normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             torch.nn.init.normal_(self.fc8.weight.data)
-            torch.nn.init.constant_(self.fc8.bias.data, 0)
+            torch.nn.init.constant_(self.fc8.bias.data, bias)
         
-        elif (mode==3):
+        elif (weight_mode==3):
             torch.nn.init.xavier_normal_(self.fc1.weight.data)
-            torch.nn.init.constant_(self.fc1.bias.data, 0)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc2.weight.data)
-            torch.nn.init.constant_(self.fc2.bias.data, 0)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc3.weight.data)
-            torch.nn.init.constant_(self.fc3.bias.data, 0)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc4.weight.data)
-            torch.nn.init.constant_(self.fc4.bias.data, 0)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc5.weight.data)
-            torch.nn.init.constant_(self.fc5.bias.data, 0)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc6.weight.data)
-            torch.nn.init.constant_(self.fc6.bias.data, 0)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc7.weight.data)
-            torch.nn.init.constant_(self.fc7.bias.data, 0)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             torch.nn.init.xavier_normal_(self.fc8.weight.data)
-            torch.nn.init.constant_(self.fc8.bias.data, 0)
+            torch.nn.init.constant_(self.fc8.bias.data, bias)
         
         else:
             torch.nn.init.xavier_uniform_(self.fc1.weight.data)
+            torch.nn.init.constant_(self.fc1.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc2.weight.data)
+            torch.nn.init.constant_(self.fc2.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc3.weight.data)
+            torch.nn.init.constant_(self.fc3.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc4.weight.data)
+            torch.nn.init.constant_(self.fc4.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc5.weight.data)
+            torch.nn.init.constant_(self.fc5.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc6.weight.data)
+            torch.nn.init.constant_(self.fc6.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc7.weight.data)
+            torch.nn.init.constant_(self.fc7.bias.data, bias)
             torch.nn.init.xavier_uniform_(self.fc8.weight.data)
+            torch.nn.init.constant_(self.fc8.bias.data, bias)
             
         return self
     
@@ -1812,7 +1960,7 @@ def nn_f(params):
     
     skf = StratifiedKFold(Y_noise_train, n_folds=5, shuffle=True, random_state=None)
     
-    clf.module.init_weight(params["init_mode"])
+    clf.module.init_module(params["weight_mode"], params["bias"])
     
     metric = cross_val_score(clf, X_noise_train.values.astype(np.float32), Y_noise_train.values.astype(np.longlong), cv=skf, scoring="accuracy").mean()
     
@@ -1843,7 +1991,8 @@ def parse_space(trials, space_nodes, best_nodes):
     best_nodes["module"] = space_nodes["module"][trials_list[0]["misc"]["vals"]["module"][0]] 
     best_nodes["optimizer__betas"] = space_nodes["optimizer__betas"][trials_list[0]["misc"]["vals"]["optimizer__betas"][0]]
     best_nodes["optimizer__weight_decay"] = space_nodes["optimizer__weight_decay"][trials_list[0]["misc"]["vals"]["optimizer__weight_decay"][0]]
-    best_nodes["init_mode"] = space_nodes["init_mode"][trials_list[0]["misc"]["vals"]["init_mode"][0]]
+    best_nodes["weight_mode"] = space_nodes["weight_mode"][trials_list[0]["misc"]["vals"]["weight_mode"][0]]
+    best_nodes["bias"] = space_nodes["bias"][trials_list[0]["misc"]["vals"]["bias"][0]]
     best_nodes["patience"] = space_nodes["patience"][trials_list[0]["misc"]["vals"]["patience"][0]]
     best_nodes["device"] = space_nodes["device"][trials_list[0]["misc"]["vals"]["device"][0]]
     best_nodes["optimizer"] = space_nodes["optimizer"][trials_list[0]["misc"]["vals"]["optimizer"][0]]
@@ -1854,6 +2003,7 @@ def predict(best_nodes, max_evals=10):
     
     best_acc = 0.0
     best_model = 0.0
+    #只要module class的定义没有修改就可以继续用，虽然增加了超参bias以及修改了初始化方式
     if (exist_files(best_nodes["title"])):
         best_model = load_best_model(best_nodes["title"])
         best_acc = cal_nnclf_acc(best_model, X_train_scaled, Y_train)
@@ -1877,7 +2027,7 @@ def predict(best_nodes, max_evals=10):
         #在这重新初始化一次基本就会得到差异很大的结果吧
         #现在可以看到确实是经过了权重初始化模型重新训练的
         #但是这个best_model的数据怎么还是上一回的数据？
-        clf.module.init_weight(best_nodes["init_mode"])
+        clf.module.init_module(best_nodes["weight_mode"], best_nodes["bias"])
         
         clf.fit(X_train_scaled.values.astype(np.float32), Y_train.values.astype(np.longlong)) 
         
@@ -1896,6 +2046,7 @@ def predict(best_nodes, max_evals=10):
             
             data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
             output = pd.DataFrame(data = data)
+            #这个path是在我的windows7环境下的，如果用别的机器运行是需要修改的
             output.to_csv(best_nodes["path"], index=False)
             print("prediction file has been written.")
         print()
@@ -1910,13 +2061,13 @@ def predict(best_nodes, max_evals=10):
 #现在我的代码应用到下一个版本的时候只需要修改space、space_nodes以及best_nodes和parse_space
 #predict函数内data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
 space = {"title":hp.choice("title", ["titanic"]),
-         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          #"std":hp.choice("std", [0]),
          "std":hp.choice("std", [0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20]),
          "max_epochs":hp.choice("max_epochs",[400]),
          "patience":hp.choice("patience", [1,2,3,4,5,6,7,8,9,10]),
-         "lr":hp.uniform("lr", 0.0001, 0.0015),  
+         "lr":hp.uniform("lr", 0.0001, 0.002),  
          "optimizer__weight_decay":hp.choice("optimizer__weight_decay",
             [0.000, 0.001, 0.002, 0.003, 0.004, 0.005, 0.006, 0.007, 0.008, 0.009,
              0.010, 0.011, 0.012, 0.013, 0.014, 0.015, 0.016, 0.017, 0.018, 0.019]),  
@@ -1929,10 +2080,14 @@ space = {"title":hp.choice("title", ["titanic"]),
                                        [0.90, 0.9991], [0.90, 0.9993], [0.90, 0.9995], [0.90, 0.9997], [0.90, 0.9999],
                                        [0.92, 0.9991], [0.92, 0.9993], [0.92, 0.9995], [0.92, 0.9997], [0.92, 0.9999],
                                        [0.94, 0.9991], [0.94, 0.9993], [0.94, 0.9995], [0.94, 0.9997], [0.94, 0.9999]]),
-         "module":hp.choice("module", [module1, module2, module3, module4, module5, module6, module7, module8,
-                                       module9, module10, module11, module12, module13, module14, module15, module16,
+         "module":hp.choice("module", [module1,  module2,  module3,  module4,  module5,  module6,  module7,  module8,
+                                       module9,  module10, module11, module12, module13, module14, module15, module16,
                                        module17, module18, module19, module20, module21, module22, module23, module24]),
-         "init_mode":hp.choice("init_mode", [1, 2, 3, 4]),         
+         "weight_mode":hp.choice("weight_mode", [1, 2, 3, 4]),
+         "bias":hp.choice("bias", [-2.0, -1.9, -1.8, -1.7, -1.6, -1.5, -1.4, -1.3, -1.2, -1.1,
+                                   -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1,
+                                   0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1,
+                                   1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3]),
          "device":hp.choice("device", ["cpu"]),
          "optimizer":hp.choice("optimizer", [torch.optim.Adam])
          }
@@ -1954,10 +2109,14 @@ space_nodes = {"title":["titanic"],
                                    [0.90, 0.9991], [0.90, 0.9993], [0.90, 0.9995], [0.90, 0.9997], [0.90, 0.9999],
                                    [0.92, 0.9991], [0.92, 0.9993], [0.92, 0.9995], [0.92, 0.9997], [0.92, 0.9999],
                                    [0.94, 0.9991], [0.94, 0.9993], [0.94, 0.9995], [0.94, 0.9997], [0.94, 0.9999]],
-               "module":[module1, module2, module3, module4, module5, module6, module7, module8,
-                         module9, module10, module11, module12, module13, module14, module15, module16,
+               "module":[module1,  module2,  module3,  module4,  module5,  module6,  module7,  module8,
+                         module9,  module10, module11, module12, module13, module14, module15, module16,
                          module17, module18, module19, module20, module21, module22, module23, module24],
-               "init_mode":[1, 2, 3, 4],
+               "weight_mode":[1, 2, 3, 4],
+               "bias":[-2.0, -1.9, -1.8, -1.7, -1.6, -1.5, -1.4, -1.3, -1.2, -1.1,
+                       -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1,
+                       0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1,
+                       1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3],
                "device":["cpu"],
                "optimizer":[torch.optim.Adam]
                }
@@ -1974,19 +2133,19 @@ best_nodes = {"title":"titanic",
               "batch_size":1,
               "optimizer__betas":[0.86, 0.999],
               "module":module3,
-              "init_mode":1,
+              "weight_mode":1,
+              "bias":1,
               "device":"cpu",
               "optimizer":torch.optim.Adam
               }
 
-"""
 #我觉得这边需要添加一个计算计时的功能
 start_time = datetime.datetime.now()
 
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-best_params = fmin(nn_f, space, algo=algo, max_evals=10, trials=trials)
+best_params = fmin(nn_f, space, algo=algo, max_evals=1, trials=trials)
 print_best_params_acc(trials)
 
 best_nodes = parse_space(trials, space_nodes, best_nodes)
@@ -2006,8 +2165,8 @@ predict(best_nodes, max_evals=10)
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
-"""
 
+"""
 #模型一旦被修改了之后pickle中的文件再读出来就没用啦
 #还好我及时保存了老版本的模型，不然感觉就心酸了。。。
 #不过其实没保存问题也不大的吧，直接重新计算一次。。。
@@ -2023,3 +2182,4 @@ best_model = pickle.load(files)
 files.close()
 best_acc = cal_nnclf_acc(best_model, X_train_scaled, Y_train)
 print(best_acc)
+"""
