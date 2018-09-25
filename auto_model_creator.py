@@ -1,3 +1,4 @@
+import torch.nn as nn
 #coding=utf-8
 #我的天，我刚才发愁写不出这个东西然后去床上睡了四个小时
 #在睡觉的时候做了很多的梦得到了很多的神级启示惊呆了我
@@ -14,5 +15,15 @@
 #nn.Conv1d 2d 3d,nn.Linear,F.relu,F.max_pool2d,
 #https://ptorch.com/docs/1/torch-nn这里面其实有所有的nn相关的元素
 #看了这个以后我觉得只能够使用nn.Sequential不然我不可能找出新的规范的吧
-def auto_model_creator(hidden_layers=4, layer_nodes=4):
+#我通过ctrl代码中Sequential的方式查到类似的还有ModuleList和ParameterList
+#所以我现在似乎找到了思路，下面这个函数生成的东西经过ModuleList之后变为模型咯
+#我之所以迟迟无法下手的缘故就是因为想要找到能够面面顾及的解决方案，但是并不存在吧
+#这个问题的难点主要在：1）接口设计，兼容我的超参甚至是其他超参 2）模型的保存问题咯
+def auto_model_creator(input_nodes, hidden_layers, hidden_nodes, output_nodes):
+    
+    layers_list=[]
+    
+    if (hidden_layers==0):
+        nn.Linear(input_nodes, output_nodes)
+        
     
