@@ -12,6 +12,7 @@ from Utilities1 import noise_augment_pytorch_classifier
 from sklearn import preprocessing
 from sklearn.cross_validation import cross_val_score, StratifiedKFold
 
+import collections
 import torch.nn.init
 import torch.nn as nn
 import torch.nn.functional as F
@@ -191,18 +192,33 @@ X_test_scaled = X_all_scaled[len(X_train):]
 #我之所以迟迟无法下手的缘故就是因为想要找到能够面面顾及的解决方案，但是并不存在吧
 #这个问题的难点主要在：1）接口设计，兼容我的超参甚至是其他超参 2）模型的保存问题咯
 #以下是今天的任务咯：
-#5）完成超参搜索的代码
-#6）GAN、S、A等
-#7）完成下一轮的超参搜索
+#1）想清楚超参搜索的次数以及结构是否符合要求？如果真的是3000次还没达到最优的话
+#那以后在更大的数据集上面还怎么选择超参，你他妈真的在逗我吧。。所以这次一定要
+#确定贝叶斯优化的次数以备以后使用咯。超大规模的数据你在说尼玛呢。。只有xgboost吧
+#A）或者其实贝叶斯的优化次数依据具体计算时间咯，如果时间比较有限那就直接使用经验参数
+#最少还是需要1000次或者一天计算量中的最多者吧，太少了还是没啥意义的咯根本不准。
+#或者依据减少超参的数目，多提供经验超参进行贝叶斯优化的时候或许能够取得更佳效果。
+#B）这么大规模的数据，性能的提升根本没办法依靠超参搜素吧，换成xgboost或许还能玩一下超参。
+#但是你使用统计模型太依赖数据的特征了吧，反复修改特征在超参一下xgboost还是很费时间的
+#C）综上所述，看短期的话还是神经网络最简单无脑，看长期的话神经网络肯定是未来的趋势咯
+#神经网络实在不行就用经验参数吧，又能少做特征工程也能自动调参，模型提升主要靠G、S、A等。
+#上述的G代表对抗网络、S代表Stacking、A代表模型融合咯。说实话超参搜索的红利就这么多了吧。。
+#所以这个结构选择的版本就不修改带the_end_of_the_titanic咯，titanic的版本是不带结构搜索的。。
+#2）完成超参搜索的代码
+#3）GAN、S、A等
+#4）完成下一轮的超参搜索
 #假设输入参数均正常咯，我自己使用的时候就不考虑这些奇葩因素咯
 #卷积池化那些操作过于复杂已经没有办法去做了，将就这样的吧
+"""
 def auto_module_creator(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
     
     layers_list=[]
     
     if (hidden_layers==0):
         layers_list.append(nn.Linear(input_nodes, output_nodes))
-        layers_list.append(nn.Dropout(percentage))
+        #我觉得连接输出层的就不需要进行dropout了吧，可能影响效果呢
+        #layers_list.append(nn.Dropout(percentage))
+        
     else :
         layers_list.append(nn.Linear(input_nodes, hidden_nodes))
         layers_list.append(nn.Dropout(percentage))
@@ -211,7 +227,45 @@ def auto_module_creator(input_nodes, hidden_layers, hidden_nodes, output_nodes, 
             layers_list.append(nn.Dropout(percentage)) 
         layers_list.append(nn.Linear(hidden_nodes, output_nodes))
     
-    return nn.Sequential(OrderedDict(layers_list))
+    return nn.Sequential(collections.OrderedDict(layers_list))
+"""
+
+class MyModule1(nn.Module):
+    def __init__(self):
+        super(MyModule1, self).__init__()
+
+        self.fc1 = nn.Linear(9, 40)
+        self.fc2 = nn.Linear(40, 40)
+        self.fc3 = nn.Linear(40, 2)  
+        self.dropout1 = nn.Dropout(0.1)
+        self.dropout2 = nn.Dropout(0.2)
+        
+    def forward(self, X):
+        X = F.relu(self.fc1(X))
+        X = F.relu(self.fc2(X))
+        X = self.dropout1(X)
+        X = F.softmax(self.fc3(X), dim=-1)
+        return X
+    
+#有点绝望了耶，好像只能够使用modulelist解决这个问题吧。
+#因为nn.sequential的两种方式都不是可以直接传入List的
+#此外还有一些很奇怪的事情，比如说什么F.relu缺少参数。。
+def auto_module_creator(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
+    
+    layers_list=[]
+    
+    if (hidden_layers==0):
+        layers_list.append(F.relu(nn.Linear(input_nodes, output_nodes)))
+        
+    else :
+        layers_list.append(F.relu(nn.Linear(input_nodes, hidden_nodes)))
+        layers_list.append(nn.Dropout(percentage))
+        for i in range(0, hidden_layers):
+            layers_list.append(F.relu(nn.Linear(hidden_nodes, hidden_nodes)))
+            layers_list.append(nn.Dropout(percentage)) 
+        layers_list.append(nn.Linear(hidden_nodes, output_nodes))
+    
+    return nn.Sequential(layers_list)
 
 #我好想找到问题所在了吧，只是建立了模型并没有forword所以无法训练咯
 #看来解决方案还是要采用nn.Sequential才是简单的实现方案呢

@@ -12,6 +12,8 @@
 #说实在的，我觉得以后的计算可能都是3000次左右了吧，毕竟7000次计算确实太慢了。
 #2018-9-27的3000/700次的结果不是很好主要原因在于bias的范围吧
 #我现在已经将该范围修改了，准备重新开始计算2500/700次咯，2500次应该够了吧
+#算了还是使用的3000次，但是这回合的3000次是在上回的基础上修改了bias范围的
+#也就是说模型结构其实没改变，但是修改了bias我想看看是否能够更好的结果咯
 import os
 import sys
 import random
@@ -1881,7 +1883,8 @@ best_model = pickle.load(files)
 files.close()
 best_acc = cal_nnclf_acc(best_model, X_train_scaled, Y_train)
 print(best_acc)
-#这次的最佳输出大致是这个样子的咯，所以我觉得之前的超参修改还是有意义的咯
+#9-26的最佳输出大致是这个样子的咯，所以我觉得之前的超参修改还是有意义的咯
+#但是这个准确率实在是太低了吧，只有尽量排除不必要的参数范围以及选项咯
 #{'title': 'titanic', 'path': 'path', 'mean': 0, 'std': 0.16, 'max_epochs': 400, 'patience': 9, 'lr': 0.0009369203671523363, 'optimizer__weight_decay': 0.009, 'criterion': <class 'torch.nn.modules.loss.CrossEntropyLoss'>, 'batch_size': 1024, 'optimizer__betas': [0.88, 0.9995], 'module': MyModule3(
 #  (fc1): Linear(in_features=9, out_features=60, bias=True)
 #  (fc2): Linear(in_features=60, out_features=60, bias=True)

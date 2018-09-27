@@ -38,7 +38,7 @@ for dataset in combine:
     dataset['Title'] = dataset['Title'].replace('Mme', 'Mrs')
     title_map = {'Mr': 1, 'Miss': 2, 'Mrs': 3, 'Master': 4, 'Rare': 5}
     dataset['Title'] = dataset['Title'].map(title_map)
-    dataset['Title'] = dataset['Title'].fillna(0)   
+    dataset['Title'] = dataset['Title'].fillna(0)
 
 for dataset in combine:
     dataset['FamilySize'] = dataset['SibSp'] + dataset['Parch'] + 1
@@ -174,13 +174,12 @@ class MyModule1(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc4(X))
-        X = self.dropout2(X)
         X = F.softmax(self.fc5(X), dim=-1)
         return X
 
@@ -242,15 +241,14 @@ class MyModule2(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc4(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc5(X))
-        X = self.dropout2(X)
         X = F.softmax(self.fc6(X), dim=-1)
         return X
 
@@ -319,17 +317,16 @@ class MyModule3(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc4(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc5(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc6(X))
-        X = self.dropout2(X)
         X = F.softmax(self.fc7(X), dim=-1)
         return X
 
@@ -405,19 +402,18 @@ class MyModule4(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc4(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc5(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc6(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc7(X))
-        X = self.dropout2(X)
         X = F.softmax(self.fc8(X), dim=-1)
         return X
 
@@ -502,25 +498,24 @@ class MyModule5(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc4(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc5(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc6(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc7(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc8(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc9(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc10(X))
-        X = self.dropout2(X)
         X = F.softmax(self.fc11(X), dim=-1)
         return X
 
@@ -624,27 +619,26 @@ class MyModule6(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc4(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc5(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc6(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc7(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc8(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc9(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc10(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc11(X))
-        X = self.dropout2(X)
         X = F.softmax(self.fc12(X), dim=-1)
         return X
 
@@ -754,27 +748,26 @@ class MyModule7(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc4(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc5(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc6(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc7(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc8(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc9(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc10(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc11(X))
-        X = self.dropout2(X)
         X = F.softmax(self.fc12(X), dim=-1)
         return X
 
@@ -876,11 +869,11 @@ class MyModule8(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
+
         X = F.softmax(self.fc4(X), dim=-1)
         return X
 
@@ -935,13 +928,12 @@ class MyModule9(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc4(X))
-        X = self.dropout2(X)
         X = F.softmax(self.fc5(X), dim=-1)
         return X
 
@@ -1003,15 +995,14 @@ class MyModule10(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc4(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc5(X))
-        X = self.dropout2(X)
         X = F.softmax(self.fc6(X), dim=-1)
         return X
 
@@ -1080,17 +1071,16 @@ class MyModule11(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc4(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc5(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc6(X))
-        X = self.dropout2(X)
         X = F.softmax(self.fc7(X), dim=-1)
         return X
 
@@ -1166,19 +1156,18 @@ class MyModule12(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc4(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc5(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc6(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc7(X))
-        X = self.dropout2(X)
         X = F.softmax(self.fc8(X), dim=-1)
         return X
 
@@ -1256,11 +1245,10 @@ class MyModule13(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
         X = F.softmax(self.fc4(X), dim=-1)
         return X
 
@@ -1315,13 +1303,12 @@ class MyModule14(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc4(X))
-        X = self.dropout2(X)
         X = F.softmax(self.fc5(X), dim=-1)
         return X
 
@@ -1384,17 +1371,16 @@ class MyModule15(nn.Module):
         
     def forward(self, X):
         X = F.relu(self.fc1(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc2(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc3(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc4(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc5(X))
-        X = self.dropout2(X)
+        X = self.dropout1(X)
         X = F.relu(self.fc6(X))
-        X = self.dropout2(X)
         X = F.softmax(self.fc7(X), dim=-1)
         return X
 
@@ -1713,7 +1699,7 @@ space = {"title":hp.choice("title", ["titanic"]),
          }
 
 space_nodes = {"title":["titanic"],
-               "path":["path"],
+               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                #"std":[0],
                "std":[0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20, 0.22, 0.24, 0.26],
@@ -1763,7 +1749,7 @@ start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-best_params = fmin(nn_f, space, algo=algo, max_evals=10, trials=trials)
+best_params = fmin(nn_f, space, algo=algo, max_evals=3000, trials=trials)
 print_best_params_acc(trials)
 
 best_nodes = parse_space(trials, space_nodes, best_nodes)
@@ -1779,7 +1765,7 @@ trials, space_nodes, best_nodes = load_inter_params("titanic")
 #我感觉除了和模型相关的超参我已经搞定的差不多了，今后主要决策和模型相关的超参
 #比如说是模型的层数、每层的节点数、初始化的方式、初始化的范围、偏置的设置值
 #明天的工作就先从模型生成器开始咯。。
-predict(best_nodes, max_evals=10)
+predict(best_nodes, max_evals=700)
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
