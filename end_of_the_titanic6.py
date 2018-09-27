@@ -1838,18 +1838,6 @@ module22 = MyModule22()
 module23 = MyModule23()
 module24 = MyModule24()
 
-net = NeuralNetClassifier(
-    module = module3,
-    lr=0.1,
-    #device="cuda",
-    device="cpu",
-    max_epochs=400,
-    #criterion=torch.nn.NLLLoss,
-    optimizer=torch.optim.Adam,
-    criterion=torch.nn.CrossEntropyLoss,
-    callbacks=[skorch.callbacks.EarlyStopping(patience=10)]
-)
-
 def cal_nnclf_acc(clf, X_train, Y_train):
     
     Y_train_pred = clf.predict(X_train.values.astype(np.float32))
@@ -1942,6 +1930,9 @@ def nn_f(params):
     print("criterion", params["criterion"])
     print("batch_size", params["batch_size"])
     print("optimizer__betas", params["optimizer__betas"])
+    print("bias", params["bias"])
+    print("weight_mode", params["weight_mode"])
+    print("patience", params["patience"])
     print("module", params["module"])    
     
     X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], X_train_scaled, Y_train, columns=[3, 4, 5, 6, 7, 8])
@@ -2064,7 +2055,7 @@ space = {"title":hp.choice("title", ["titanic"]),
          "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          #"std":hp.choice("std", [0]),
-         "std":hp.choice("std", [0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20]),
+         "std":hp.choice("std", [0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20, 0.22, 0.24, 0.26]),
          "max_epochs":hp.choice("max_epochs",[400]),
          "patience":hp.choice("patience", [1,2,3,4,5,6,7,8,9,10]),
          "lr":hp.uniform("lr", 0.0001, 0.002),  
@@ -2084,19 +2075,17 @@ space = {"title":hp.choice("title", ["titanic"]),
                                        module9,  module10, module11, module12, module13, module14, module15, module16,
                                        module17, module18, module19, module20, module21, module22, module23, module24]),
          "weight_mode":hp.choice("weight_mode", [1, 2, 3, 4]),
-         "bias":hp.choice("bias", [-2.0, -1.9, -1.8, -1.7, -1.6, -1.5, -1.4, -1.3, -1.2, -1.1,
-                                   -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1,
-                                   0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1,
-                                   1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3]),
+         "bias":hp.choice("bias", [0.20, 0.18, 0.16, 0.14, 0.12, 0.10, 0.08, 0.06, 0.04, 0.02, 0.00, 
+                                   -0.02, -0.04, -0.06, -0.08, -0.10, -0.12, -0.14, -0.16, -0.18, -0.20]),
          "device":hp.choice("device", ["cpu"]),
          "optimizer":hp.choice("optimizer", [torch.optim.Adam])
          }
 
 space_nodes = {"title":["titanic"],
-               "path":["path"],
+               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                #"std":[0],
-               "std":[0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20],
+               "std":[0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20, 0.22, 0.24, 0.26],
                "max_epochs":[400],
                "patience":[1,2,3,4,5,6,7,8,9,10],
                "lr":[0.0001],
@@ -2113,10 +2102,8 @@ space_nodes = {"title":["titanic"],
                          module9,  module10, module11, module12, module13, module14, module15, module16,
                          module17, module18, module19, module20, module21, module22, module23, module24],
                "weight_mode":[1, 2, 3, 4],
-               "bias":[-2.0, -1.9, -1.8, -1.7, -1.6, -1.5, -1.4, -1.3, -1.2, -1.1,
-                       -1.0, -0.9, -0.8, -0.7, -0.6, -0.5, -0.4, -0.3, -0.2, -0.1,
-                       0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1,
-                       1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8, 1.9, 2.0, 2.1, 2.2, 2.3],
+               "bias":[0.20, 0.18, 0.16, 0.14, 0.12, 0.10, 0.08, 0.06, 0.04, 0.02, 0.00, 
+                       -0.02, -0.04, -0.06, -0.08, -0.10, -0.12, -0.14, -0.16, -0.18, -0.20],
                "device":["cpu"],
                "optimizer":[torch.optim.Adam]
                }
@@ -2134,7 +2121,7 @@ best_nodes = {"title":"titanic",
               "optimizer__betas":[0.86, 0.999],
               "module":module3,
               "weight_mode":1,
-              "bias":1,
+              "bias":0.0,
               "device":"cpu",
               "optimizer":torch.optim.Adam
               }
@@ -2145,7 +2132,7 @@ start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-best_params = fmin(nn_f, space, algo=algo, max_evals=1, trials=trials)
+best_params = fmin(nn_f, space, algo=algo, max_evals=3000, trials=trials)
 print_best_params_acc(trials)
 
 best_nodes = parse_space(trials, space_nodes, best_nodes)
@@ -2161,7 +2148,7 @@ trials, space_nodes, best_nodes = load_inter_params("titanic")
 #我感觉除了和模型相关的超参我已经搞定的差不多了，今后主要决策和模型相关的超参
 #比如说是模型的层数、每层的节点数、初始化的方式、初始化的范围、偏置的设置值
 #明天的工作就先从模型生成器开始咯。。
-predict(best_nodes, max_evals=10)
+predict(best_nodes, max_evals=700)
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
