@@ -14,6 +14,9 @@
 #我现在已经将该范围修改了，准备重新开始计算2500/700次咯，2500次应该够了吧
 #算了还是使用的3000次，但是这回合的3000次是在上回的基础上修改了bias范围的
 #也就是说模型结构其实没改变，但是修改了bias我想看看是否能够更好的结果咯
+#2018-9-27的3000/700次计算居然耗时30个小时，而且计算结果才85%多点儿很尴尬
+#妈的best_model在运行之前忘记删除了（是上回的结果），还好best_nodes每次都是最新的
+#best_nodes会随着每次计算的更新而更新，但是best_acc是模型类定义以来最优结果，会随着定义修改而改变
 import os
 import sys
 import random
@@ -1871,6 +1874,7 @@ net = NeuralNetClassifier(
     callbacks=[skorch.callbacks.EarlyStopping(patience=10)]
 )
 
+"""
 files = open("titanic_intermediate_parameters_2018-9-27043509.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
 files.close()
@@ -1894,3 +1898,30 @@ print(best_acc)
 #), 'weight_mode': 3, 'bias': -0.1, 'device': 'cpu', 'optimizer': <class 'torch.optim.adam.Adam'>}
 
 #0.8451178451178452
+"""
+
+#下面是2018-9-27的3000/700次的具体计算结果如下咯
+files = open("titanic_intermediate_parameters_2018-9-28195703.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+print(best_nodes)
+#print(space_nodes)
+print()
+
+files = open("titanic_best_model_2018-9-28195809.pickle", "rb")
+best_model = pickle.load(files)
+files.close()
+best_acc = cal_nnclf_acc(best_model, X_train_scaled, Y_train)
+print(best_acc)
+#具体的输出结果居然是这个样子的咯，看来超参的选择似乎真的是扑朔迷离咯
+#都怪我没有充分发挥手动删除过多超参。。不要的超参就多删除一些吧。。。
+#{'title': 'titanic', 'path': 'C:/Users/win7/Desktop/Titanic_Prediction.csv', 'mean': 0, 'std': 0.04, 'max_epochs': 400, 'patience': 8, 'lr': 0.0007318522231393747, 'optimizer__weight_decay': 0.018, 'criterion': <class 'torch.nn.modules.loss.NLLLoss'>, 'batch_size': 2, 'optimizer__betas': [0.94, 0.9999], 'module': MyModule8(
+#  (fc1): Linear(in_features=9, out_features=70, bias=True)
+#  (fc2): Linear(in_features=70, out_features=70, bias=True)
+#  (fc3): Linear(in_features=70, out_features=70, bias=True)
+#  (fc4): Linear(in_features=70, out_features=2, bias=True)
+#  (dropout1): Dropout(p=0.1)
+#  (dropout2): Dropout(p=0.2)
+#), 'weight_mode': 1, 'bias': 0.1, 'device': 'cpu', 'optimizer': <class 'torch.optim.adam.Adam'>}
+#
+#0.8507295173961841
