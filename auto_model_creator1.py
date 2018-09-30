@@ -172,10 +172,9 @@ X_all_scaled = pd.DataFrame(preprocessing.scale(X_all), columns = X_train.column
 X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
 
-
 """
 #这个写法因为OrderedDict必须是字典才行，所以不OK咯
-def auto_module_creator(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
+def module_creator(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
     
     layers_list=[]
     
@@ -197,7 +196,7 @@ def auto_module_creator(input_nodes, hidden_layers, hidden_nodes, output_nodes, 
 
 """
 #这个写法报错说F.relu()输入的必须是tensor而不是nn.linear之类的东西
-def auto_module_creator(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
+def module_creator(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
     
     module_list=[]
     
@@ -226,7 +225,7 @@ def auto_module_creator(input_nodes, hidden_layers, hidden_nodes, output_nodes, 
 #之前未将F.relu()和F.softmax()替换为nn.ReLU()和nn.Softmax()输出如下错误
 #TypeError: relu() missing 1 required positional argument: 'input'
 #其实下面的这个写法可以用了，但是我还是想要更加优雅一点的写法
-def auto_module_creator(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
+def module_creator(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
     
     m=0
     model = nn.Sequential()
@@ -328,9 +327,9 @@ class MyModule1(nn.Module):
 #说实在的，就算这个算法写好了我还是有点担心这些超参增加计算的时间呢
 #或许我现在是真的不得不用GPU来学习神经网络了吧，但是有一点是肯定的
 #通过网络结构来获得更好的准确率带来的结果提升差不多就是这么多了吧。。
-#下面的这个是第一个版本的auto_module_creator1咯，我觉得为了易用性必须还有其他版本吧。
-#这个版本是每个nn.Linear后面都必须带上dropout的版本感觉不够稳定的吧，所以有了auto_module_creator2咯
-def auto_module_creator1(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
+#下面的这个是第一个版本的module_creator1咯，我觉得为了易用性必须还有其他版本吧。
+#这个版本是每个nn.Linear后面都必须带上dropout的版本感觉不够稳定的吧，所以有了module_creator2咯
+def module_creator1(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
     
     module_list = []
     
@@ -365,7 +364,7 @@ def auto_module_creator1(input_nodes, hidden_layers, hidden_nodes, output_nodes,
 #其实理论上进化算法似乎可以进行网络结构的选择，然后选出结构在进行超参搜索吗？
 #我觉得这个想法算是一种解决问题的思路咯，下个目标就是准备实现这个进化算法咯
 #不得不说，这样子设计模型感觉还是比之前设计模型效率高一些的吧
-def auto_module_creator2(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
+def module_creator2(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
     
     module_list = []
     
@@ -399,17 +398,26 @@ def auto_module_creator2(input_nodes, hidden_layers, hidden_nodes, output_nodes,
     
     return model
 
+"""
 #我好想找到问题所在了吧，只是建立了模型并没有forword所以无法训练咯
 #看来解决方案还是要采用nn.Sequential才是简单的实现方案呢
 #nn.Modulelist还需要自己实现forword之类的方案，这就是之前报错的原因
 #这个dropout的设置值似乎很需要经验和运气的样子，随便设置可能都没卵用的
 #不使用隐藏层感觉弱爆了的样子呢，收敛更慢一些，大体性能上没有一层隐藏层60节点好用
-for i in range(0, 10):
-    model = auto_module_creator2(9, i, 35, 2, 0.00)
+#下面的测试代码已经证明module_creator2的代码是木问题的
+for i in range(0, 30):
+    model = module_creator2(9, i, 35, 2, 0.00)
     print(model)
     print()
+"""
 
-clf = NeuralNetClassifier(lr = 0.0005,
+#做了这个实验我才发现，应该是由于初始化的缘故
+#同样的超参模型有时候真的得不到有用的解呢
+#其余待遇一个函数能够解决所有的模型设计问题那是不现实的
+#以后都通过建立类似的函数去解决模型创建的问题这事儿就算完了。。
+model = module_creator1(9, 4, 60, 2, 0.3)
+
+clf = NeuralNetClassifier(lr = 0.0007,
                           optimizer__weight_decay = 0.001,
                           criterion = torch.nn.CrossEntropyLoss,
                           batch_size = 128,
