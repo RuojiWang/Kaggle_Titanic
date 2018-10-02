@@ -1,6 +1,10 @@
 #coding=utf-8
 #这个版本主要是加入了网络结构的超参搜索吧
 #（1）现在先把代码的轮廓大致勾勒出来咯
+#根据之前大计算的经验，还是直接不要那种花里胡哨的超参选择了吧
+#我现在开始仅仅做最有用参数的超参搜索吧，这样节约计算资源咯
+#我现在实现的版本提供了各种可能（比如说初始化），但是超参搜索感觉用不到这个咯
+#因为用了这个感觉还是挺糟糕的，主要是为节约计算资源方面做考虑咯。
 #（2）然后是开始做G、S、A的事情吧
 #（3）然后之后github上面的说明也需要修改一下咯，并不是之前的class定义版本的毫无意义
 #那个版本的代码可以作为前期试水，等试出经验了就可以开始集成超参搜索里面咯。
@@ -233,7 +237,7 @@ def record_best_model_acc(clf, acc, best_model, best_acc):
             
     return best_model, best_acc, flag
 
-def module_creator(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
+def create_module(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
     
     module_list = []
     
@@ -267,6 +271,44 @@ def module_creator(input_nodes, hidden_layers, hidden_nodes, output_nodes, perce
     
     return model
 
+"""
+#运行一下下面的程序看看输出就知道程序到底是咋回事儿了
+#我勒个去，刚才一直没搞懂是啥情况呢。
+def init_module(clf, weight_mode, bias):
+    
+    for name, params in clf.named_parameters():
+        print(name)
+        print(params.size())
+"""
+def init_module(clf, weight_mode, bias):
+    
+    for name, params in clf.named_parameters():
+        if name.find("weight") != -1:
+            if (weight_mode==1):
+                pass
+        
+            elif (weight_mode==2):
+                torch.nn.init.normal_(params)
+        
+            elif (weight_mode==3):
+                torch.nn.init.xavier_normal_(params)
+        
+            else:
+                torch.nn.init.xavier_uniform_(params)
+        
+        if name.find("bias") != -1:
+            if (weight_mode==1):
+                pass
+        
+            elif (weight_mode==2):
+                torch.nn.init.constant_(params, bias)
+        
+            elif (weight_mode==3):
+                torch.nn.init.constant_(params, bias)
+        
+            else:
+                torch.nn.init.constant_(params, bias)
+        
 def noise_augment_data(mean, std, X_train, Y_train, columns):
     
     X_noise_train = X_train.copy()
@@ -278,7 +320,7 @@ def noise_augment_data(mean, std, X_train, Y_train, columns):
             X_noise_train.iloc[i,[j]] +=  random.gauss(mean, std)
 
     return X_noise_train, Y_train
-    
+
 def nn_f(params):
     
     print("mean", params["mean"])
@@ -304,7 +346,7 @@ def nn_f(params):
                               criterion = params["criterion"],
                               batch_size = params["batch_size"],
                               optimizer__betas = params["optimizer__betas"],
-                              module = module_creator(params["input_nodes"], params["hidden_layers"], 
+                              module = create_module(params["input_nodes"], params["hidden_layers"], 
                                                       params["hidden_nodes"], params["output_nodes"], params["percentage"]),
                               max_epochs = params["max_epochs"],
                               callbacks=[skorch.callbacks.EarlyStopping(patience=params["patience"])],
@@ -314,7 +356,7 @@ def nn_f(params):
     
     skf = StratifiedKFold(Y_noise_train, n_folds=5, shuffle=True, random_state=None)
     
-    clf.module.init_module(params["weight_mode"], params["bias"])
+    init_module(clf.module, params["weight_mode"], params["bias"])
     
     metric = cross_val_score(clf, X_noise_train.values.astype(np.float32), Y_noise_train.values.astype(np.longlong), cv=skf, scoring="accuracy").mean()
     
@@ -338,7 +380,6 @@ def parse_space(trials, space_nodes, best_nodes):
     best_nodes["max_epochs"] = space_nodes["max_epochs"][trials_list[0]["misc"]["vals"]["max_epochs"][0]]
 
     best_nodes["lr"] = space_nodes["lr"][trials_list[0]["misc"]["vals"]["lr"][0]] 
-    best_nodes["module"] = space_nodes["module"][trials_list[0]["misc"]["vals"]["module"][0]] 
     best_nodes["optimizer__betas"] = space_nodes["optimizer__betas"][trials_list[0]["misc"]["vals"]["optimizer__betas"][0]]
     best_nodes["optimizer__weight_decay"] = space_nodes["optimizer__weight_decay"][trials_list[0]["misc"]["vals"]["optimizer__weight_decay"][0]]
     best_nodes["weight_mode"] = space_nodes["weight_mode"][trials_list[0]["misc"]["vals"]["weight_mode"][0]]
@@ -348,11 +389,11 @@ def parse_space(trials, space_nodes, best_nodes):
     best_nodes["optimizer"] = space_nodes["optimizer"][trials_list[0]["misc"]["vals"]["optimizer"][0]]
     
     #新添加的这些元素用于控制模型的结构
-    best_nodes["input_nodes"] = space_nodes["optimizer"][trials_list[0]["misc"]["vals"]["input_nodes"][0]]
-    best_nodes["hidden_layers"] = space_nodes["optimizer"][trials_list[0]["misc"]["vals"]["hidden_layers"][0]]
-    best_nodes["hidden_nodes"] = space_nodes["optimizer"][trials_list[0]["misc"]["vals"]["hidden_nodes"][0]]
-    best_nodes["output_nodes"] = space_nodes["optimizer"][trials_list[0]["misc"]["vals"]["output_nodes"][0]]
-    best_nodes["percentage"] = space_nodes["optimizer"][trials_list[0]["misc"]["vals"]["percentage"][0]]
+    best_nodes["input_nodes"] = space_nodes["input_nodes"][trials_list[0]["misc"]["vals"]["input_nodes"][0]]
+    best_nodes["hidden_layers"] = space_nodes["hidden_layers"][trials_list[0]["misc"]["vals"]["hidden_layers"][0]]
+    best_nodes["hidden_nodes"] = space_nodes["hidden_nodes"][trials_list[0]["misc"]["vals"]["hidden_nodes"][0]]
+    best_nodes["output_nodes"] = space_nodes["output_nodes"][trials_list[0]["misc"]["vals"]["output_nodes"][0]]
+    best_nodes["percentage"] = space_nodes["percentage"][trials_list[0]["misc"]["vals"]["percentage"][0]]
 
     return best_nodes
     
@@ -374,7 +415,7 @@ def predict(best_nodes, max_evals=10):
                                   criterion = best_nodes["criterion"],
                                   batch_size = best_nodes["batch_size"],
                                   optimizer__betas = best_nodes["optimizer__betas"],
-                                  module = module_creator(best_nodes["input_nodes"], best_nodes["hidden_layers"], 
+                                  module = create_module(best_nodes["input_nodes"], best_nodes["hidden_layers"], 
                                                           best_nodes["hidden_nodes"], best_nodes["output_nodes"], best_nodes["percentage"]),
                                   max_epochs = best_nodes["max_epochs"],
                                   callbacks = [skorch.callbacks.EarlyStopping(patience=best_nodes["patience"])],
@@ -382,7 +423,7 @@ def predict(best_nodes, max_evals=10):
                                   optimizer = best_nodes["optimizer"]
                                   )
         
-        clf.module.init_module(best_nodes["weight_mode"], best_nodes["bias"])
+        init_module(clf.module, best_nodes["weight_mode"], best_nodes["bias"])
         
         clf.fit(X_train_scaled.values.astype(np.float32), Y_train.values.astype(np.longlong)) 
         
@@ -523,7 +564,7 @@ start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-best_params = fmin(nn_f, space, algo=algo, max_evals=10, trials=trials)
+best_params = fmin(nn_f, space, algo=algo, max_evals=3, trials=trials)
 print_best_params_acc(trials)
 
 best_nodes = parse_space(trials, space_nodes, best_nodes)
