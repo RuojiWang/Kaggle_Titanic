@@ -1,14 +1,7 @@
 #coding=utf-8
-#这个版本主要是加入了网络结构的超参搜索吧
-#（1）现在先把代码的轮廓大致勾勒出来咯
-#根据之前大计算的经验，还是直接不要那种花里胡哨的超参选择了吧
-#我现在开始仅仅做最有用参数的超参搜索吧，这样节约计算资源咯
-#我现在实现的版本提供了各种可能（比如说初始化），但是超参搜索感觉用不到这个咯
-#因为用了这个感觉还是挺糟糕的，主要是为节约计算资源方面做考虑咯。
-#（2）然后是开始做G、S、A的事情吧
-#（3）然后之后github上面的说明也需要修改一下咯，并不是之前的class定义版本的毫无意义
-#那个版本的代码可以作为前期试水，等试出经验了就可以开始集成超参搜索里面咯。
-#（4）等这三件事情做完了之后差不多就可以开始Battle咯
+#这个版本主要对于xgboost的模型进行超参搜索的吧
+#但是我实话实说呀，我觉得这个实验的意义不大的吧
+#因为就是以后做stacking也不一定需要xgboost的吧
 import os
 import sys
 import random
@@ -18,17 +11,10 @@ import numpy as np
 import pandas as pd
 from astropy.modeling.tests.test_models import create_model
 sys.path.append("D:\\Workspace\\Titanic")
-from Utilities1 import noise_augment_pytorch_classifier
 
 from sklearn import preprocessing
+from xgboost import XGBClassifier
 from sklearn.cross_validation import cross_val_score, StratifiedKFold
-
-import torch.nn.init
-import torch.nn as nn
-import torch.nn.functional as F
-
-import skorch
-from skorch import NeuralNetClassifier
 
 import hyperopt
 from hyperopt import fmin, tpe, hp, space_eval, rand, Trials, partial, STATUS_OK
@@ -170,15 +156,11 @@ X_all_scaled = pd.DataFrame(preprocessing.scale(X_all), columns = X_train.column
 X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
 
-def cal_nnclf_acc(clf, X_train, Y_train):
+def cal_xgb_acc(clf, X_train, Y_train):
     
-    Y_train_pred = clf.predict(X_train.values.astype(np.float32))
-    count = (Y_train_pred == Y_train).sum()
-    acc = count/len(Y_train)
-    
-    return acc
+    return clf.score(X_train, Y_train)
 
-def print_nnclf_acc(acc):
+def print_xgbclf_acc(acc):
     
     print("the accuracy rate of the model on the whole train dataset is:", acc)
   
@@ -195,17 +177,17 @@ def print_best_params_acc(trials):
     
 def exist_files(title):
     
-    return os.path.exists(title+"_best_model.pickle")
+    return os.path.exists(title+"_best_xgb_model.pickle")
     
 def save_inter_params(trials, space_nodes, best_nodes, title):
  
-    files = open(str(title+"_intermediate_parameters.pickle"), "wb")
+    files = open(str(title+"_xgb_intermediate_parameters.pickle"), "wb")
     pickle.dump([trials, space_nodes, best_nodes], files)
     files.close()
 
 def load_inter_params(title):
   
-    files = open(str(title+"_intermediate_parameters.pickle"), "rb")
+    files = open(str(title+"_xgb_intermediate_parameters.pickle"), "rb")
     trials, space_nodes, best_nodes = pickle.load(files)
     files.close()
     
@@ -213,13 +195,13 @@ def load_inter_params(title):
     
 def save_best_model(best_model, title):
     
-    files = open(str(title+"_best_model.pickle"), "wb")
+    files = open(str(title+"_best_xgb_model.pickle"), "wb")
     pickle.dump(best_model, files)
     files.close()
     
 def load_best_model(title):
     
-    files = open(str(title+"_best_model.pickle"), "rb")
+    files = open(str(title+"_best_xgb_model.pickle"), "rb")
     best_model = pickle.load(files)
     files.close()
     
@@ -236,78 +218,6 @@ def record_best_model_acc(clf, acc, best_model, best_acc):
             best_model = clf
             
     return best_model, best_acc, flag
-
-def create_module(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
-    
-    module_list = []
-    
-    if(hidden_layers==0):
-        
-        module_list.append(nn.Linear(input_nodes, output_nodes))
-        module_list.append(nn.ReLU())
-        module_list.append(nn.Softmax())
-        
-    else :
-        module_list.append(nn.Linear(input_nodes, hidden_nodes))
-        module_list.append(nn.ReLU())
-        
-        for i in range(0, hidden_layers):
-            module_list.append(nn.Linear(hidden_nodes, hidden_nodes))
-            module_list.append(nn.ReLU())
-             
-        module_list.append(nn.Linear(hidden_nodes, output_nodes))
-        module_list.append(nn.ReLU())
-        module_list.append(nn.Softmax())
-        
-    temp_list = []
-    for i in range(0, len(module_list)):
-        temp_list.append(module_list[i])
-        if((i%3==2) and (i!=len(module_list)-2) and (i!=len(module_list)-1)):
-            temp_list.append(nn.Dropout(percentage))
-            
-    model = nn.Sequential()
-    for i in range(0, len(temp_list)):
-        model.add_module(str(i+1), temp_list[i])
-    
-    return model
-
-"""
-#运行一下下面的程序看看输出就知道程序到底是咋回事儿了
-#我勒个去，刚才一直没搞懂是啥情况呢。
-def init_module(clf, weight_mode, bias):
-    
-    for name, params in clf.named_parameters():
-        print(name)
-        print(params.size())
-"""
-def init_module(clf, weight_mode, bias):
-    
-    for name, params in clf.named_parameters():
-        if name.find("weight") != -1:
-            if (weight_mode==1):
-                pass
-        
-            elif (weight_mode==2):
-                torch.nn.init.normal_(params)
-        
-            elif (weight_mode==3):
-                torch.nn.init.xavier_normal_(params)
-        
-            else:
-                torch.nn.init.xavier_uniform_(params)
-        
-        if name.find("bias") != -1:
-            if (weight_mode==1):
-                pass
-        
-            elif (weight_mode==2):
-                torch.nn.init.constant_(params, bias)
-        
-            elif (weight_mode==3):
-                torch.nn.init.constant_(params, bias)
-        
-            else:
-                torch.nn.init.constant_(params, bias)
         
 def noise_augment_data(mean, std, X_train, Y_train, columns):
     
@@ -321,44 +231,43 @@ def noise_augment_data(mean, std, X_train, Y_train, columns):
 
     return X_noise_train, Y_train
 
-def nn_f(params):
+"""
+xgb = XGBClassifier()
+xgb.fit(X_train_scaled, Y_train)
+"""
+
+def xgb__f(params):
     
     print("mean", params["mean"])
     print("std", params["std"])
-    print("lr", params["lr"])
-    print("optimizer__weight_decay", params["optimizer__weight_decay"])
-    print("criterion", params["criterion"])
-    print("batch_size", params["batch_size"])
-    print("optimizer__betas", params["optimizer__betas"])
-    print("bias", params["bias"])
-    print("weight_mode", params["weight_mode"])
-    print("patience", params["patience"])
-    print("input_nodes", params["input_nodes"])
-    print("hidden_layers", params["hidden_layers"])
-    print("hidden_nodes", params["hidden_nodes"])
-    print("output_nodes", params["output_nodes"])
-    print("percentage", params["percentage"])
+    print("max_depth", params["max_depth"])
+    print("learning_rate", params["learning_rate"])
+    print("n_estimators", params["n_estimators"])
+    print("gamma", params["gamma"])
+    print("min_child_weight", params["min_child_weight"])
+    print("max_delta_step", params["max_delta_step"])
+    print("subsample", params["subsample"])
+    print("colsample_bytree", params["colsample_bytree"])
+    print("reg_lambda", params["reg_lambda"])
+    print("early_stopping_rounds", params["early_stopping_rounds"])
         
     X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], X_train_scaled, Y_train, columns=[3, 4, 5, 6, 7, 8])
     
-    clf = NeuralNetClassifier(lr = params["lr"],
-                              optimizer__weight_decay = params["optimizer__weight_decay"],
-                              criterion = params["criterion"],
-                              batch_size = params["batch_size"],
-                              optimizer__betas = params["optimizer__betas"],
-                              module = create_module(params["input_nodes"], params["hidden_layers"], 
-                                                      params["hidden_nodes"], params["output_nodes"], params["percentage"]),
-                              max_epochs = params["max_epochs"],
-                              callbacks=[skorch.callbacks.EarlyStopping(patience=params["patience"])],
-                              device = best_nodes["device"],
-                              optimizer = best_nodes["optimizer"]
-                              )
+    xgb = XGBClassifier(max_depth = params["max_depth"], 
+                        learning_rate = params["learning_rate"],
+                        n_estimators = params["n_estimators"],
+                        gamma = params["gamma"],
+                        min_child_weight = params["min_child_weight"],
+                        max_delta_step = params["max_delta_step"],
+                        subsample =  params["subsample"],
+                        colsample_bytree = params["colsample_bytree"],
+                        reg_lambda = params["reg_lambda"],
+                        early_stopping_rounds = params["early_stopping_rounds"],
+                        )
     
     skf = StratifiedKFold(Y_noise_train, n_folds=5, shuffle=True, random_state=None)
     
-    init_module(clf.module, params["weight_mode"], params["bias"])
-    
-    metric = cross_val_score(clf, X_noise_train.values.astype(np.float32), Y_noise_train.values.astype(np.longlong), cv=skf, scoring="accuracy").mean()
+    metric = cross_val_score(xgb, X_noise_train, Y_noise_train, cv=skf, scoring="accuracy").mean()
     
     print(metric)
     print()    
@@ -375,25 +284,16 @@ def parse_space(trials, space_nodes, best_nodes):
     best_nodes["path"] = space_nodes["path"][trials_list[0]["misc"]["vals"]["path"][0]]
     best_nodes["mean"] = space_nodes["mean"][trials_list[0]["misc"]["vals"]["mean"][0]]
     best_nodes["std"] = space_nodes["std"][trials_list[0]["misc"]["vals"]["std"][0]]
-    best_nodes["batch_size"] = space_nodes["batch_size"][trials_list[0]["misc"]["vals"]["batch_size"][0]]
-    best_nodes["criterion"] = space_nodes["criterion"][trials_list[0]["misc"]["vals"]["criterion"][0]]
-    best_nodes["max_epochs"] = space_nodes["max_epochs"][trials_list[0]["misc"]["vals"]["max_epochs"][0]]
-
-    best_nodes["lr"] = space_nodes["lr"][trials_list[0]["misc"]["vals"]["lr"][0]] 
-    best_nodes["optimizer__betas"] = space_nodes["optimizer__betas"][trials_list[0]["misc"]["vals"]["optimizer__betas"][0]]
-    best_nodes["optimizer__weight_decay"] = space_nodes["optimizer__weight_decay"][trials_list[0]["misc"]["vals"]["optimizer__weight_decay"][0]]
-    best_nodes["weight_mode"] = space_nodes["weight_mode"][trials_list[0]["misc"]["vals"]["weight_mode"][0]]
-    best_nodes["bias"] = space_nodes["bias"][trials_list[0]["misc"]["vals"]["bias"][0]]
-    best_nodes["patience"] = space_nodes["patience"][trials_list[0]["misc"]["vals"]["patience"][0]]
-    best_nodes["device"] = space_nodes["device"][trials_list[0]["misc"]["vals"]["device"][0]]
-    best_nodes["optimizer"] = space_nodes["optimizer"][trials_list[0]["misc"]["vals"]["optimizer"][0]]
-    
-    #新添加的这些元素用于控制模型的结构
-    best_nodes["input_nodes"] = space_nodes["input_nodes"][trials_list[0]["misc"]["vals"]["input_nodes"][0]]
-    best_nodes["hidden_layers"] = space_nodes["hidden_layers"][trials_list[0]["misc"]["vals"]["hidden_layers"][0]]
-    best_nodes["hidden_nodes"] = space_nodes["hidden_nodes"][trials_list[0]["misc"]["vals"]["hidden_nodes"][0]]
-    best_nodes["output_nodes"] = space_nodes["output_nodes"][trials_list[0]["misc"]["vals"]["output_nodes"][0]]
-    best_nodes["percentage"] = space_nodes["percentage"][trials_list[0]["misc"]["vals"]["percentage"][0]]
+    best_nodes["max_depth"] = space_nodes["max_depth"][trials_list[0]["misc"]["vals"]["max_depth"][0]]
+    best_nodes["learning_rate"] = space_nodes["learning_rate"][trials_list[0]["misc"]["vals"]["learning_rate"][0]]
+    best_nodes["n_estimators"] = space_nodes["n_estimators"][trials_list[0]["misc"]["vals"]["n_estimators"][0]]
+    best_nodes["gamma"] = space_nodes["gamma"][trials_list[0]["misc"]["vals"]["gamma"][0]]
+    best_nodes["min_child_weight"] = space_nodes["min_child_weight"][trials_list[0]["misc"]["vals"]["min_child_weight"][0]]
+    best_nodes["max_delta_step"] = space_nodes["smax_delta_step"][trials_list[0]["misc"]["vals"]["max_delta_step"][0]]
+    best_nodes["subsample"] = space_nodes["subsample"][trials_list[0]["misc"]["vals"]["subsample"][0]]
+    best_nodes["colsample_bytree"] = space_nodes["colsample_bytree"][trials_list[0]["misc"]["vals"]["colsample_bytree"][0]]
+    best_nodes["reg_lambda"] = space_nodes["reg_lambda"][trials_list[0]["misc"]["vals"]["reg_lambda"][0]]
+    best_nodes["early_stopping_rounds"] = space_nodes["early_stopping_rounds"][trials_list[0]["misc"]["vals"]["early_stopping_rounds"][0]]
 
     return best_nodes
     
@@ -410,32 +310,27 @@ def predict(best_nodes, max_evals=10):
         
         print(str(i+1)+"/"+str(max_evals)+" prediction progress have been made.")
         
-        clf = NeuralNetClassifier(lr = best_nodes["lr"],
-                                  optimizer__weight_decay = best_nodes["optimizer__weight_decay"],
-                                  criterion = best_nodes["criterion"],
-                                  batch_size = best_nodes["batch_size"],
-                                  optimizer__betas = best_nodes["optimizer__betas"],
-                                  module = create_module(best_nodes["input_nodes"], best_nodes["hidden_layers"], 
-                                                          best_nodes["hidden_nodes"], best_nodes["output_nodes"], best_nodes["percentage"]),
-                                  max_epochs = best_nodes["max_epochs"],
-                                  callbacks = [skorch.callbacks.EarlyStopping(patience=best_nodes["patience"])],
-                                  device = best_nodes["device"],
-                                  optimizer = best_nodes["optimizer"]
-                                  )
+        xgb = XGBClassifier(max_depth = best_nodes["max_depth"], 
+                            learning_rate = best_nodes["learning_rate"],
+                            n_estimators = best_nodes["n_estimators"],
+                            gamma = best_nodes["gamma"],
+                            min_child_weight = best_nodes["min_child_weight"],
+                            max_delta_step = best_nodes["max_delta_step"],
+                            subsample =  best_nodes["subsample"],
+                            colsample_bytree = best_nodes["colsample_bytree"],
+                            reg_lambda = best_nodes["reg_lambda"],
+                            early_stopping_rounds = best_nodes["early_stopping_rounds"],
+                            )
         
-        init_module(clf.module, best_nodes["weight_mode"], best_nodes["bias"])
-        
-        clf.fit(X_train_scaled.values.astype(np.float32), Y_train.values.astype(np.longlong)) 
-        
-        metric = cal_nnclf_acc(clf, X_train_scaled, Y_train)
+        xgb.fit(X_train_scaled, Y_train) 
+        metric = cal_nnclf_acc(xgb, X_train_scaled, Y_train)
         print_nnclf_acc(metric)
         
-        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
+        best_model, best_acc, flag = record_best_model_acc(xgb, metric, best_model, best_acc)
     
         if (flag):
-            #这个版本的best_model终于是全局的版本咯，真是开森呢。。
             save_best_model(best_model, best_nodes["title"])
-            Y_pred = best_model.predict(X_test_scaled.values.astype(np.float32))
+            Y_pred = best_model.predict(X_test_scaled)
             
             data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
             output = pd.DataFrame(data = data)
@@ -450,113 +345,52 @@ space = {"title":hp.choice("title", ["titanic"]),
          "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20]),
-         "max_epochs":hp.choice("max_epochs",[400]),
-         "patience":hp.choice("patience", [4,5,6,7,8,9,10]),
-         #将这个参数由范围改成具体的取值应该能够提升模型的准确率的吧
-         "lr":hp.choice("lr", [0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.00006, 0.00007, 0.00008, 0.00009, 0.00010,
-                               0.00011, 0.00012, 0.00013, 0.00014, 0.00015, 0.00016, 0.00017, 0.00018, 0.00019, 0.00020,
-                               0.00021, 0.00022, 0.00023, 0.00024, 0.00025, 0.00026, 0.00027, 0.00028, 0.00029, 0.00030,
-                               0.00031, 0.00032, 0.00033, 0.00034, 0.00035, 0.00036, 0.00037, 0.00038, 0.00039, 0.00040,
-                               0.00041, 0.00042, 0.00043, 0.00044, 0.00045, 0.00046, 0.00047, 0.00048, 0.00049, 0.00050,
-                               0.00051, 0.00052, 0.00053, 0.00054, 0.00055, 0.00056, 0.00057, 0.00058, 0.00059, 0.00060,
-                               0.00061, 0.00062, 0.00063, 0.00064, 0.00065, 0.00066, 0.00067, 0.00068, 0.00069, 0.00070,
-                               0.00071, 0.00072, 0.00073, 0.00074, 0.00075, 0.00076, 0.00077, 0.00078, 0.00079, 0.00080,
-                               0.00081, 0.00082, 0.00083, 0.00084, 0.00085, 0.00086, 0.00087, 0.00088, 0.00089, 0.00090,
-                               0.00091, 0.00092, 0.00093, 0.00094, 0.00095, 0.00096, 0.00097, 0.00098, 0.00099, 0.00100,
-                               0.00101, 0.00102, 0.00103, 0.00104, 0.00105, 0.00106, 0.00107, 0.00108, 0.00109, 0.00110,
-                               0.00111, 0.00112, 0.00113, 0.00114, 0.00115, 0.00116, 0.00117, 0.00118, 0.00119, 0.00120,
-                               0.00121, 0.00122, 0.00123, 0.00124, 0.00125, 0.00126, 0.00127, 0.00128, 0.00129, 0.00130,
-                               0.00131, 0.00132, 0.00133, 0.00134, 0.00135, 0.00136, 0.00137, 0.00138, 0.00139, 0.00140,
-                               0.00141, 0.00142, 0.00143, 0.00144, 0.00145, 0.00146, 0.00147, 0.00148, 0.00149, 0.00150,
-                               0.00151, 0.00152, 0.00153, 0.00154, 0.00155, 0.00156, 0.00157, 0.00158, 0.00159, 0.00160]),  
-         "optimizer__weight_decay":hp.choice("optimizer__weight_decay",
-            [0.000, 0.002, 0.004, 0.006, 0.010, 0.012, 0.014, 0.016, 0.018, 0.020]),  
-         "criterion":hp.choice("criterion", [torch.nn.NLLLoss, torch.nn.CrossEntropyLoss]),
-
-         "batch_size":hp.choice("batch_size", [32, 64, 128, 256, 512, 1024]),
-         "optimizer__betas":hp.choice("optimizer__betas",
-                                      [[0.88, 0.9991], [0.88, 0.9993], [0.88, 0.9995], [0.88, 0.9997], [0.88, 0.9999],
-                                       [0.90, 0.9991], [0.90, 0.9993], [0.90, 0.9995], [0.90, 0.9997], [0.90, 0.9999],
-                                       [0.92, 0.9991], [0.92, 0.9993], [0.92, 0.9995], [0.92, 0.9997], [0.92, 0.9999]]),
-         "input_nodes":hp.choice("input_nodes", [9]),
-         "hidden_layers":hp.choice("hidden_layers", [0, 1, 2, 3, 4, 5, 6, 7, 8]), 
-         "hidden_nodes":hp.choice("hidden_nodes", [5, 10, 15, 20, 25, 30, 35, 40, 
-                                                   45, 50, 55, 60, 65, 70, 75, 80, 
-                                                   85, 90, 95, 100, 105, 110, 115]), 
-         "output_nodes":hp.choice("output_nodes", [2]),
-         "percentage":hp.choice("percentage", [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 
-                                               0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90]),
-         "weight_mode":hp.choice("weight_mode", [1, 2, 3, 4]),
-         "bias":hp.choice("bias", [0.20, 0.18, 0.16, 0.14, 0.12, 0.10, 0.08, 0.06, 0.04, 0.02, 0.00, 
-                                   -0.02, -0.04, -0.06, -0.08, -0.10, -0.12, -0.14, -0.16, -0.18, -0.20]),
-         "device":hp.choice("device", ["cuda"]),
-         "optimizer":hp.choice("optimizer", [torch.optim.Adam])
+         
+         "max_depth":hp.choice("max_depth", [3,4,5,6,7,8,9,10]),     
+         "learning_rate":hp.choice("learning_rate", [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10,
+                                                     0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.20]),
+         "n_estimators":hp.choice("n_estimators", [70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190]),
+         "gamma":hp.choice("gamma", [0, 0.05, 0.10]),
+         "min_child_weight":hp.choice("min_child_weight", [0, 1, 2, 3, 4, 5]),
+         "max_delta_step":hp.choice("max_delta_step", [0, 1, 2, 3, 4, 5]),
+         "subsample":hp.choice("subsample", [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2]),
+         "colsample_bytree":hp.choice("colsample_bytree", [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2]),
+         "reg_lambda":hp.choice("reg_lambda", [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4]),
+         "early_stopping_rounds":hp.choice("early_stopping_rounds", [None, 4, 5, 6, 7, 8, 9, 10])
          }
 
 space_nodes = {"title":["titanic"],
                "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
-               #"std":[0],
                "std":[0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20],
-               "max_epochs":[400],
-               "patience":[4,5,6,7,8,9,10],
-               "lr":[0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.00006, 0.00007, 0.00008, 0.00009, 0.00010,
-                     0.00011, 0.00012, 0.00013, 0.00014, 0.00015, 0.00016, 0.00017, 0.00018, 0.00019, 0.00020,
-                     0.00021, 0.00022, 0.00023, 0.00024, 0.00025, 0.00026, 0.00027, 0.00028, 0.00029, 0.00030,
-                     0.00031, 0.00032, 0.00033, 0.00034, 0.00035, 0.00036, 0.00037, 0.00038, 0.00039, 0.00040,
-                     0.00041, 0.00042, 0.00043, 0.00044, 0.00045, 0.00046, 0.00047, 0.00048, 0.00049, 0.00050,
-                     0.00051, 0.00052, 0.00053, 0.00054, 0.00055, 0.00056, 0.00057, 0.00058, 0.00059, 0.00060,
-                     0.00061, 0.00062, 0.00063, 0.00064, 0.00065, 0.00066, 0.00067, 0.00068, 0.00069, 0.00070,
-                     0.00071, 0.00072, 0.00073, 0.00074, 0.00075, 0.00076, 0.00077, 0.00078, 0.00079, 0.00080,
-                     0.00081, 0.00082, 0.00083, 0.00084, 0.00085, 0.00086, 0.00087, 0.00088, 0.00089, 0.00090,
-                     0.00091, 0.00092, 0.00093, 0.00094, 0.00095, 0.00096, 0.00097, 0.00098, 0.00099, 0.00100,
-                     0.00101, 0.00102, 0.00103, 0.00104, 0.00105, 0.00106, 0.00107, 0.00108, 0.00109, 0.00110,
-                     0.00111, 0.00112, 0.00113, 0.00114, 0.00115, 0.00116, 0.00117, 0.00118, 0.00119, 0.00120,
-                     0.00121, 0.00122, 0.00123, 0.00124, 0.00125, 0.00126, 0.00127, 0.00128, 0.00129, 0.00130,
-                     0.00131, 0.00132, 0.00133, 0.00134, 0.00135, 0.00136, 0.00137, 0.00138, 0.00139, 0.00140,
-                     0.00141, 0.00142, 0.00143, 0.00144, 0.00145, 0.00146, 0.00147, 0.00148, 0.00149, 0.00150,
-                     0.00151, 0.00152, 0.00153, 0.00154, 0.00155, 0.00156, 0.00157, 0.00158, 0.00159, 0.00160],
-               "optimizer__weight_decay":[0.000, 0.002, 0.004, 0.006, 0.010, 0.012, 0.014, 0.016, 0.018, 0.020],
-               "criterion":[torch.nn.NLLLoss, torch.nn.CrossEntropyLoss],
-               "batch_size":[32, 64, 128, 256, 512, 1024],
-               "optimizer__betas":[[0.88, 0.9991], [0.88, 0.9993], [0.88, 0.9995], [0.88, 0.9997], [0.88, 0.9999],
-                                   [0.90, 0.9991], [0.90, 0.9993], [0.90, 0.9995], [0.90, 0.9997], [0.90, 0.9999],
-                                   [0.92, 0.9991], [0.92, 0.9993], [0.92, 0.9995], [0.92, 0.9997], [0.92, 0.9999]],
-               "input_nodes":[9],
-               "hidden_layers":[0, 1, 2, 3, 4, 5, 6, 7, 8], 
-               "hidden_nodes":[5, 10, 15, 20, 25, 30, 35, 40, 
-                               45, 50, 55, 60, 65, 70, 75, 80, 
-                               85, 90, 95, 100, 105, 110, 115], 
-               "output_nodes":[2],
-               "percentage":[0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 
-                             0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90],
-               "weight_mode":[1, 2, 3, 4],
-               "bias":[0.20, 0.18, 0.16, 0.14, 0.12, 0.10, 0.08, 0.06, 0.04, 0.02, 0.00, 
-                       -0.02, -0.04, -0.06, -0.08, -0.10, -0.12, -0.14, -0.16, -0.18, -0.20],
-               "device":["cuda"],
-               "optimizer":[torch.optim.Adam]
+                
+               "max_depth":[3,4,5,6,7,8,9,10],     
+               "learning_rate":[0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10,
+                                0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.20],
+               "n_estimators":[70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190],
+               "gamma":[0, 0.05, 0.10],
+               "min_child_weight":[0, 1, 2, 3, 4, 5],
+               "max_delta_step":[0, 1, 2, 3, 4, 5],
+               "subsample":[0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2],
+               "colsample_bytree":[0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2],
+               "reg_lambda":[0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4],
+               "early_stopping_rounds":[None, 4, 5, 6, 7, 8, 9, 10],
                }
 
 best_nodes = {"title":"titanic",
               "path":"path",
               "mean":0,
               "std":0.1,
-              "max_epochs":400,
-              "patience":5,
-              "lr":0.00010,
-              "optimizer__weight_decay":0.005,
-              "criterion":torch.nn.NLLLoss,
-              "batch_size":1,
-              "optimizer__betas":[0.86, 0.999],
-              "input_nodes":9,
-              "hidden_layers":1, 
-              "hidden_nodes":10, 
-              "output_nodes":2,
-              "percentage":0.05,
-              "weight_mode":1,
-              "bias":0.0,
-              "device":"cuda",
-              "optimizer":torch.optim.Adam
+              "max_depth":5,     
+              "learning_rate":0.10,
+              "n_estimators":100,
+              "gamma":0,
+              "min_child_weight":0,
+              "max_delta_step":0,
+              "subsample":1.0,
+              "colsample_bytree":1.0,
+              "reg_lambda":1.0,
+              "early_stopping_rounds":None
               }
 
 start_time = datetime.datetime.now()

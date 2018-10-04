@@ -7,7 +7,6 @@ import datetime
 import numpy as np
 import pandas as pd
 sys.path.append("D:\\Workspace\\Titanic")
-from Utilities1 import noise_augment_pytorch_classifier
 
 from sklearn import preprocessing
 from sklearn.cross_validation import cross_val_score, StratifiedKFold
