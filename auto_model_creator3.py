@@ -2,6 +2,8 @@
 #这个版本主要对于xgboost的模型进行超参搜索的吧
 #但是我实话实说呀，我觉得这个实验的意义不大的吧
 #因为就是以后做stacking也不一定需要xgboost的吧
+#实现这个仅有的意义就在于知道了xgboost一个小时能够超参搜索1000次
+#然后超参搜索了10000/1000次的结果居然才是85.1%所以xgboost也就这样了吧
 import os
 import sys
 import random
@@ -156,7 +158,7 @@ X_all_scaled = pd.DataFrame(preprocessing.scale(X_all), columns = X_train.column
 X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
 
-def cal_xgb_acc(clf, X_train, Y_train):
+def cal_xgbclf_acc(clf, X_train, Y_train):
     
     return clf.score(X_train, Y_train)
 
@@ -232,7 +234,10 @@ def noise_augment_data(mean, std, X_train, Y_train, columns):
     return X_noise_train, Y_train
 
 """
-xgb = XGBClassifier()
+#我反复确认了几次参数以及范围我觉得sklearn中的xgboost应该就是这些参数了吧
+#我之前好像用过其他版本的xgboost，他们可能有些其他参数但是应该不会对结果影响太大
+#果然colsample_bytree、subsample这些参数范围都是在[0, 1]之间呢
+xgb = XGBClassifier(colsample_bytree=2.0)
 xgb.fit(X_train_scaled, Y_train)
 """
 
@@ -249,7 +254,7 @@ def xgb__f(params):
     print("subsample", params["subsample"])
     print("colsample_bytree", params["colsample_bytree"])
     print("reg_lambda", params["reg_lambda"])
-    print("early_stopping_rounds", params["early_stopping_rounds"])
+    #print("early_stopping_rounds", params["early_stopping_rounds"])
         
     X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], X_train_scaled, Y_train, columns=[3, 4, 5, 6, 7, 8])
     
@@ -262,7 +267,7 @@ def xgb__f(params):
                         subsample =  params["subsample"],
                         colsample_bytree = params["colsample_bytree"],
                         reg_lambda = params["reg_lambda"],
-                        early_stopping_rounds = params["early_stopping_rounds"],
+                        #early_stopping_rounds = params["early_stopping_rounds"],
                         )
     
     skf = StratifiedKFold(Y_noise_train, n_folds=5, shuffle=True, random_state=None)
@@ -289,11 +294,11 @@ def parse_space(trials, space_nodes, best_nodes):
     best_nodes["n_estimators"] = space_nodes["n_estimators"][trials_list[0]["misc"]["vals"]["n_estimators"][0]]
     best_nodes["gamma"] = space_nodes["gamma"][trials_list[0]["misc"]["vals"]["gamma"][0]]
     best_nodes["min_child_weight"] = space_nodes["min_child_weight"][trials_list[0]["misc"]["vals"]["min_child_weight"][0]]
-    best_nodes["max_delta_step"] = space_nodes["smax_delta_step"][trials_list[0]["misc"]["vals"]["max_delta_step"][0]]
+    best_nodes["max_delta_step"] = space_nodes["max_delta_step"][trials_list[0]["misc"]["vals"]["max_delta_step"][0]]
     best_nodes["subsample"] = space_nodes["subsample"][trials_list[0]["misc"]["vals"]["subsample"][0]]
     best_nodes["colsample_bytree"] = space_nodes["colsample_bytree"][trials_list[0]["misc"]["vals"]["colsample_bytree"][0]]
     best_nodes["reg_lambda"] = space_nodes["reg_lambda"][trials_list[0]["misc"]["vals"]["reg_lambda"][0]]
-    best_nodes["early_stopping_rounds"] = space_nodes["early_stopping_rounds"][trials_list[0]["misc"]["vals"]["early_stopping_rounds"][0]]
+    #best_nodes["early_stopping_rounds"] = space_nodes["early_stopping_rounds"][trials_list[0]["misc"]["vals"]["early_stopping_rounds"][0]]
 
     return best_nodes
     
@@ -304,7 +309,7 @@ def predict(best_nodes, max_evals=10):
 
     if (exist_files(best_nodes["title"])):
         best_model = load_best_model(best_nodes["title"])
-        best_acc = cal_nnclf_acc(best_model, X_train_scaled, Y_train)
+        best_acc = cal_xgbclf_acc(best_model, X_train_scaled, Y_train)
          
     for i in range(0, max_evals):
         
@@ -319,12 +324,12 @@ def predict(best_nodes, max_evals=10):
                             subsample =  best_nodes["subsample"],
                             colsample_bytree = best_nodes["colsample_bytree"],
                             reg_lambda = best_nodes["reg_lambda"],
-                            early_stopping_rounds = best_nodes["early_stopping_rounds"],
+                            #early_stopping_rounds = best_nodes["early_stopping_rounds"],
                             )
         
         xgb.fit(X_train_scaled, Y_train) 
-        metric = cal_nnclf_acc(xgb, X_train_scaled, Y_train)
-        print_nnclf_acc(metric)
+        metric = cal_xgbclf_acc(xgb, X_train_scaled, Y_train)
+        print_xgbclf_acc(metric)
         
         best_model, best_acc, flag = record_best_model_acc(xgb, metric, best_model, best_acc)
     
@@ -346,17 +351,19 @@ space = {"title":hp.choice("title", ["titanic"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20]),
          
-         "max_depth":hp.choice("max_depth", [3,4,5,6,7,8,9,10]),     
+         "max_depth":hp.choice("max_depth", [3, 4, 5, 6, 7, 8, 9, 10]),     
          "learning_rate":hp.choice("learning_rate", [0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10,
-                                                     0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.20]),
-         "n_estimators":hp.choice("n_estimators", [70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190]),
-         "gamma":hp.choice("gamma", [0, 0.05, 0.10]),
+                                                     0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.20,
+                                                     0.21, 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.30,
+                                                     0.31, 0.32, 0.33, 0.34, 0.35, 0.36, 0.37, 0.38, 0.39, 0.40]),
+         "n_estimators":hp.choice("n_estimators", [70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 300, 500]),
+         "gamma":hp.choice("gamma", [0, 0.05, 0.10, 0.15, 0.20]),
          "min_child_weight":hp.choice("min_child_weight", [0, 1, 2, 3, 4, 5]),
          "max_delta_step":hp.choice("max_delta_step", [0, 1, 2, 3, 4, 5]),
-         "subsample":hp.choice("subsample", [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2]),
-         "colsample_bytree":hp.choice("colsample_bytree", [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2]),
-         "reg_lambda":hp.choice("reg_lambda", [0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4]),
-         "early_stopping_rounds":hp.choice("early_stopping_rounds", [None, 4, 5, 6, 7, 8, 9, 10])
+         "subsample":hp.choice("subsample", [0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0]),
+         "colsample_bytree":hp.choice("colsample_bytree", [0.5, 0.6, 0.7, 0.8, 0.9, 1.0]),
+         "reg_lambda":hp.choice("reg_lambda", [0.1, 0.5, 1.0, 5.0, 50, 500, 5000]),
+         #"early_stopping_rounds":hp.choice("early_stopping_rounds", [None])
          }
 
 space_nodes = {"title":["titanic"],
@@ -364,17 +371,19 @@ space_nodes = {"title":["titanic"],
                "mean":[0],
                "std":[0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20],
                 
-               "max_depth":[3,4,5,6,7,8,9,10],     
+               "max_depth":[3, 4, 5, 6, 7, 8, 9, 10],     
                "learning_rate":[0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.10,
-                                0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.20],
-               "n_estimators":[70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 190],
-               "gamma":[0, 0.05, 0.10],
+                                0.11, 0.12, 0.13, 0.14, 0.15, 0.16, 0.17, 0.18, 0.19, 0.20,
+                                0.21, 0.22, 0.23, 0.24, 0.25, 0.26, 0.27, 0.28, 0.29, 0.30,
+                                0.31, 0.32, 0.33, 0.34, 0.35, 0.36, 0.37, 0.38, 0.39, 0.40],
+               "n_estimators":[70, 80, 90, 100, 110, 120, 130, 140, 150, 160, 170, 180, 300, 500],
+               "gamma":[0, 0.05, 0.10, 0.15, 0.20],
                "min_child_weight":[0, 1, 2, 3, 4, 5],
                "max_delta_step":[0, 1, 2, 3, 4, 5],
-               "subsample":[0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2],
-               "colsample_bytree":[0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2],
-               "reg_lambda":[0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4],
-               "early_stopping_rounds":[None, 4, 5, 6, 7, 8, 9, 10],
+               "subsample":[0.5, 0.55, 0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0],
+               "colsample_bytree":[0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+               "reg_lambda":[0.1, 0.5, 1.0, 5.0, 50, 500, 5000],
+               #"early_stopping_rounds":[None],
                }
 
 best_nodes = {"title":"titanic",
@@ -390,7 +399,7 @@ best_nodes = {"title":"titanic",
               "subsample":1.0,
               "colsample_bytree":1.0,
               "reg_lambda":1.0,
-              "early_stopping_rounds":None
+              #"early_stopping_rounds":None
               }
 
 start_time = datetime.datetime.now()
@@ -398,14 +407,36 @@ start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-best_params = fmin(nn_f, space, algo=algo, max_evals=3, trials=trials)
+best_params = fmin(xgb__f, space, algo=algo, max_evals=10000, trials=trials)
 print_best_params_acc(trials)
 
 best_nodes = parse_space(trials, space_nodes, best_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 trials, space_nodes, best_nodes = load_inter_params("titanic")
 
-predict(best_nodes, max_evals=10)
+predict(best_nodes, max_evals=1000)
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+
+"""
+#不过这个例子也告诉我们说xgboost的参数可真是很少很简洁呀。
+#而且这个也没有涉及到模型的class保存的问题咯,其实不需要保存的吧。
+#我原本以为做完这个实验大概只需要一个小时其实大致花了三个小时
+#所以说软件工程的三倍定律到这里依然能够存在。
+#我觉得这些在做比赛过程中冒出来的想法还是值得去尝试一下的咯。
+files = open("titanic_xgb_intermediate_parameters_2018-10-6154024.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+print(best_nodes)
+#print(space_nodes)
+
+files = open("titanic_best_xgb_model_2018-10-6154024.pickle", "rb")
+best_model = pickle.load(files)
+files.close()
+best_acc = cal_xgbclf_acc(best_model, X_train_scaled, Y_train)
+print(best_acc)
+#最后的输出大致是这个样子的咯
+#{'title': 'titanic', 'path': 'C:/Users/win7/Desktop/Titanic_Prediction.csv', 'mean': 0, 'std': 0.1, 'max_depth': 8, 'learning_rate': 0.39, 'n_estimators': 150, 'gamma': 0.1, 'min_child_weight': 2, 'max_delta_step': 0, 'subsample': 0.8, 'colsample_bytree': 1.0, 'reg_lambda': 50}
+#0.8518518518518519
+"""
