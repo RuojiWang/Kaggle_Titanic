@@ -1944,8 +1944,8 @@ def nn_f(params):
                               module=params["module"],
                               max_epochs = params["max_epochs"],
                               callbacks=[skorch.callbacks.EarlyStopping(patience=params["patience"])],
-                              device = best_nodes["device"],
-                              optimizer = best_nodes["optimizer"]
+                              device = params["device"],
+                              optimizer = params["optimizer"]
                               )
     
     skf = StratifiedKFold(Y_noise_train, n_folds=5, shuffle=True, random_state=None)
@@ -1963,13 +1963,14 @@ def display_search_progress(search_times, nn_f):
     print("search times:", search_times)
     return nn_f
     
-def parse_space(trials, space_nodes, best_nodes):
+def parse_space(trials, space_nodes):
     
     trials_list =[]
     for item in trials.trials:
         trials_list.append(item)
     trials_list.sort(key=lambda item: item['result']['loss'])
     
+    best_nodes = {}
     best_nodes["title"] = space_nodes["title"][trials_list[0]["misc"]["vals"]["title"][0]]
     best_nodes["path"] = space_nodes["path"][trials_list[0]["misc"]["vals"]["path"][0]]
     best_nodes["mean"] = space_nodes["mean"][trials_list[0]["misc"]["vals"]["mean"][0]]
@@ -2107,6 +2108,7 @@ space_nodes = {"title":["titanic"],
                "optimizer":[torch.optim.Adam]
                }
 
+"""
 best_nodes = {"title":"titanic",
               "path":"path",
               "mean":0,
@@ -2124,6 +2126,7 @@ best_nodes = {"title":"titanic",
               "device":"cpu",
               "optimizer":torch.optim.Adam
               }
+"""
 
 #我觉得这边需要添加一个计算计时的功能
 start_time = datetime.datetime.now()
@@ -2131,10 +2134,10 @@ start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-best_params = fmin(nn_f, space, algo=algo, max_evals=3000, trials=trials)
+best_params = fmin(nn_f, space, algo=algo, max_evals=1, trials=trials)
 print_best_params_acc(trials)
 
-best_nodes = parse_space(trials, space_nodes, best_nodes)
+best_nodes = parse_space(trials, space_nodes)
 #save_inter_params保存的是本次搜索到的参数
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 trials, space_nodes, best_nodes = load_inter_params("titanic")
@@ -2147,7 +2150,7 @@ trials, space_nodes, best_nodes = load_inter_params("titanic")
 #我感觉除了和模型相关的超参我已经搞定的差不多了，今后主要决策和模型相关的超参
 #比如说是模型的层数、每层的节点数、初始化的方式、初始化的范围、偏置的设置值
 #明天的工作就先从模型生成器开始咯。。
-predict(best_nodes, max_evals=700)
+predict(best_nodes, max_evals=7)
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))

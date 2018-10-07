@@ -278,13 +278,14 @@ def xgb__f(params):
     print()    
     return -metric
     
-def parse_space(trials, space_nodes, best_nodes):
+def parse_space(trials, space_nodes):
     
     trials_list =[]
     for item in trials.trials:
         trials_list.append(item)
     trials_list.sort(key=lambda item: item['result']['loss'])
     
+    best_nodes = {}
     best_nodes["title"] = space_nodes["title"][trials_list[0]["misc"]["vals"]["title"][0]]
     best_nodes["path"] = space_nodes["path"][trials_list[0]["misc"]["vals"]["path"][0]]
     best_nodes["mean"] = space_nodes["mean"][trials_list[0]["misc"]["vals"]["mean"][0]]
@@ -385,7 +386,7 @@ space_nodes = {"title":["titanic"],
                "reg_lambda":[0.1, 0.5, 1.0, 5.0, 50, 500, 5000],
                #"early_stopping_rounds":[None],
                }
-
+"""
 best_nodes = {"title":"titanic",
               "path":"path",
               "mean":0,
@@ -401,20 +402,21 @@ best_nodes = {"title":"titanic",
               "reg_lambda":1.0,
               #"early_stopping_rounds":None
               }
+"""
 
 start_time = datetime.datetime.now()
 
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-best_params = fmin(xgb__f, space, algo=algo, max_evals=10000, trials=trials)
+best_params = fmin(xgb__f, space, algo=algo, max_evals=1, trials=trials)
 print_best_params_acc(trials)
 
-best_nodes = parse_space(trials, space_nodes, best_nodes)
+best_nodes = parse_space(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 trials, space_nodes, best_nodes = load_inter_params("titanic")
 
-predict(best_nodes, max_evals=1000)
+predict(best_nodes, max_evals=10)
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))

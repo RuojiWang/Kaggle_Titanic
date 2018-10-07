@@ -21,6 +21,7 @@ import datetime
 import numpy as np
 import pandas as pd
 from astropy.modeling.tests.test_models import create_model
+from networkx.readwrite.json_graph.node_link import node_link_data
 sys.path.append("D:\\Workspace\\Titanic")
 
 from sklearn import preprocessing
@@ -29,6 +30,8 @@ from sklearn.cross_validation import cross_val_score, StratifiedKFold
 import torch.nn.init
 import torch.nn as nn
 import torch.nn.functional as F
+
+from scipy.stats import pearsonr
 
 import skorch
 from skorch import NeuralNetClassifier
@@ -353,8 +356,8 @@ def nn_f(params):
                                                       params["hidden_nodes"], params["output_nodes"], params["percentage"]),
                               max_epochs = params["max_epochs"],
                               callbacks=[skorch.callbacks.EarlyStopping(patience=params["patience"])],
-                              device = best_nodes["device"],
-                              optimizer = best_nodes["optimizer"]
+                              device = params["device"],
+                              optimizer = params["optimizer"]
                               )
     
     skf = StratifiedKFold(Y_noise_train, n_folds=5, shuffle=True, random_state=None)
@@ -367,13 +370,14 @@ def nn_f(params):
     print()    
     return -metric
     
-def parse_space(trials, space_nodes, best_nodes):
+def parse_nodes(trials, space_nodes):
     
     trials_list =[]
     for item in trials.trials:
         trials_list.append(item)
     trials_list.sort(key=lambda item: item['result']['loss'])
     
+    best_nodes = {}
     best_nodes["title"] = space_nodes["title"][trials_list[0]["misc"]["vals"]["title"][0]]
     best_nodes["path"] = space_nodes["path"][trials_list[0]["misc"]["vals"]["path"][0]]
     best_nodes["mean"] = space_nodes["mean"][trials_list[0]["misc"]["vals"]["mean"][0]]
@@ -399,7 +403,42 @@ def parse_space(trials, space_nodes, best_nodes):
     best_nodes["percentage"] = space_nodes["percentage"][trials_list[0]["misc"]["vals"]["percentage"][0]]
 
     return best_nodes
+
+def parse_trials(trials, space_nodes, num):
     
+    trials_list =[]
+    for item in trials.trials:
+        trials_list.append(item)
+    trials_list.sort(key=lambda item: item['result']['loss'])
+    
+    nodes = {}
+    nodes_list = []
+    
+    for i in range(0, num):
+        nodes["title"] = space_nodes["title"][trials_list[0]["misc"]["vals"]["title"][0]]
+        nodes["path"] = space_nodes["path"][trials_list[0]["misc"]["vals"]["path"][0]]
+        nodes["mean"] = space_nodes["mean"][trials_list[0]["misc"]["vals"]["mean"][0]]
+        nodes["std"] = space_nodes["std"][trials_list[0]["misc"]["vals"]["std"][0]]
+        nodes["batch_size"] = space_nodes["batch_size"][trials_list[0]["misc"]["vals"]["batch_size"][0]]
+        nodes["criterion"] = space_nodes["criterion"][trials_list[0]["misc"]["vals"]["criterion"][0]]
+        nodes["max_epochs"] = space_nodes["max_epochs"][trials_list[0]["misc"]["vals"]["max_epochs"][0]]
+        nodes["lr"] = space_nodes["lr"][trials_list[0]["misc"]["vals"]["lr"][0]] 
+        nodes["optimizer__betas"] = space_nodes["optimizer__betas"][trials_list[0]["misc"]["vals"]["optimizer__betas"][0]]
+        nodes["optimizer__weight_decay"] = space_nodes["optimizer__weight_decay"][trials_list[0]["misc"]["vals"]["optimizer__weight_decay"][0]]
+        nodes["weight_mode"] = space_nodes["weight_mode"][trials_list[0]["misc"]["vals"]["weight_mode"][0]]
+        nodes["bias"] = space_nodes["bias"][trials_list[0]["misc"]["vals"]["bias"][0]]
+        nodes["patience"] = space_nodes["patience"][trials_list[0]["misc"]["vals"]["patience"][0]]
+        nodes["device"] = space_nodes["device"][trials_list[0]["misc"]["vals"]["device"][0]]
+        nodes["optimizer"] = space_nodes["optimizer"][trials_list[0]["misc"]["vals"]["optimizer"][0]]
+        nodes["input_nodes"] = space_nodes["input_nodes"][trials_list[0]["misc"]["vals"]["input_nodes"][0]]
+        nodes["hidden_layers"] = space_nodes["hidden_layers"][trials_list[0]["misc"]["vals"]["hidden_layers"][0]]
+        nodes["hidden_nodes"] = space_nodes["hidden_nodes"][trials_list[0]["misc"]["vals"]["hidden_nodes"][0]]
+        nodes["output_nodes"] = space_nodes["output_nodes"][trials_list[0]["misc"]["vals"]["output_nodes"][0]]
+        nodes["percentage"] = space_nodes["percentage"][trials_list[0]["misc"]["vals"]["percentage"][0]]
+        
+        nodes_list.append(nodes)
+    return nodes_list
+
 def predict(best_nodes, max_evals=10):
     
     best_acc = 0.0
@@ -449,13 +488,96 @@ def predict(best_nodes, max_evals=10):
      
     print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
     
+#我觉得实现这个细节太多了吧，比如说是如何控制模型的差异？
+#还有其实我一直比较担心同样的神经网络的模型这样是否有效？
+#可能接下来的工作就是寻找周志华的论文然后阅读了吧，毕竟GASEN
+#是否使用全训练集咯？感觉这是一个很重要的问题
+#但是模型无论如何还是必须要放在list里面的吧
+#然后加权的细节到底要怎么个加法呢？皮尔逊系数需要计算的嘛？
+#我现在的问题就是想太多以至于现在没办法静下心来完成代码咯
+def weighted_average_predict(nodes_list, max_evals=10):
+    
+    num = len(nodes_list)
+    #用于统计训练集输出的情况
+    clf_train_pred = []
+    #用于统计测试集输出的情况
+    clf_test_pred = []
+    #用于收集分类器
+    clf_list = []
+    #汇总训练集最后的输出
+    train_pred_cnt = [0] * len(X_train_scaled)
+    #汇总测试集最后的输出
+    test_pred_cnt = []
+    #用于统计皮尔逊系数的变量
+    #pearson_coeff = [[0] * num] * num
+    
+    for i in range(0, num):
+        
+        best_acc = 0.0
+        best_model = 0.0
+        
+        for j in range(0, max_evals):
+            
+            clf = NeuralNetClassifier(lr = nodes_list[i]["lr"],
+                                      optimizer__weight_decay = nodes_list[i]["optimizer__weight_decay"],
+                                      criterion = nodes_list[i]["criterion"],
+                                      batch_size = nodes_list[i]["batch_size"],
+                                      optimizer__betas = nodes_list[i]["optimizer__betas"],
+                                      module = create_module(nodes_list[i]["input_nodes"], nodes_list[i]["hidden_layers"], 
+                                                          nodes_list[i]["hidden_nodes"], nodes_list[i]["output_nodes"], nodes_list[i]["percentage"]),
+                                      max_epochs = nodes_list[i]["max_epochs"],
+                                      callbacks = [skorch.callbacks.EarlyStopping(patience=nodes_list[i]["patience"])],
+                                      device = nodes_list[i]["device"],
+                                      optimizer = nodes_list[i]["optimizer"]
+                                      )
+        
+            init_module(clf.module, nodes_list[i]["weight_mode"], nodes_list[i]["bias"])
+        
+            clf.fit(X_train_scaled.values.astype(np.float32), Y_train.values.astype(np.longlong)) 
+        
+            metric = cal_nnclf_acc(clf, X_train_scaled, Y_train)
+            print_nnclf_acc(metric)
+        
+            best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
+        
+        #将所有的模型搜集起来咯
+        clf_list.append(best_model)    
+        
+        
+    #OK，现在所有的数据都在这里面了    
+    for i in range(0, num):
+        clf_train_pred.append(clf_list[i].predict(X_train_scaled.values.astype(np.float32)))
+        
+    #开始计算训练集的皮尔逊矩阵咯
+    #python真的很神奇呢，直接传入一个list
+    #list中仅含有一个numpy.ndarray元素未报错
+    pearson_coeff = np.corrcoef(clf_train_pred)
+    print(pearson_coeff)
+    
+    #现在开始统计训练集最终的输出咯
+    for i in range(0, num):
+        for j in range(0, len(X_train_scaled)):
+            if(clf_train_pred[i][j]==1):
+                train_pred_cnt[j]=train_pred_cnt[j]+1
+    
+    for i in range(0, len(X_train_scaled)):
+        if(train_pred_cnt[i]>(num)/2):
+            train_pred_cnt[i]=1
+        else:
+            train_pred_cnt[i]=0
+            
+    #计算在训练集上的准确率呢
+    count = (train_pred_cnt == Y_train).sum()
+    train_acc = count/len(Y_train)
+    print(train_acc)
+         
+#现在直接利用经验参数值进行搜索咯，这样可以节约计算资源   
 space = {"title":hp.choice("title", ["titanic"]),
          "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
-         "std":hp.choice("std", [0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20]),
+         "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
          "patience":hp.choice("patience", [4,5,6,7,8,9,10]),
-         #将这个参数由范围改成具体的取值应该能够提升模型的准确率的吧
          "lr":hp.choice("lr", [0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.00006, 0.00007, 0.00008, 0.00009, 0.00010,
                                0.00011, 0.00012, 0.00013, 0.00014, 0.00015, 0.00016, 0.00017, 0.00018, 0.00019, 0.00020,
                                0.00021, 0.00022, 0.00023, 0.00024, 0.00025, 0.00026, 0.00027, 0.00028, 0.00029, 0.00030,
@@ -472,11 +594,10 @@ space = {"title":hp.choice("title", ["titanic"]),
                                0.00131, 0.00132, 0.00133, 0.00134, 0.00135, 0.00136, 0.00137, 0.00138, 0.00139, 0.00140,
                                0.00141, 0.00142, 0.00143, 0.00144, 0.00145, 0.00146, 0.00147, 0.00148, 0.00149, 0.00150,
                                0.00151, 0.00152, 0.00153, 0.00154, 0.00155, 0.00156, 0.00157, 0.00158, 0.00159, 0.00160]),  
-         "optimizer__weight_decay":hp.choice("optimizer__weight_decay",
-            [0.000, 0.002, 0.004, 0.006, 0.010, 0.012, 0.014, 0.016, 0.018, 0.020]),  
+         "optimizer__weight_decay":hp.choice("optimizer__weight_decay",[0.000]),  
          "criterion":hp.choice("criterion", [torch.nn.NLLLoss, torch.nn.CrossEntropyLoss]),
 
-         "batch_size":hp.choice("batch_size", [32, 64, 128, 256, 512, 1024]),
+         "batch_size":hp.choice("batch_size", [64, 128, 256, 512, 1024]),
          "optimizer__betas":hp.choice("optimizer__betas",
                                       [[0.88, 0.9991], [0.88, 0.9993], [0.88, 0.9995], [0.88, 0.9997], [0.88, 0.9999],
                                        [0.90, 0.9991], [0.90, 0.9993], [0.90, 0.9995], [0.90, 0.9997], [0.90, 0.9999],
@@ -487,11 +608,9 @@ space = {"title":hp.choice("title", ["titanic"]),
                                                    45, 50, 55, 60, 65, 70, 75, 80, 
                                                    85, 90, 95, 100, 105, 110, 115]), 
          "output_nodes":hp.choice("output_nodes", [2]),
-         "percentage":hp.choice("percentage", [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 
-                                               0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90]),
-         "weight_mode":hp.choice("weight_mode", [1, 2, 3, 4]),
-         "bias":hp.choice("bias", [0.20, 0.18, 0.16, 0.14, 0.12, 0.10, 0.08, 0.06, 0.04, 0.02, 0.00, 
-                                   -0.02, -0.04, -0.06, -0.08, -0.10, -0.12, -0.14, -0.16, -0.18, -0.20]),
+         "percentage":hp.choice("percentage", [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45]),
+         "weight_mode":hp.choice("weight_mode", [1]),
+         "bias":hp.choice("bias", [0]),
          "device":hp.choice("device", ["cuda"]),
          "optimizer":hp.choice("optimizer", [torch.optim.Adam])
          }
@@ -499,8 +618,7 @@ space = {"title":hp.choice("title", ["titanic"]),
 space_nodes = {"title":["titanic"],
                "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
-               #"std":[0],
-               "std":[0, 0.02, 0.04, 0.06, 0.08, 0.10, 0.12, 0.14, 0.16, 0.18, 0.20],
+               "std":[0.10],
                "max_epochs":[400],
                "patience":[4,5,6,7,8,9,10],
                "lr":[0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.00006, 0.00007, 0.00008, 0.00009, 0.00010,
@@ -519,9 +637,9 @@ space_nodes = {"title":["titanic"],
                      0.00131, 0.00132, 0.00133, 0.00134, 0.00135, 0.00136, 0.00137, 0.00138, 0.00139, 0.00140,
                      0.00141, 0.00142, 0.00143, 0.00144, 0.00145, 0.00146, 0.00147, 0.00148, 0.00149, 0.00150,
                      0.00151, 0.00152, 0.00153, 0.00154, 0.00155, 0.00156, 0.00157, 0.00158, 0.00159, 0.00160],
-               "optimizer__weight_decay":[0.000, 0.002, 0.004, 0.006, 0.010, 0.012, 0.014, 0.016, 0.018, 0.020],
+               "optimizer__weight_decay":[0.000],
                "criterion":[torch.nn.NLLLoss, torch.nn.CrossEntropyLoss],
-               "batch_size":[32, 64, 128, 256, 512, 1024],
+               "batch_size":[64, 128, 256, 512, 1024],
                "optimizer__betas":[[0.88, 0.9991], [0.88, 0.9993], [0.88, 0.9995], [0.88, 0.9997], [0.88, 0.9999],
                                    [0.90, 0.9991], [0.90, 0.9993], [0.90, 0.9995], [0.90, 0.9997], [0.90, 0.9999],
                                    [0.92, 0.9991], [0.92, 0.9993], [0.92, 0.9995], [0.92, 0.9997], [0.92, 0.9999]],
@@ -531,15 +649,14 @@ space_nodes = {"title":["titanic"],
                                45, 50, 55, 60, 65, 70, 75, 80, 
                                85, 90, 95, 100, 105, 110, 115], 
                "output_nodes":[2],
-               "percentage":[0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 
-                             0.50, 0.55, 0.60, 0.65, 0.70, 0.75, 0.80, 0.85, 0.90],
-               "weight_mode":[1, 2, 3, 4],
-               "bias":[0.20, 0.18, 0.16, 0.14, 0.12, 0.10, 0.08, 0.06, 0.04, 0.02, 0.00, 
-                       -0.02, -0.04, -0.06, -0.08, -0.10, -0.12, -0.14, -0.16, -0.18, -0.20],
+               "percentage":[0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45],
+               "weight_mode":[1],
+               "bias":[0],
                "device":["cuda"],
                "optimizer":[torch.optim.Adam]
                }
 
+"""
 best_nodes = {"title":"titanic",
               "path":"path",
               "mean":0,
@@ -561,20 +678,39 @@ best_nodes = {"title":"titanic",
               "device":"cuda",
               "optimizer":torch.optim.Adam
               }
+"""
 
 start_time = datetime.datetime.now()
 
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-best_params = fmin(nn_f, space, algo=algo, max_evals=3, trials=trials)
+#这里需要注意一下的是，max_evals的取值必须大于nodes_list的数目
+best_params = fmin(nn_f, space, algo=algo, max_evals=20, trials=trials)
 print_best_params_acc(trials)
 
-best_nodes = parse_space(trials, space_nodes, best_nodes)
+best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
-trials, space_nodes, best_nodes = load_inter_params("titanic")
 
-predict(best_nodes, max_evals=10)
-
+#根据超参搜索的结果创建模型咯
+nodes_list = parse_trials(trials, space_nodes, 5)
+#皮尔逊系数原来就是去中心的余弦计算
+weighted_average_predict(nodes_list, max_evals=2)
+#最后输出的结果是这个样子的，这也太劲爆了吧
+#这个分类器在集成之前的准确率是：
+#0.8406285072951739
+#0.8316498316498316
+#0.8428731762065096
+#0.6161616161616161
+#0.8439955106621774
+#[[1.         0.91605808 0.89599813 0.91098247 0.93584799]
+# [0.91605808 1.         0.95204475 0.90790944 0.897972  ]
+# [0.89599813 0.95204475 1.         0.88180885 0.88743012]
+# [0.91098247 0.90790944 0.88180885 1.         0.94926097]
+# [0.93584799 0.897972   0.88743012 0.94926097 1.        ]]
+#Backend Qt5Agg is interactive backend. Turning interactive mode on.
+#0.5454545454545454
+#我就说这个结果太离谱了，原来是我的代码存在一些问题咯。
+#现在的结果是0.8395061728395061，出现了轻微的下降这个还可以理解
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
