@@ -33,6 +33,13 @@ import torch.nn.functional as F
 
 from scipy.stats import pearsonr
 
+from xgboost import XGBClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression 
+from sklearn.ensemble import RandomForestClassifier
+
+from sklearn.cross_validation import train_test_split
+
 import skorch
 from skorch import NeuralNetClassifier
 
@@ -42,8 +49,8 @@ from hyperopt import fmin, tpe, hp, space_eval, rand, Trials, partial, STATUS_OK
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -495,7 +502,7 @@ def predict(best_nodes, max_evals=10):
 #但是模型无论如何还是必须要放在list里面的吧
 #然后加权的细节到底要怎么个加法呢？皮尔逊系数需要计算的嘛？
 #我现在的问题就是想太多以至于现在没办法静下心来完成代码咯
-def weighted_average_predict(nodes_list, max_evals=10):
+def weighted_nn_predict(nodes_list, max_evals=10):
     
     num = len(nodes_list)
     #用于统计训练集输出的情况
@@ -505,11 +512,9 @@ def weighted_average_predict(nodes_list, max_evals=10):
     #用于收集分类器
     clf_list = []
     #汇总训练集最后的输出
-    train_pred_cnt = [0] * len(X_train_scaled)
+    train_pred_cnt = [0] * len(X_split_train)
     #汇总测试集最后的输出
-    test_pred_cnt = []
-    #用于统计皮尔逊系数的变量
-    #pearson_coeff = [[0] * num] * num
+    test_pred_cnt = [0] * len(X_split_test)
     
     for i in range(0, num):
         
@@ -533,20 +538,23 @@ def weighted_average_predict(nodes_list, max_evals=10):
         
             init_module(clf.module, nodes_list[i]["weight_mode"], nodes_list[i]["bias"])
         
-            clf.fit(X_train_scaled.values.astype(np.float32), Y_train.values.astype(np.longlong)) 
+            clf.fit(X_split_train.values.astype(np.float32), Y_split_train.values.astype(np.longlong)) 
         
-            metric = cal_nnclf_acc(clf, X_train_scaled, Y_train)
+            metric = cal_nnclf_acc(clf, X_split_train, Y_split_train)
             print_nnclf_acc(metric)
         
             best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
         
         #将所有的模型搜集起来咯
-        clf_list.append(best_model)    
+        clf_list.append(best_model)
         
-        
-    #OK，现在所有的数据都在这里面了    
+    #对于训练集开始预测咯
+    #先输出每个模型的准确率
+    #然后输出模型的皮尔逊系数
+    #最后输出加权之后的平均准确率
     for i in range(0, num):
-        clf_train_pred.append(clf_list[i].predict(X_train_scaled.values.astype(np.float32)))
+        print(cal_nnclf_acc(clf_list[i], X_split_train, Y_split_train))
+        clf_train_pred.append(clf_list[i].predict(X_split_train.values.astype(np.float32)))
         
     #开始计算训练集的皮尔逊矩阵咯
     #python真的很神奇呢，直接传入一个list
@@ -556,24 +564,171 @@ def weighted_average_predict(nodes_list, max_evals=10):
     
     #现在开始统计训练集最终的输出咯
     for i in range(0, num):
-        for j in range(0, len(X_train_scaled)):
+        for j in range(0, len(X_split_train)):
             if(clf_train_pred[i][j]==1):
                 train_pred_cnt[j]=train_pred_cnt[j]+1
     
-    for i in range(0, len(X_train_scaled)):
+    for i in range(0, len(X_split_train)):
         if(train_pred_cnt[i]>(num)/2):
             train_pred_cnt[i]=1
         else:
             train_pred_cnt[i]=0
             
     #计算在训练集上的准确率呢
-    count = (train_pred_cnt == Y_train).sum()
-    train_acc = count/len(Y_train)
-    print(train_acc)
-         
+    count = (train_pred_cnt == Y_split_train).sum()
+    train_acc = count/len(Y_split_train)
+    print("accuracy on the train dataset is:",train_acc)
+    
+    
+    #现在开始计算在训练集上面的情况
+    for i in range(0, num):
+        print(cal_nnclf_acc(clf_list[i], X_split_test, Y_split_test))
+        clf_test_pred.append(clf_list[i].predict(X_split_test.values.astype(np.float32)))
+    
+    pearson_coeff = np.corrcoef(clf_test_pred)
+    print(pearson_coeff)
+    
+    for i in range(0, num):
+        for j in range(0, len(X_split_test)):
+            if(clf_test_pred[i][j]==1):
+                test_pred_cnt[j]=test_pred_cnt[j]+1
+    
+    for i in range(0, len(X_split_test)):
+        if(test_pred_cnt[i]>(num)/2):
+            test_pred_cnt[i]=1
+        else:
+            test_pred_cnt[i]=0
+
+    count = (test_pred_cnt == Y_split_test).sum()
+    test_acc = count/len(Y_split_test)
+    print("accuracy on the test dataset is:", test_acc)
+    
+    
+#这个版本直接试一哈四个基模型带来的效果
+def weighted_predict(max_evals=10):
+    
+    clf_list = []
+    clf_train_pred = []
+    train_pred_cnt = [0] * len(X_split_train)
+    clf_test_pred = []
+    test_pred_cnt = [0] * len(X_split_test)
+    
+    #首先用神经网络训练一哈模型咯，因为这个计算结果非常不稳定所以要多算几次    
+    best_acc = 0.0
+    best_model = 0.0
+        
+    for i in range(0, max_evals):
+            
+        clf = NeuralNetClassifier(lr = best_nodes["lr"],
+                                  optimizer__weight_decay = best_nodes["optimizer__weight_decay"],
+                                  criterion = best_nodes["criterion"],
+                                  batch_size = best_nodes["batch_size"],
+                                  optimizer__betas = best_nodes["optimizer__betas"],
+                                  module = create_module(best_nodes["input_nodes"], best_nodes["hidden_layers"], 
+                                                         best_nodes["hidden_nodes"], best_nodes["output_nodes"], best_nodes["percentage"]),
+                                  max_epochs = best_nodes["max_epochs"],
+                                  callbacks = [skorch.callbacks.EarlyStopping(patience=best_nodes["patience"])],
+                                  device = best_nodes["device"],
+                                  optimizer = best_nodes["optimizer"]
+                                  )
+        
+        init_module(clf.module, best_nodes["weight_mode"], best_nodes["bias"])
+        #这边修改为训练集和测试集咯
+        clf.fit(X_split_train.values.astype(np.float32), Y_split_train.values.astype(np.longlong)) 
+        
+        metric = cal_nnclf_acc(clf, X_split_train, Y_split_train)
+        print_nnclf_acc(metric)
+        
+        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
+            
+    clf1 = best_model
+    #现在使用一哈各种各样的模型在训练集上进行训练
+    clf2 = XGBClassifier()
+    clf2.fit(X_split_train, Y_split_train)
+    clf3 = KNeighborsClassifier()  
+    clf3.fit(X_split_train, Y_split_train)
+    clf4 = LogisticRegression(penalty='l2')  
+    clf4.fit(X_split_train, Y_split_train)
+    clf5 = RandomForestClassifier(n_estimators=8)  
+    clf5.fit(X_split_train, Y_split_train)
+    
+    #将所有分类器都加入到list中呢
+    clf_list.append(clf1)
+    clf_list.append(clf2)
+    clf_list.append(clf3)
+    clf_list.append(clf4)
+    clf_list.append(clf5)
+    
+    #计算训练集上面的得分咯
+    print(cal_nnclf_acc(clf1, X_split_train, Y_split_train))
+    print(clf2.score(X_split_train, Y_split_train))
+    print(clf3.score(X_split_train, Y_split_train))
+    print(clf4.score(X_split_train, Y_split_train))
+    print(clf5.score(X_split_train, Y_split_train))
+    
+    clf_train_pred.append(clf1.predict(X_split_train.values.astype(np.float32)))
+    clf_train_pred.append(clf2.predict(X_split_train))
+    clf_train_pred.append(clf3.predict(X_split_train))
+    clf_train_pred.append(clf4.predict(X_split_train))
+    clf_train_pred.append(clf5.predict(X_split_train))
+
+    num =len(clf_list)
+    
+    pearson_coeff = np.corrcoef(clf_train_pred)
+    print(pearson_coeff)
+    
+    for i in range(0, num):
+        for j in range(0, len(X_split_train)):
+            if(clf_train_pred[i][j]==1):
+                train_pred_cnt[j]=train_pred_cnt[j]+1
+    
+    for i in range(0, len(X_split_train)):
+        if(train_pred_cnt[i]>(num)/2):
+            train_pred_cnt[i]=1
+        else:
+            train_pred_cnt[i]=0
+            
+    count = (train_pred_cnt == Y_split_train).sum()
+    train_acc = count/len(Y_split_train)
+    print("accuracy on the train dataset is:",train_acc)
+
+    #计算在测试集上面的各种情况咯
+    print(cal_nnclf_acc(clf1, X_split_test, Y_split_test))
+    print(clf2.score(X_split_test, Y_split_test))
+    print(clf3.score(X_split_test, Y_split_test))
+    print(clf4.score(X_split_test, Y_split_test))
+    print(clf5.score(X_split_test, Y_split_test))
+    
+    clf_test_pred.append(clf1.predict(X_split_test.values.astype(np.float32)))
+    clf_test_pred.append(clf2.predict(X_split_test))
+    clf_test_pred.append(clf3.predict(X_split_test))
+    clf_test_pred.append(clf4.predict(X_split_test))
+    clf_test_pred.append(clf5.predict(X_split_test))
+
+    num =len(clf_list)
+    
+    pearson_coeff = np.corrcoef(clf_test_pred)
+    print(pearson_coeff)
+    
+    for i in range(0, num):
+        for j in range(0, len(X_split_test)):
+            if(clf_test_pred[i][j]==1):
+                test_pred_cnt[j]=test_pred_cnt[j]+1
+    
+    for i in range(0, len(X_split_test)):
+        if(test_pred_cnt[i]>(num)/2):
+            test_pred_cnt[i]=1
+        else:
+            test_pred_cnt[i]=0
+            
+    count = (test_pred_cnt == Y_split_test).sum()
+    test_acc = count/len(Y_split_test)
+    print("accuracy on the test dataset is:", test_acc)
+
+
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源   
 space = {"title":hp.choice("title", ["titanic"]),
-         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -611,12 +766,12 @@ space = {"title":hp.choice("title", ["titanic"]),
          "percentage":hp.choice("percentage", [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45]),
          "weight_mode":hp.choice("weight_mode", [1]),
          "bias":hp.choice("bias", [0]),
-         "device":hp.choice("device", ["cuda"]),
+         "device":hp.choice("device", ["cpu"]),
          "optimizer":hp.choice("optimizer", [torch.optim.Adam])
          }
 
 space_nodes = {"title":["titanic"],
-               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -652,11 +807,11 @@ space_nodes = {"title":["titanic"],
                "percentage":[0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45],
                "weight_mode":[1],
                "bias":[0],
-               "device":["cuda"],
+               "device":["cpu"],
                "optimizer":[torch.optim.Adam]
                }
 
-"""
+
 best_nodes = {"title":"titanic",
               "path":"path",
               "mean":0,
@@ -665,37 +820,42 @@ best_nodes = {"title":"titanic",
               "patience":5,
               "lr":0.00010,
               "optimizer__weight_decay":0.005,
-              "criterion":torch.nn.NLLLoss,
-              "batch_size":1,
+              "criterion":torch.nn.CrossEntropyLoss,
+              "batch_size":128,
               "optimizer__betas":[0.86, 0.999],
               "input_nodes":9,
-              "hidden_layers":1, 
-              "hidden_nodes":10, 
+              "hidden_layers":3, 
+              "hidden_nodes":60, 
               "output_nodes":2,
-              "percentage":0.05,
+              "percentage":0.15,
               "weight_mode":1,
               "bias":0.0,
-              "device":"cuda",
+              "device":"cpu",
               "optimizer":torch.optim.Adam
               }
-"""
 
+#现在需要划分一下训练集和测试集才能够看到加权之后是否模型得到提升
+X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.2)
+
+"""
+#可能下面的这种方式计算出的模型组合起来相关性太高，
+#下面我试试别的模型看看能否找到更好的办法呢。
 start_time = datetime.datetime.now()
 
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
 #这里需要注意一下的是，max_evals的取值必须大于nodes_list的数目
-best_params = fmin(nn_f, space, algo=algo, max_evals=20, trials=trials)
+best_params = fmin(nn_f, space, algo=algo, max_evals=10, trials=trials)
 print_best_params_acc(trials)
 
 best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 
 #根据超参搜索的结果创建模型咯
-nodes_list = parse_trials(trials, space_nodes, 5)
+nodes_list = parse_trials(trials, space_nodes, 3)
 #皮尔逊系数原来就是去中心的余弦计算
-weighted_average_predict(nodes_list, max_evals=2)
+weighted_nn_predict(nodes_list, max_evals=2)
 #最后输出的结果是这个样子的，这也太劲爆了吧
 #这个分类器在集成之前的准确率是：
 #0.8406285072951739
@@ -711,6 +871,36 @@ weighted_average_predict(nodes_list, max_evals=2)
 #Backend Qt5Agg is interactive backend. Turning interactive mode on.
 #0.5454545454545454
 #我就说这个结果太离谱了，原来是我的代码存在一些问题咯。
+#皮尔逊系数和协方差有点关系，绝对值越大相关性越高，相关性可为正负。
 #现在的结果是0.8395061728395061，出现了轻微的下降这个还可以理解
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+"""
+
+"""
+#几次的计算结果都显示神经网络完爆xgboost之外的模型咯
+weighted_predict()
+#0.8412921348314607
+#0.8595505617977528
+#0.848314606741573
+#0.8202247191011236
+#0.8820224719101124
+#[[1.         0.86391703 0.81326472 0.87929954 0.77959039]
+# [0.86391703 1.         0.77133681 0.80119485 0.86996378]
+# [0.81326472 0.77133681 1.         0.78243969 0.80119485]
+# [0.87929954 0.80119485 0.78243969 1.         0.70464347]
+# [0.77959039 0.86996378 0.80119485 0.70464347 1.        ]]
+#accuracy on the train dataset is: 0.8567415730337079
+#
+#0.8268156424581006
+#0.7877094972067039
+#0.8156424581005587
+#0.7932960893854749
+#0.7653631284916201
+#[[1.         0.79496308 0.75782163 0.8398138  0.77132498]
+# [0.79496308 1.         0.78776009 0.69245241 0.88028218]
+# [0.75782163 0.78776009 1.         0.74791196 0.81755854]
+# [0.8398138  0.69245241 0.74791196 1.         0.68714978]
+# [0.77132498 0.88028218 0.81755854 0.68714978 1.        ]]
+#accuracy on the test dataset is: 0.7932960893854749
+"""
