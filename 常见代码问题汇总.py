@@ -59,4 +59,8 @@
                     比如这里需要给名称为“电脑百事网”的user用户分配修改hosts文件权限，选中用户后，
                     勾选上下方的“修改”和“写入”权限，完成后，点击右下角的“应用”就可以了
         
+    9.解决Python控制台中输出很多warnning的问题
+        import warnings
+
+        warnings.filterwarnings('ignore')
 """

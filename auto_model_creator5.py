@@ -17,7 +17,7 @@ import os
 import sys
 import random
 import pickle
-import datetime
+import warnings
 import numpy as np
 import pandas as pd
 from astropy.modeling.tests.test_models import create_model
@@ -33,7 +33,6 @@ import torch.nn.functional as F
 
 from scipy.stats import pearsonr
 
-from xgboost import XGBClassifier
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression 
 from sklearn.ensemble import RandomForestClassifier
@@ -45,6 +44,12 @@ from skorch import NeuralNetClassifier
 
 import hyperopt
 from hyperopt import fmin, tpe, hp, space_eval, rand, Trials, partial, STATUS_OK
+
+from xgboost import XGBClassifier
+
+from mlxtend.classifier import StackingCVClassifier
+
+warnings.filterwarnings('ignore')
 
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
@@ -725,7 +730,52 @@ def weighted_predict(max_evals=10):
     test_acc = count/len(Y_split_test)
     print("accuracy on the test dataset is:", test_acc)
 
-
+#我找到了一个stacking的库咯，我感觉这个还挺好用的有点性感咯
+def stacking_predict():
+    
+    #这里使用一个小trick：用局部变量计算全局准确率
+    #使用stacking之后的模型轻松的达到了86%的准确率咯
+    #这个让我在神经网络上面应用似乎看到了希望
+    #所以明天的工作就是神经网络应用以及源代码原理理解。
+    #再然后尝试一下周志华的论文提供的方法不知道是否有用
+    X_split_train = X_train_scaled
+    Y_split_train = Y_train
+    
+    xgb = XGBClassifier()
+    knn = KNeighborsClassifier()  
+    lr = LogisticRegression(penalty='l2')  
+    rfc = RandomForestClassifier(n_estimators=8)
+    
+    sclf1 = StackingCVClassifier(classifiers=[knn, rfc], meta_classifier=xgb)
+    sclf1.fit(X_split_train.values, Y_split_train.values)
+    print("sclf1 on the train dataset.", sclf1.score(X_split_train.values, Y_split_train.values))
+    print("sclf1 on the test dataset.", sclf1.score(X_split_test.values, Y_split_test.values))
+    print()
+    
+    sclf2 = StackingCVClassifier(classifiers=[knn, lr], meta_classifier=xgb)
+    sclf2.fit(X_split_train.values, Y_split_train.values)
+    print("sclf2 on the train dataset.", sclf2.score(X_split_train.values, Y_split_train.values))
+    print("sclf2 on the test dataset.", sclf2.score(X_split_test.values, Y_split_test.values))
+    print()
+    
+    sclf3 = StackingCVClassifier(classifiers=[rfc, lr], meta_classifier=xgb)
+    sclf3.fit(X_split_train.values, Y_split_train.values)
+    print("sclf3 on the train dataset.", sclf3.score(X_split_train.values, Y_split_train.values))
+    print("sclf3 on the test dataset.", sclf3.score(X_split_test.values, Y_split_test.values))
+    print()
+    
+    sclf4 = StackingCVClassifier(classifiers=[lr, knn, rfc], meta_classifier=xgb)
+    sclf4.fit(X_split_train.values, Y_split_train.values)
+    print("sclf4 on the train dataset.", sclf4.score(X_split_train.values, Y_split_train.values))
+    print("sclf4 on the test dataset.", sclf4.score(X_split_test.values, Y_split_test.values))
+    print()
+    
+    sclf5 = XGBClassifier()
+    sclf5.fit(X_split_train.values, Y_split_train.values)
+    print("sclf5 on the train dataset.", sclf5.score(X_split_train.values, Y_split_train.values))
+    print("sclf5 on the test dataset.", sclf5.score(X_split_test.values, Y_split_test.values))
+    print()
+    
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源   
 space = {"title":hp.choice("title", ["titanic"]),
          "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
@@ -904,3 +954,56 @@ weighted_predict()
 # [0.77132498 0.88028218 0.81755854 0.68714978 1.        ]]
 #accuracy on the test dataset is: 0.7932960893854749
 """
+
+"""
+from sklearn import datasets
+iris = datasets.load_iris()
+X, y = iris.data[:, 1:3], iris.target
+
+from sklearn import model_selection
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.naive_bayes import GaussianNB 
+from sklearn.ensemble import RandomForestClassifier
+from mlxtend.classifier import StackingClassifier
+import numpy as np
+
+clf1 = KNeighborsClassifier(n_neighbors=1)
+clf2 = RandomForestClassifier(random_state=1)
+clf3 = GaussianNB()
+lr = LogisticRegression()
+sclf = StackingClassifier(classifiers=[clf1, clf2, clf3], meta_classifier=lr)
+
+sclf.fit(X, y)
+print(X)
+print(len(X))
+print(y)
+print(len(y))
+print(sclf.score(X,y))
+
+sclf.fit(X_split_train.values, Y_split_train.values)
+print(len(X_split_train))
+print(len(Y_split_train))
+print(sclf.score(X_split_train.values, Y_split_train.values))
+"""
+
+#这个实验确实是说明了stacking以后的模型比单模型总体而言
+#通过多次运行程序并比较 sclf4和sclf5可以得到结论：
+#在训练集上稍弱，但是在测试集上稍强且稳定
+#通过多次比较sclf4与sclf1、sclf2、sclf3、sclf4可以得到结论：
+#在训练集上微弱优势，但在测试集上面优势明显，看来无脑加分类器就完事了？
+stacking_predict()
+#sclf1 on the train dataset. 0.8412921348314607
+#sclf1 on the test dataset. 0.8044692737430168
+#
+#sclf2 on the train dataset. 0.8328651685393258
+#sclf2 on the test dataset. 0.7988826815642458
+#
+#sclf3 on the train dataset. 0.8398876404494382
+#sclf3 on the test dataset. 0.8044692737430168
+#
+#sclf4 on the train dataset. 0.8553370786516854
+#sclf4 on the test dataset. 0.8212290502793296
+#
+#sclf5 on the train dataset. 0.8525280898876404
+#sclf5 on the test dataset. 0.8212290502793296

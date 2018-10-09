@@ -269,7 +269,7 @@
         经过安装之后，所有的函数和类都存在于本地，均支持上述的跳转，哪怕安装文件已经被删除。
         我之前还很为hyperopt中的代码无法跳转大伤脑经呢，我就说除了单步调试进入到跳转代码以外应该还有别的办法咯。
   
-      如何升级pip:
+    如何升级pip:
     python -m pip install --upgrade pip
     
     如何安装TPOT的库：
@@ -317,7 +317,10 @@
     cmd中输入conda install tensorflow==1.10.0（这是安装固定版本的语法，可以乱输一个版本反馈可以看到哪些是合法版本）无法解决，恶心死人。
         示例代码中根本没有plot_model之类的东西，大概本来这个库就不支持plot_model吧
         
-    auto_ml的安装
+  auto_ml的安装
             输入pip install auto_ml就完事儿了
+            
+  mlxtend的安装
+            输入pip install mlxtend就完事儿了
             
 """
