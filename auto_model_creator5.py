@@ -17,6 +17,7 @@ import os
 import sys
 import random
 import pickle
+import datetime
 import warnings
 import numpy as np
 import pandas as pd
@@ -738,8 +739,8 @@ def stacking_predict():
     #这个让我在神经网络上面应用似乎看到了希望
     #所以明天的工作就是神经网络应用以及源代码原理理解。
     #再然后尝试一下周志华的论文提供的方法不知道是否有用
-    X_split_train = X_train_scaled
-    Y_split_train = Y_train
+    #X_split_train = X_train_scaled
+    #Y_split_train = Y_train
     
     xgb = XGBClassifier()
     knn = KNeighborsClassifier()  
@@ -775,6 +776,52 @@ def stacking_predict():
     print("sclf5 on the train dataset.", sclf5.score(X_split_train.values, Y_split_train.values))
     print("sclf5 on the test dataset.", sclf5.score(X_split_test.values, Y_split_test.values))
     print()
+    
+#明天上班先实现这个东西再说吧
+def stacking_nn_predict(nodes_list, max_evals):
+    
+    num = len(nodes_list)
+    
+    clf_list = []
+    
+    for i in range(0, num):
+        
+        best_acc = 0.0
+        best_model = 0.0
+        
+        for j in range(0, max_evals):
+            
+            clf = NeuralNetClassifier(lr = nodes_list[i]["lr"],
+                                      optimizer__weight_decay = nodes_list[i]["optimizer__weight_decay"],
+                                      criterion = nodes_list[i]["criterion"],
+                                      batch_size = nodes_list[i]["batch_size"],
+                                      optimizer__betas = nodes_list[i]["optimizer__betas"],
+                                      module = create_module(nodes_list[i]["input_nodes"], nodes_list[i]["hidden_layers"], 
+                                                          nodes_list[i]["hidden_nodes"], nodes_list[i]["output_nodes"], nodes_list[i]["percentage"]),
+                                      max_epochs = nodes_list[i]["max_epochs"],
+                                      callbacks = [skorch.callbacks.EarlyStopping(patience=nodes_list[i]["patience"])],
+                                      device = nodes_list[i]["device"],
+                                      optimizer = nodes_list[i]["optimizer"]
+                                      )
+        
+            init_module(clf.module, nodes_list[i]["weight_mode"], nodes_list[i]["bias"])
+        
+            clf.fit(X_split_train.values.astype(np.float32), Y_split_train.values.astype(np.longlong)) 
+        
+            metric = cal_nnclf_acc(clf, X_split_train, Y_split_train)
+            print_nnclf_acc(metric)
+        
+            best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
+        
+        #将所有的模型搜集起来咯
+        clf_list.append(best_model)
+        
+    meta_clf = clf_list[-1]
+    clf_list.pop()
+    sclf = StackingCVClassifier(classifiers=clf_list, meta_classifier=meta_clf)
+    
+    sclf.fit(X_split_train.values.astype(np.float32), Y_split_train.values.astype(np.longlong))
+    print(sclf.score(X_split_train.values.astype(np.float32), Y_split_train.values.astype(np.longlong)))
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源   
 space = {"title":hp.choice("title", ["titanic"]),
@@ -987,6 +1034,7 @@ print(len(Y_split_train))
 print(sclf.score(X_split_train.values, Y_split_train.values))
 """
 
+"""
 #这个实验确实是说明了stacking以后的模型比单模型总体而言
 #通过多次运行程序并比较 sclf4和sclf5可以得到结论：
 #在训练集上稍弱，但是在测试集上稍强且稳定
@@ -1007,3 +1055,19 @@ stacking_predict()
 #
 #sclf5 on the train dataset. 0.8525280898876404
 #sclf5 on the test dataset. 0.8212290502793296
+"""
+
+start_time = datetime.datetime.now()
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+
+best_params = fmin(nn_f, space, algo=algo, max_evals=5, trials=trials)
+print_best_params_acc(trials)
+
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+
+nodes_list = parse_trials(trials, space_nodes, 3)
+stacking_nn_predict(nodes_list, max_evals=2)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
