@@ -417,6 +417,7 @@ def parse_nodes(trials, space_nodes):
 
     return best_nodes
 
+#我发现了这个程序的一个BUG咯气死我了怪不得没啥好结果
 def parse_trials(trials, space_nodes, num):
     
     trials_list =[]
@@ -424,30 +425,31 @@ def parse_trials(trials, space_nodes, num):
         trials_list.append(item)
     trials_list.sort(key=lambda item: item['result']['loss'])
     
-    nodes = {}
+    #nodes = {}nodes如果在外面那么每次更新之后都是一样的咯
     nodes_list = []
     
     for i in range(0, num):
-        nodes["title"] = space_nodes["title"][trials_list[0]["misc"]["vals"]["title"][0]]
-        nodes["path"] = space_nodes["path"][trials_list[0]["misc"]["vals"]["path"][0]]
-        nodes["mean"] = space_nodes["mean"][trials_list[0]["misc"]["vals"]["mean"][0]]
-        nodes["std"] = space_nodes["std"][trials_list[0]["misc"]["vals"]["std"][0]]
-        nodes["batch_size"] = space_nodes["batch_size"][trials_list[0]["misc"]["vals"]["batch_size"][0]]
-        nodes["criterion"] = space_nodes["criterion"][trials_list[0]["misc"]["vals"]["criterion"][0]]
-        nodes["max_epochs"] = space_nodes["max_epochs"][trials_list[0]["misc"]["vals"]["max_epochs"][0]]
-        nodes["lr"] = space_nodes["lr"][trials_list[0]["misc"]["vals"]["lr"][0]] 
-        nodes["optimizer__betas"] = space_nodes["optimizer__betas"][trials_list[0]["misc"]["vals"]["optimizer__betas"][0]]
-        nodes["optimizer__weight_decay"] = space_nodes["optimizer__weight_decay"][trials_list[0]["misc"]["vals"]["optimizer__weight_decay"][0]]
-        nodes["weight_mode"] = space_nodes["weight_mode"][trials_list[0]["misc"]["vals"]["weight_mode"][0]]
-        nodes["bias"] = space_nodes["bias"][trials_list[0]["misc"]["vals"]["bias"][0]]
-        nodes["patience"] = space_nodes["patience"][trials_list[0]["misc"]["vals"]["patience"][0]]
-        nodes["device"] = space_nodes["device"][trials_list[0]["misc"]["vals"]["device"][0]]
-        nodes["optimizer"] = space_nodes["optimizer"][trials_list[0]["misc"]["vals"]["optimizer"][0]]
-        nodes["input_nodes"] = space_nodes["input_nodes"][trials_list[0]["misc"]["vals"]["input_nodes"][0]]
-        nodes["hidden_layers"] = space_nodes["hidden_layers"][trials_list[0]["misc"]["vals"]["hidden_layers"][0]]
-        nodes["hidden_nodes"] = space_nodes["hidden_nodes"][trials_list[0]["misc"]["vals"]["hidden_nodes"][0]]
-        nodes["output_nodes"] = space_nodes["output_nodes"][trials_list[0]["misc"]["vals"]["output_nodes"][0]]
-        nodes["percentage"] = space_nodes["percentage"][trials_list[0]["misc"]["vals"]["percentage"][0]]
+        nodes = {}
+        nodes["title"] = space_nodes["title"][trials_list[i]["misc"]["vals"]["title"][0]]
+        nodes["path"] = space_nodes["path"][trials_list[i]["misc"]["vals"]["path"][0]]
+        nodes["mean"] = space_nodes["mean"][trials_list[i]["misc"]["vals"]["mean"][0]]
+        nodes["std"] = space_nodes["std"][trials_list[i]["misc"]["vals"]["std"][0]]
+        nodes["batch_size"] = space_nodes["batch_size"][trials_list[i]["misc"]["vals"]["batch_size"][0]]
+        nodes["criterion"] = space_nodes["criterion"][trials_list[i]["misc"]["vals"]["criterion"][0]]
+        nodes["max_epochs"] = space_nodes["max_epochs"][trials_list[i]["misc"]["vals"]["max_epochs"][0]]
+        nodes["lr"] = space_nodes["lr"][trials_list[i]["misc"]["vals"]["lr"][0]] 
+        nodes["optimizer__betas"] = space_nodes["optimizer__betas"][trials_list[i]["misc"]["vals"]["optimizer__betas"][0]]
+        nodes["optimizer__weight_decay"] = space_nodes["optimizer__weight_decay"][trials_list[i]["misc"]["vals"]["optimizer__weight_decay"][0]]
+        nodes["weight_mode"] = space_nodes["weight_mode"][trials_list[i]["misc"]["vals"]["weight_mode"][0]]
+        nodes["bias"] = space_nodes["bias"][trials_list[i]["misc"]["vals"]["bias"][0]]
+        nodes["patience"] = space_nodes["patience"][trials_list[i]["misc"]["vals"]["patience"][0]]
+        nodes["device"] = space_nodes["device"][trials_list[i]["misc"]["vals"]["device"][0]]
+        nodes["optimizer"] = space_nodes["optimizer"][trials_list[i]["misc"]["vals"]["optimizer"][0]]
+        nodes["input_nodes"] = space_nodes["input_nodes"][trials_list[i]["misc"]["vals"]["input_nodes"][0]]
+        nodes["hidden_layers"] = space_nodes["hidden_layers"][trials_list[i]["misc"]["vals"]["hidden_layers"][0]]
+        nodes["hidden_nodes"] = space_nodes["hidden_nodes"][trials_list[i]["misc"]["vals"]["hidden_nodes"][0]]
+        nodes["output_nodes"] = space_nodes["output_nodes"][trials_list[i]["misc"]["vals"]["output_nodes"][0]]
+        nodes["percentage"] = space_nodes["percentage"][trials_list[i]["misc"]["vals"]["percentage"][0]]
         
         nodes_list.append(nodes)
     return nodes_list
@@ -777,7 +779,7 @@ def stacking_predict():
     print("sclf5 on the test dataset.", sclf5.score(X_split_test.values, Y_split_test.values))
     print()
     
-#明天上班先实现这个东西再说吧
+#
 def stacking_nn_predict(nodes_list, max_evals):
     
     num = len(nodes_list)
@@ -1061,13 +1063,14 @@ start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-best_params = fmin(nn_f, space, algo=algo, max_evals=5, trials=trials)
+best_params = fmin(nn_f, space, algo=algo, max_evals=6, trials=trials)
 print_best_params_acc(trials)
 
 best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 
 nodes_list = parse_trials(trials, space_nodes, 3)
-stacking_nn_predict(nodes_list, max_evals=2)
+#stacking_nn_predict(nodes_list, max_evals=2)
+weighted_nn_predict(nodes_list, max_evals=2)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
