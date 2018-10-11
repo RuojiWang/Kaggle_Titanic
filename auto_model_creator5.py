@@ -510,6 +510,7 @@ def predict(best_nodes, max_evals=10):
 #但是模型无论如何还是必须要放在list里面的吧
 #然后加权的细节到底要怎么个加法呢？皮尔逊系数需要计算的嘛？
 #我现在的问题就是想太多以至于现在没办法静下心来完成代码咯
+#我修复了BUG之后测试了一下这个代码，感觉还是存在一些问题的，顶多算个毛坯还需打磨
 def weighted_nn_predict(nodes_list, max_evals=10):
     
     num = len(nodes_list)
@@ -610,8 +611,7 @@ def weighted_nn_predict(nodes_list, max_evals=10):
     count = (test_pred_cnt == Y_split_test).sum()
     test_acc = count/len(Y_split_test)
     print("accuracy on the test dataset is:", test_acc)
-    
-    
+
 #这个版本直接试一哈四个基模型带来的效果
 def weighted_predict(max_evals=10):
     
@@ -734,6 +734,7 @@ def weighted_predict(max_evals=10):
     print("accuracy on the test dataset is:", test_acc)
 
 #我找到了一个stacking的库咯，我感觉这个还挺好用的有点性感咯
+#不过实话实说，这几个模型stacking出来的效果还不如几个神经网络stacking的结果
 def stacking_predict():
     
     #这里使用一个小trick：用局部变量计算全局准确率
@@ -779,7 +780,6 @@ def stacking_predict():
     print("sclf5 on the test dataset.", sclf5.score(X_split_test.values, Y_split_test.values))
     print()
     
-#
 def stacking_nn_predict(nodes_list, max_evals):
     
     num = len(nodes_list)
@@ -823,7 +823,13 @@ def stacking_nn_predict(nodes_list, max_evals):
     sclf = StackingCVClassifier(classifiers=clf_list, meta_classifier=meta_clf)
     
     sclf.fit(X_split_train.values.astype(np.float32), Y_split_train.values.astype(np.longlong))
-    print(sclf.score(X_split_train.values.astype(np.float32), Y_split_train.values.astype(np.longlong)))
+    
+    #好像之前报错是因为不能够调用score造成的,因为这边并没有
+    train_acc = cal_nnclf_acc(sclf, X_split_train, Y_split_train)
+    print_nnclf_acc(train_acc)
+    
+    test_acc = cal_nnclf_acc(sclf, X_split_test, Y_split_test)
+    print_nnclf_acc(test_acc)
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源   
 space = {"title":hp.choice("title", ["titanic"]),
@@ -1060,17 +1066,19 @@ stacking_predict()
 """
 
 start_time = datetime.datetime.now()
+
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-best_params = fmin(nn_f, space, algo=algo, max_evals=6, trials=trials)
+#这里需要注意一下的是，max_evals的取值必须大于nodes_list的数目
+best_params = fmin(nn_f, space, algo=algo, max_evals=10, trials=trials)
 print_best_params_acc(trials)
 
 best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 
 nodes_list = parse_trials(trials, space_nodes, 3)
-#stacking_nn_predict(nodes_list, max_evals=2)
-weighted_nn_predict(nodes_list, max_evals=2)
+stacking_nn_predict(nodes_list, max_evals=4)
+
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
