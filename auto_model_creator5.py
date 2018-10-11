@@ -55,8 +55,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -780,7 +780,7 @@ def stacking_predict():
     print("sclf5 on the test dataset.", sclf5.score(X_split_test.values, Y_split_test.values))
     print()
     
-def stacking_nn_predict(nodes_list, max_evals):
+def stacking_nxgb_predict(nodes_list, max_evals):
     
     num = len(nodes_list)
     
@@ -818,10 +818,11 @@ def stacking_nn_predict(nodes_list, max_evals):
         #将所有的模型搜集起来咯
         clf_list.append(best_model)
         
-    meta_clf = clf_list[-1]
-    clf_list.pop()
-    sclf = StackingCVClassifier(classifiers=clf_list, meta_classifier=meta_clf)
+    xgb = XGBClassifier()
+    sclf = StackingCVClassifier(classifiers=clf_list, meta_classifier=xgb, cv=10)
     
+    #我查了一下stacking的原理，应该是因为涉及到X和Y的类型的问题
+    #现在我能想到的解决方案大致就是两种：改变meta_class，自己写stacking
     sclf.fit(X_split_train.values.astype(np.float32), Y_split_train.values.astype(np.longlong))
     
     #好像之前报错是因为不能够调用score造成的,因为这边并没有
@@ -831,9 +832,20 @@ def stacking_nn_predict(nodes_list, max_evals):
     test_acc = cal_nnclf_acc(sclf, X_split_test, Y_split_test)
     print_nnclf_acc(test_acc)
     
+#OK，现在开始根据下面的链接开始实现具体的
+#http://wulc.me/2018/01/21/stacking%20%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%80%9D%E6%83%B3%E5%8F%8A%E4%BB%A3%E7%A0%81%E5%AE%9E%E7%8E%B0/
+#stacking 的思想很好理解，但是在实现时需要注意不能有泄漏（leak）的情况，也就是说对于训练样本中的每一条数据，基模型输出其结果时并不能用这条数据来训练。
+#否则就是用这条数据来训练，同时用这条数据来测试，这样会造成最终预测时的过拟合现象，即经过stacking后在训练集上进行验证时效果很好，但是在测试集上效果很差。
+#除此之外，用 stacking 或者说 ensemble 这一类方法时还需要注意以下两点：
+#Base Model 之间的相关性要尽可能的小，从而能够互补模型间的优势
+#Base Model 之间的性能表现不能差距太大，太差的模型会拖后腿
+#我的天，这个大概还是要重构一下才能够实现的吧，现成的代码感觉完全不能够直接用于我的神经网络的情况呢。
+def stacking_nn_predict(nodes_list, max_evals):
+    pass
+    
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源   
 space = {"title":hp.choice("title", ["titanic"]),
-         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -876,7 +888,7 @@ space = {"title":hp.choice("title", ["titanic"]),
          }
 
 space_nodes = {"title":["titanic"],
-               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -1065,20 +1077,33 @@ stacking_predict()
 #sclf5 on the test dataset. 0.8212290502793296
 """
 
+"""
+#下面的代码片段总体而言还是有效果的这么小的计算量居然能够这个结果蛮不错的呢
+#the accuracy rate of the model on the whole train dataset is: 0.8595505617977528
+#the accuracy rate of the model on the whole train dataset is: 0.8491620111731844
+#但是这样好像有点过拟合的样子？种种迹象最后给我的反馈都必须是我自己实现stacking的意思罗
+#time cost 0:06:23.237000
 start_time = datetime.datetime.now()
 
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
 #这里需要注意一下的是，max_evals的取值必须大于nodes_list的数目
-best_params = fmin(nn_f, space, algo=algo, max_evals=10, trials=trials)
+best_params = fmin(nn_f, space, algo=algo, max_evals=35, trials=trials)
 print_best_params_acc(trials)
 
 best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 
-nodes_list = parse_trials(trials, space_nodes, 3)
-stacking_nn_predict(nodes_list, max_evals=4)
+nodes_list = parse_trials(trials, space_nodes, 5)
+stacking_nxgb_predict(nodes_list, max_evals=4)
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+"""
+
+"""
+nodes_list =[best_nodes, best_nodes, best_nodes]
+stacking_nxgb_predict(nodes_list, 4)
+"""
+
