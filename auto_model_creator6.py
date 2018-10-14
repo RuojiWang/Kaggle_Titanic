@@ -384,7 +384,7 @@ def nn_f(params):
     
     init_module(clf.module, params["weight_mode"], params["bias"])
     
-    metric = cross_val_score(clf, X_noise_train.astype(np.float32), Y_noise_train.astype(np.longlong), cv=skf, scoring="accuracy").mean()
+    metric = cross_val_score(clf, X_noise_train.values.astype(np.float32), Y_noise_train.values.astype(np.longlong), cv=skf, scoring="accuracy").mean()
     
     print(metric)
     print()    
@@ -548,6 +548,7 @@ def stacking_nn_predict(nodes_list, flods, max_evals):
     #print(final_model1.score(X_split_train, Y_split_train))
     #print(final_model1.score(X_split_valida, Y_split_valida))
 
+    """
     final_model1 = XGBClassifier()
     final_model1.fit(stacked_train, Y_train)
     print(final_model1.score(stacked_train, Y_train))
@@ -556,6 +557,34 @@ def stacking_nn_predict(nodes_list, flods, max_evals):
     final_model2 = LogisticRegression()
     final_model2.fit(stacked_train, Y_train)
     print(final_model2.score(stacked_train, Y_train))
+    """
+    
+    #重复几次选择一个靠谱的模型
+    best_acc = 0.0
+    best_model = 0.0
+    for j in range(0, max_evals):
+        
+        clf = NeuralNetClassifier(lr = nodes_list[0]["lr"],
+                                  optimizer__weight_decay = nodes_list[0]["optimizer__weight_decay"],
+                                  criterion = nodes_list[0]["criterion"],
+                                  batch_size = nodes_list[0]["batch_size"],
+                                  optimizer__betas = nodes_list[0]["optimizer__betas"],
+                                  module = create_module(len(nodes_list), nodes_list[0]["hidden_layers"], 
+                                                         nodes_list[0]["hidden_nodes"], nodes_list[0]["output_nodes"], nodes_list[0]["percentage"]),
+                                  max_epochs = nodes_list[0]["max_epochs"],
+                                  callbacks=[skorch.callbacks.EarlyStopping(patience=nodes_list[0]["patience"])],
+                                  device = nodes_list[0]["device"],
+                                  optimizer = nodes_list[0]["optimizer"]
+                                 )
+        init_module(clf.module, nodes_list[0]["weight_mode"], nodes_list[0]["bias"])
+        clf.fit(stacked_train.astype(np.float32), Y_train.values.astype(np.longlong))
+            
+        metric = cal_nnclf_acc(clf, stacked_train, Y_train.values)
+        print_nnclf_acc(metric)
+        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
+    
+    metric = cal_nnclf_acc(best_model, stacked_train, Y_train.values)
+    print_nnclf_acc(metric)
     
     return test_prediction
     
@@ -668,19 +697,20 @@ best_nodes = {"title":"titanic",
               "optimizer":torch.optim.Adam
               }
 
-
+#从现在的结果看来应该是最后输出模型的问题咯
 start_time = datetime.datetime.now()
 
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-best_params = fmin(nn_f, space, algo=algo, max_evals=10, trials=trials)
+best_params = fmin(nn_f, space, algo=algo, max_evals=30, trials=trials)
 print_best_params_acc(trials)
 
 best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 
-nodes_list = parse_trials(trials, space_nodes, 3)
+nodes_list = parse_trials(trials, space_nodes, 5)
+stacking_nn_predict(nodes_list, 5, 10)
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
