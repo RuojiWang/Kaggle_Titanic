@@ -1,13 +1,4 @@
 #coding=utf-8
-#这个版本的代码就是自己实现了一个版本的stacking解决了之前的问题但是效果不够好
-#在尝试过一些方案之后我发现现在的stacking代码存在问题：
-#自己实现的stacking的结果非常不理想，原因可能在于节点很相似并且meta_class没有进行过超参搜索
-#我自己尝试使用过一些不同的节点以及配上了不同的meta_class结果并不理想
-#我觉得问题最大概率是出现在了meta_class没有进行过超参搜索的缘故
-#我现在觉得很头疼的问题就是meta_class是否需要进行超参搜索，不搜索的话性能真的很低的样子耶。。
-#那么现在就实现一个带参数搜索的重构版本的代码吧
-#我在想这些东西实现以后我需要做什么事情呢，难道就是一次运算无脑不在修改的意思吗？我觉得不可能吧
-#但是我觉得stacking这些工具应该是必须的吧，之后只有看论文以及kaggle资料学习新的东西咯
 import os
 import sys
 import random
@@ -46,6 +37,10 @@ from hyperopt import fmin, tpe, hp, space_eval, rand, Trials, partial, STATUS_OK
 from xgboost import XGBClassifier
 
 from mlxtend.classifier import StackingCVClassifier
+#下面的这个kfold是实现k折交叉的功能，返回每次的indice，可以设置为shuffle但默认未设
+#然后这个StratifiedKFold是返回k折交叉的迭代器，每次通过迭代器返回结果，可以设置为shuffle
+#两者的区别在于前者返回indice或者索引列表后者直接返回迭代器，虽然我这一份代码两种方式都有但是让他们并存吧
+#from sklearn.model_selection import KFold,StratifiedKFold
 
 warnings.filterwarnings('ignore')
 
@@ -186,25 +181,6 @@ X_all_scaled = pd.DataFrame(preprocessing.scale(X_all), columns = X_train.column
 X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
 
-"""
-#好像暂时不需要用到这个东西咯
-#X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.2)
-X_train_scaled = X_train_scaled.values
-Y_train = Y_train.values
-
-#MMP真的没看懂别人的stacking的代码，虽然我觉得自己懂逻辑还是运行一下吧
-#主要就是一些代码的细节不是很清楚应该运行一下就可以了吧
-KF = KFold(n_splits = 5, shuffle=True, random_state=None)
-#原来这边split的是数据集的index，而且现在的代码是没有shuffle的，我打开了
-for i, (train_index, val_index) in enumerate(KF.split(X_train_scaled)):
-    print('{0} fold, train {1}, val {2}'.format(i, len(train_index), len(val_index)))
-    #下面的用法是通过indice然后获得一个数据集的做法，KFold可以直接得到stacking的数据咯
-    #执行下面的代码的时候出现了KeyError:[0,1,2,3..] not in index.的错误
-    #好像是因为没有X_train_scaled数据不是np.ndarray的数据格式造成的吧
-    x_tra, y_tra = X_train_scaled[train_index], Y_train[train_index]
-    x_val, y_val = X_train_scaled[val_index], Y_train[val_index]
-"""
-
 def cal_nnclf_acc(clf, X_train, Y_train):
     
     Y_train_pred = clf.predict(X_train.astype(np.float32))
@@ -306,15 +282,6 @@ def create_module(input_nodes, hidden_layers, hidden_nodes, output_nodes, percen
     
     return model
 
-"""
-#运行一下下面的程序看看输出就知道程序到底是咋回事儿了
-#我勒个去，刚才一直没搞懂是啥情况呢。
-def init_module(clf, weight_mode, bias):
-    
-    for name, params in clf.named_parameters():
-        print(name)
-        print(params.size())
-"""
 def init_module(clf, weight_mode, bias):
     
     for name, params in clf.named_parameters():
@@ -356,6 +323,13 @@ def noise_augment_data(mean, std, X_train, Y_train, columns):
 
     return X_noise_train, Y_train
 
+#我有时候再想这个超参是不是有的时候应该重复两次以避免漏掉最佳的超参？？
+#或者我换个角度看待这个问题：即便是这个超参是全局最优但是太容易出问题也不行吧
+#所以从这个角度出发的话，我觉得用这种方式代表超参其实也是有道理的吧。
+#OK，现在新的问题又产生了，现在的问题是：nn_f的函数不支持传递参数
+#为了支持两次超参搜索现在有两种方式实现一种方式是写两个类似nn_f的函数，
+#还有一种方式是在执行nn_f之前将其训练集的变量指向另外一个训练集就vans了
+#我觉得从代码的维护性等方面来说应该后一种方式是更恰当的方式吧，反正也需要重构代码咯
 def nn_f(params):
     
     print("mean", params["mean"])
@@ -470,9 +444,8 @@ def parse_trials(trials, space_nodes, num):
         nodes_list.append(nodes)
     return nodes_list
 
-#其实看了下面的这个代码http://wulc.me/2018/01/21/stacking%20%E7%9A%84%E5%9F%BA%E6%9C%AC%E6%80%9D%E6%83%B3%E5%8F%8A%E4%BB%A3%E7%A0%81%E5%AE%9E%E7%8E%B0/
-#我觉得我只需要实现get_oof的代码就行了，其余的部分不是很需要的吧，而且他实现的代码感觉有点怪怪的，这样子的话还如何进行stacking呢？
-#上面网址的代码是没有问题的，因为上面其实是采用了两层的stacking实现的程序，我在考虑是不是应该用更多层的stacking取得更好效果？？
+def  get_trained_nn
+
 def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
     
     """K-fold stacking"""
@@ -524,8 +497,6 @@ def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_eval
         oof_test_all_fold[:, i] = clf.predict(X_test_scaled.astype(np.float32))
         
     oof_test = np.mean(oof_test_all_fold, axis=1)
-    #print('all aucs {0}, average {1}'.format(train_acc, np.mean(train_acc)))
-    #print('all aucs {0}, average {1}'.format(valida_acc, np.mean(valida_acc)))
     
     return oof_train, oof_test, clf
 
@@ -543,20 +514,6 @@ def stacking_nn_predict(nodes_list, flods, max_evals):
     stacked_train = np.concatenate([f.reshape(-1, 1) for f in input_train], axis=1)
     stacked_test = np.concatenate([f.reshape(-1, 1) for f in input_test], axis=1)
     
-    #原来stacking的最后一层模型的尺寸都不一样的
-    #如果这么说的话，我可能错怪了前面的mlxtend库了
-    #但是我还是想在最后一层使用神经网络的模型呢。。那这就是超参搜索了耶。。
-    #所以最大的收获就是我知道了实现stacking的原理和细节咯
-    #以及我还查到了blending的过程和原理及其与stacking的区别咯
-    #顺带一个副产物就是收获了利用原来的mlxtend代码的方法咯= =！
-    #n = int(stacked_train.shape[0] * 0.8)
-    #X_split_train, Y_split_train = stacked_train[:n], Y_train[:n]
-    #X_split_valida, Y_split_valida = stacked_train[n:], Y_train[n:]
-    #final_model1 = XGBClassifier()
-    #final_model1.fit(X_split_train, Y_split_train)
-    #print(final_model1.score(X_split_train, Y_split_train))
-    #print(final_model1.score(X_split_valida, Y_split_valida))
-
     """
     final_model1 = XGBClassifier()
     final_model1.fit(stacked_train, Y_train)

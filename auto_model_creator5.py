@@ -13,6 +13,8 @@
 #还尼玛可以从提交的历史文件中通过投票的办法选择最佳的模型呢。。
 #我现在准备做的事情就是基于目前的神经网络超参搜索实现一次stacking
 #如果不理想那么再尝试使用皮尔逊相关系数去解决这个问题咯
+#最后使用了一下mlxtend的stacking技术，因为大致两个问题我不能直接使用mlxtend
+#第一个问题：是输入不匹配后来才知道是尺寸不匹配的问题。第二个问题：网络不稳定不能只有一次
 import os
 import sys
 import random
@@ -1106,4 +1108,3 @@ print("time cost", (end_time - start_time))
 nodes_list =[best_nodes, best_nodes, best_nodes]
 stacking_nxgb_predict(nodes_list, 4)
 """
-
