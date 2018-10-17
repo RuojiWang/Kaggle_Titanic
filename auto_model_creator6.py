@@ -8,6 +8,8 @@
 #那么现在就实现一个带参数搜索的重构版本的代码吧
 #我在想这些东西实现以后我需要做什么事情呢，难道就是一次运算无脑不在修改的意思吗？我觉得不可能吧
 #但是我觉得stacking这些工具应该是必须的吧，之后只有看论文以及kaggle资料学习新的东西咯
+#后来我在这个版本的代码中发现了一个BUG，所以怪不得当时的效果那么差，等我把BUG检查完了之后
+#再次进行计算看看计算结果是否有所提升，然后就准备开始完成auto_model_creator7.py的代码咯
 import os
 import sys
 import random
@@ -52,8 +54,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -560,6 +562,8 @@ def nn_stacking_predict(nodes_list, flods, max_evals):
     #print(final_model1.score(X_split_train, Y_split_train))
     #print(final_model1.score(X_split_valida, Y_split_valida))
 
+    #这里使用的xgb效果肯定是比lr要好一些的但是还是不够理想
+    #我觉得采用神经网络的方法肯定能够取得更好的效果吧
     final_model1 = XGBClassifier()
     final_model1.fit(stacked_train, Y_train)
     print(final_model1.score(stacked_train, Y_train))
@@ -571,6 +575,7 @@ def nn_stacking_predict(nodes_list, flods, max_evals):
     
     """
     #重复几次选择一个靠谱的模型
+    #这个大概没有进行过超参搜索所以有点弱
     best_acc = 0.0
     best_model = 0.0
     for j in range(0, 200):
@@ -596,12 +601,12 @@ def nn_stacking_predict(nodes_list, flods, max_evals):
     
     metric = cal_nnclf_acc(best_model, stacked_train, Y_train.values)
     print_nnclf_acc(metric)
-    """
     #return test_prediction
+    """
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源   
 space = {"title":hp.choice("title", ["titanic"]),
-         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -644,7 +649,7 @@ space = {"title":hp.choice("title", ["titanic"]),
          }
 
 space_nodes = {"title":["titanic"],
-               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -708,13 +713,14 @@ best_nodes = {"title":"titanic",
               "optimizer":torch.optim.Adam
               }
 
-"""
+
 #从现在的结果看来应该是最后输出模型的问题咯
 #因为前面的模型输出效果都是挺好的准确率挺高的
 #我之前还在担心超参搜索的时候使用了所有的数据集
 #我使用所有的数据集只是选择超参但是模型训练
 #并没有用所有数据集所以不用担心过拟合的问题咯
 #现在这个问题最理想的解决方案可能只有一种了，就进行两次超参搜索咯
+#OK，修改了get_oof函数中的BUG之后可以看到结果还是有所提升的。。
 start_time = datetime.datetime.now()
 
 trials = Trials()
@@ -731,10 +737,13 @@ nn_stacking_predict(nodes_list, 5, 10)
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
-"""
 
+
+"""
 #现在下面的代码通过了测试了，但是结果很一般我觉得还不如单模型
 #至于原因的话，可能是因为节点很相似，而且最后输出层模型很一般
 #所以先试一下改变一下节点的结构呢，最后肯定还是需要采用神经网络模型的
+#自从修改了get_oof中的BUG以后似乎是得到了较好的结果但是好像也就这样吧。。
 nodes_list =[best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
 nn_stacking_predict(nodes_list, 5, 5)
+"""

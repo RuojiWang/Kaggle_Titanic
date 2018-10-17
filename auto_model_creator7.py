@@ -508,7 +508,7 @@ def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_eval
     
     return oof_train, oof_test, best_model
 
-def nn_stacking_predict(nodes_list, flods, max_evals):
+def stack_features(nodes_list, flods, max_evals):
     
     input_train = [] 
     input_test = []
@@ -522,15 +522,60 @@ def nn_stacking_predict(nodes_list, flods, max_evals):
     stacked_train = np.concatenate([f.reshape(-1, 1) for f in input_train], axis=1)
     stacked_test = np.concatenate([f.reshape(-1, 1) for f in input_test], axis=1)
       
-    nn_model_train(nodes, X_train_scaled, Y_train, max_evals)
+    return stacked_train, stacked_test
+ 
+def stacking_nn_predict(best_nodes, stacked_train, Y_train, stacked_test, max_evals=10):
     
-    metric = cal_nnclf_acc(best_model, stacked_train, Y_train.values)
-    print_nnclf_acc(metric)
+    best_acc = 0.0
+    best_model = 0.0
+
+    #我已经将这份代码的best_nodes["title"]改为stacked_titanic
+    if (exist_files(best_nodes["title"])):
+        best_model = load_best_model(best_nodes["title"])
+        best_acc = cal_nnclf_acc(best_model, X_train_scaled, Y_train)
+         
+    for i in range(0, max_evals):
+        
+        print(str(i+1)+"/"+str(max_evals)+" prediction progress have been made.")
+        
+        clf = NeuralNetClassifier(lr = best_nodes["lr"],
+                                  optimizer__weight_decay = best_nodes["optimizer__weight_decay"],
+                                  criterion = best_nodes["criterion"],
+                                  batch_size = best_nodes["batch_size"],
+                                  optimizer__betas = best_nodes["optimizer__betas"],
+                                  module = create_module(best_nodes["input_nodes"], best_nodes["hidden_layers"], 
+                                                          best_nodes["hidden_nodes"], best_nodes["output_nodes"], best_nodes["percentage"]),
+                                  max_epochs = best_nodes["max_epochs"],
+                                  callbacks = [skorch.callbacks.EarlyStopping(patience=best_nodes["patience"])],
+                                  device = best_nodes["device"],
+                                  optimizer = best_nodes["optimizer"]
+                                  )
+        
+        init_module(clf.module, best_nodes["weight_mode"], best_nodes["bias"])
+        
+        clf.fit(X_train_scaled.values.astype(np.float32), Y_train.values.astype(np.longlong)) 
+        
+        metric = cal_nnclf_acc(clf, X_train_scaled, Y_train)
+        print_nnclf_acc(metric)
+        
+        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
     
-    #return test_prediction
-    
+        if (flag):
+            #这个版本的best_model终于是全局的版本咯，真是开森呢。。
+            save_best_model(best_model, best_nodes["title"])
+            Y_pred = best_model.predict(X_test_scaled.values.astype(np.float32))
+            
+            data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
+            output = pd.DataFrame(data = data)
+            
+            output.to_csv(best_nodes["path"], index=False)
+            print("prediction file has been written.")
+        print()
+     
+    print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
+       
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源   
-space = {"title":hp.choice("title", ["titanic"]),
+space = {"title":hp.choice("title", ["stacked_titanic"]),
          "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
@@ -573,7 +618,7 @@ space = {"title":hp.choice("title", ["titanic"]),
          "optimizer":hp.choice("optimizer", [torch.optim.Adam])
          }
 
-space_nodes = {"title":["titanic"],
+space_nodes = {"title":["stacked_titanic"],
                "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
@@ -616,7 +661,7 @@ space_nodes = {"title":["titanic"],
 
 #其实本身不需要best_nodes主要是为了快速测试
 #不然每次超参搜索的best_nodes效率太低了吧
-best_nodes = {"title":"titanic",
+best_nodes = {"title":"stacked_titanic",
               "path":"path",
               "mean":0,
               "std":0.1,
@@ -649,16 +694,28 @@ start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
+#第一次超参搜索搜索每层stacking的最佳结构超参
 X_train_f = X_train_scaled
 Y_train_f = Y_train
 best_params = fmin(nn_f, space, algo=algo, max_evals=30, trials=trials)
 print_best_params_acc(trials)
 
-best_nodes = parse_nodes(trials, space_nodes)
-save_inter_params(trials, space_nodes, best_nodes, "titanic")
-
+#将获得的结构超参数据进行stacking获得新特征
+#best_nodes = parse_nodes(trials, space_nodes)
 nodes_list = parse_trials(trials, space_nodes, 5)
-nn_stacking_predict(nodes_list, 5, 10)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+stacked_train, stacked_test = stack_features(nodes_list, 5, 10)
+
+#对获得的新特征进行超参搜索选择结构
+stacked_trials = Trials()
+#这里进行一次特征缩放说不定效果更好呢
+X_train_f = stacked_train
+Y_train_f = Y_train
+best_stacked_params = fmin(nn_f, space, algo=algo, max_evals=30, trials=stacked_trials)
+print_best_params_acc(stacked_trials)
+best_nodes = parse_nodes(stacked_trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "stacked_titanic")
+
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
