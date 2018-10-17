@@ -1,4 +1,7 @@
 #coding=utf-8
+#这个版本应该就是实现两次的超参搜索了吧
+#如果真的实现两次超参搜索应该结果会有所提升的吧
+#所以我准备在这个版本里面重构代码实现两次超参搜索咯
 import os
 import sys
 import random
@@ -348,7 +351,7 @@ def nn_f(params):
     print("output_nodes", params["output_nodes"])
     print("percentage", params["percentage"])
         
-    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], X_train_scaled, Y_train, columns=[3, 4, 5, 6, 7, 8])
+    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], X_train_f, Y_train_f, columns=[3, 4, 5, 6, 7, 8])
     
     clf = NeuralNetClassifier(lr = params["lr"],
                               optimizer__weight_decay = params["optimizer__weight_decay"],
@@ -444,7 +447,34 @@ def parse_trials(trials, space_nodes, num):
         nodes_list.append(nodes)
     return nodes_list
 
-def  get_trained_nn
+def nn_model_train(nodes, X_train_scaled, Y_train, max_evals=5):
+    
+    #由于神经网络模型初始化、dropout等的问题导致网络不够稳定
+    #解决这个问题的办法就是多重复计算几次，选择其中靠谱的模型
+    best_acc = 0.0
+    best_model = 0.0
+    for j in range(0, max_evals):
+        
+        clf = NeuralNetClassifier(lr = nodes["lr"],
+                                  optimizer__weight_decay = nodes["optimizer__weight_decay"],
+                                  criterion = nodes["criterion"],
+                                  batch_size = nodes["batch_size"],
+                                  optimizer__betas = nodes["optimizer__betas"],
+                                  module = create_module(nodes["input_nodes"], nodes["hidden_layers"], 
+                                                         nodes["hidden_nodes"], nodes["output_nodes"], nodes["percentage"]),
+                                  max_epochs = nodes["max_epochs"],
+                                  callbacks=[skorch.callbacks.EarlyStopping(patience=nodes["patience"])],
+                                  device = nodes["device"],
+                                  optimizer = nodes["optimizer"]
+                                  )
+        init_module(clf.module, nodes["weight_mode"], nodes["bias"])
+        clf.fit(X_train_scaled.astype(np.float32), Y_train.astype(np.longlong))
+            
+        metric = cal_nnclf_acc(clf, X_train_scaled, Y_train)
+        print_nnclf_acc(metric)
+        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)        
+    
+    return best_model, best_acc
 
 def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
     
@@ -462,29 +492,7 @@ def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_eval
         X_split_train, Y_split_train = X_train_scaled[train_index], Y_train[train_index]
         X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
         
-        #重复几次选择一个靠谱的模型
-        best_acc = 0.0
-        best_model = 0.0
-        for j in range(0, max_evals):
-        
-            clf = NeuralNetClassifier(lr = nodes["lr"],
-                                      optimizer__weight_decay = nodes["optimizer__weight_decay"],
-                                      criterion = nodes["criterion"],
-                                      batch_size = nodes["batch_size"],
-                                      optimizer__betas = nodes["optimizer__betas"],
-                                      module = create_module(nodes["input_nodes"], nodes["hidden_layers"], 
-                                                             nodes["hidden_nodes"], nodes["output_nodes"], nodes["percentage"]),
-                                      max_epochs = nodes["max_epochs"],
-                                      callbacks=[skorch.callbacks.EarlyStopping(patience=nodes["patience"])],
-                                      device = nodes["device"],
-                                      optimizer = nodes["optimizer"]
-                                      )
-            init_module(clf.module, nodes["weight_mode"], nodes["bias"])
-            clf.fit(X_split_train.astype(np.float32), Y_split_train.astype(np.longlong))
-            
-            metric = cal_nnclf_acc(clf, X_split_train, Y_split_train)
-            print_nnclf_acc(metric)
-            best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
+        best_model, best_acc, flag = nn_model_train(nodes, X_split_train, Y_split_train, max_evals)
             
         acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
         print_nnclf_acc(acc1)
@@ -493,14 +501,14 @@ def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_eval
         print_nnclf_acc(acc2)
         valida_acc.append(acc2)
         
-        oof_train[valida_index] = clf.predict(X_split_valida.astype(np.float32))
-        oof_test_all_fold[:, i] = clf.predict(X_test_scaled.astype(np.float32))
+        oof_train[valida_index] = best_model.predict(X_split_valida.astype(np.float32))
+        oof_test_all_fold[:, i] = best_model.predict(X_test_scaled.astype(np.float32))
         
     oof_test = np.mean(oof_test_all_fold, axis=1)
     
-    return oof_train, oof_test, clf
+    return oof_train, oof_test, best_model
 
-def stacking_nn_predict(nodes_list, flods, max_evals):
+def nn_stacking_predict(nodes_list, flods, max_evals):
     
     input_train = [] 
     input_test = []
@@ -513,41 +521,8 @@ def stacking_nn_predict(nodes_list, flods, max_evals):
     
     stacked_train = np.concatenate([f.reshape(-1, 1) for f in input_train], axis=1)
     stacked_test = np.concatenate([f.reshape(-1, 1) for f in input_test], axis=1)
-    
-    """
-    final_model1 = XGBClassifier()
-    final_model1.fit(stacked_train, Y_train)
-    print(final_model1.score(stacked_train, Y_train))
-    test_prediction = final_model1.predict(stacked_test)
-    
-    final_model2 = LogisticRegression()
-    final_model2.fit(stacked_train, Y_train)
-    print(final_model2.score(stacked_train, Y_train))
-    """
-    
-    #重复几次选择一个靠谱的模型
-    best_acc = 0.0
-    best_model = 0.0
-    for j in range(0, 200):
-        
-        clf = NeuralNetClassifier(lr = nodes_list[0]["lr"],
-                                  optimizer__weight_decay = nodes_list[0]["optimizer__weight_decay"],
-                                  criterion = nodes_list[0]["criterion"],
-                                  batch_size = nodes_list[0]["batch_size"],
-                                  optimizer__betas = nodes_list[0]["optimizer__betas"],
-                                  module = create_module(len(nodes_list), nodes_list[0]["hidden_layers"], 
-                                                         nodes_list[0]["hidden_nodes"], nodes_list[0]["output_nodes"], nodes_list[0]["percentage"]),
-                                  max_epochs = nodes_list[0]["max_epochs"],
-                                  callbacks=[skorch.callbacks.EarlyStopping(patience=nodes_list[0]["patience"])],
-                                  device = nodes_list[0]["device"],
-                                  optimizer = nodes_list[0]["optimizer"]
-                                 )
-        init_module(clf.module, nodes_list[0]["weight_mode"], nodes_list[0]["bias"])
-        clf.fit(stacked_train.astype(np.float32), Y_train.values.astype(np.longlong))
-            
-        metric = cal_nnclf_acc(clf, stacked_train, Y_train.values)
-        print_nnclf_acc(metric)
-        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
+      
+    nn_model_train(nodes, X_train_scaled, Y_train, max_evals)
     
     metric = cal_nnclf_acc(best_model, stacked_train, Y_train.values)
     print_nnclf_acc(metric)
@@ -663,7 +638,6 @@ best_nodes = {"title":"titanic",
               "optimizer":torch.optim.Adam
               }
 
-"""
 #从现在的结果看来应该是最后输出模型的问题咯
 #因为前面的模型输出效果都是挺好的准确率挺高的
 #我之前还在担心超参搜索的时候使用了所有的数据集
@@ -675,6 +649,8 @@ start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
+X_train_f = X_train_scaled
+Y_train_f = Y_train
 best_params = fmin(nn_f, space, algo=algo, max_evals=30, trials=trials)
 print_best_params_acc(trials)
 
@@ -682,14 +658,7 @@ best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 
 nodes_list = parse_trials(trials, space_nodes, 5)
-stacking_nn_predict(nodes_list, 5, 10)
+nn_stacking_predict(nodes_list, 5, 10)
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
-"""
-
-#现在下面的代码通过了测试了，但是结果很一般我觉得还不如单模型
-#至于原因的话，可能是因为节点很相似，而且最后输出层模型很一般
-#所以先试一下改变一下节点的结构呢，最后肯定还是需要采用神经网络模型的
-nodes_list =[best_nodes, best_nodes, best_nodes]
-stacking_nn_predict(nodes_list, 5, 5)

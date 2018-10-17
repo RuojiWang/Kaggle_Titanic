@@ -520,16 +520,19 @@ def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_eval
         print_nnclf_acc(acc2)
         valida_acc.append(acc2)
         
-        oof_train[valida_index] = clf.predict(X_split_valida.astype(np.float32))
-        oof_test_all_fold[:, i] = clf.predict(X_test_scaled.astype(np.float32))
+        #我在auto_model_creator7.py进行重构的时候发现的这个BUG
+        #这边居然没有用best_model怪不得出来的结果那么差的吗。。
+        #我现在将这个问题修复咯，在运行一下看看是否能够取得好效果
+        oof_train[valida_index] = best_model.predict(X_split_valida.astype(np.float32))
+        oof_test_all_fold[:, i] = best_model.predict(X_test_scaled.astype(np.float32))
         
     oof_test = np.mean(oof_test_all_fold, axis=1)
     #print('all aucs {0}, average {1}'.format(train_acc, np.mean(train_acc)))
     #print('all aucs {0}, average {1}'.format(valida_acc, np.mean(valida_acc)))
     
-    return oof_train, oof_test, clf
+    return oof_train, oof_test, best_model
 
-def stacking_nn_predict(nodes_list, flods, max_evals):
+def nn_stacking_predict(nodes_list, flods, max_evals):
     
     input_train = [] 
     input_test = []
@@ -557,7 +560,6 @@ def stacking_nn_predict(nodes_list, flods, max_evals):
     #print(final_model1.score(X_split_train, Y_split_train))
     #print(final_model1.score(X_split_valida, Y_split_valida))
 
-    """
     final_model1 = XGBClassifier()
     final_model1.fit(stacked_train, Y_train)
     print(final_model1.score(stacked_train, Y_train))
@@ -566,8 +568,8 @@ def stacking_nn_predict(nodes_list, flods, max_evals):
     final_model2 = LogisticRegression()
     final_model2.fit(stacked_train, Y_train)
     print(final_model2.score(stacked_train, Y_train))
-    """
     
+    """
     #重复几次选择一个靠谱的模型
     best_acc = 0.0
     best_model = 0.0
@@ -594,7 +596,7 @@ def stacking_nn_predict(nodes_list, flods, max_evals):
     
     metric = cal_nnclf_acc(best_model, stacked_train, Y_train.values)
     print_nnclf_acc(metric)
-    
+    """
     #return test_prediction
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源   
@@ -725,7 +727,7 @@ best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 
 nodes_list = parse_trials(trials, space_nodes, 5)
-stacking_nn_predict(nodes_list, 5, 10)
+nn_stacking_predict(nodes_list, 5, 10)
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
@@ -734,5 +736,5 @@ print("time cost", (end_time - start_time))
 #现在下面的代码通过了测试了，但是结果很一般我觉得还不如单模型
 #至于原因的话，可能是因为节点很相似，而且最后输出层模型很一般
 #所以先试一下改变一下节点的结构呢，最后肯定还是需要采用神经网络模型的
-nodes_list =[best_nodes, best_nodes, best_nodes]
-stacking_nn_predict(nodes_list, 5, 5)
+nodes_list =[best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+nn_stacking_predict(nodes_list, 5, 5)
