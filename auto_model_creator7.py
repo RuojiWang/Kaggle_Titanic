@@ -13,6 +13,8 @@ import pandas as pd
 from astropy.modeling.tests.test_models import create_model
 from networkx.readwrite.json_graph.node_link import node_link_data
 from xgboost.sklearn import XGBClassifier
+from idlelib import stackviewer
+
 sys.path.append("D:\\Workspace\\Titanic")
 
 from sklearn import preprocessing
@@ -333,6 +335,7 @@ def noise_augment_data(mean, std, X_train, Y_train, columns):
 #为了支持两次超参搜索现在有两种方式实现一种方式是写两个类似nn_f的函数，
 #还有一种方式是在执行nn_f之前将其训练集的变量指向另外一个训练集就vans了
 #我觉得从代码的维护性等方面来说应该后一种方式是更恰当的方式吧，反正也需要重构代码咯
+#但是由于这边增加噪声的情况下，所以nn_f并不能够实现通用，看来最后还是要写两份呀
 def nn_f(params):
     
     print("mean", params["mean"])
@@ -359,6 +362,50 @@ def nn_f(params):
                               batch_size = params["batch_size"],
                               optimizer__betas = params["optimizer__betas"],
                               module = create_module(params["input_nodes"], params["hidden_layers"], 
+                                                      params["hidden_nodes"], params["output_nodes"], params["percentage"]),
+                              max_epochs = params["max_epochs"],
+                              callbacks=[skorch.callbacks.EarlyStopping(patience=params["patience"])],
+                              device = params["device"],
+                              optimizer = params["optimizer"]
+                              )
+    
+    skf = StratifiedKFold(Y_noise_train, n_folds=5, shuffle=True, random_state=None)
+    
+    init_module(clf.module, params["weight_mode"], params["bias"])
+    
+    metric = cross_val_score(clf, X_noise_train.values.astype(np.float32), Y_noise_train.values.astype(np.longlong), cv=skf, scoring="accuracy").mean()
+    
+    print(metric)
+    print()    
+    return -metric
+
+def nn_stacking_f(params):
+    
+    print("mean", params["mean"])
+    print("std", params["std"])
+    print("lr", params["lr"])
+    print("optimizer__weight_decay", params["optimizer__weight_decay"])
+    print("criterion", params["criterion"])
+    print("batch_size", params["batch_size"])
+    print("optimizer__betas", params["optimizer__betas"])
+    print("bias", params["bias"])
+    print("weight_mode", params["weight_mode"])
+    print("patience", params["patience"])
+    print("input_nodes", params["input_nodes"])
+    print("hidden_layers", params["hidden_layers"])
+    print("hidden_nodes", params["hidden_nodes"])
+    print("output_nodes", params["output_nodes"])
+    print("percentage", params["percentage"])
+    
+    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[0])
+    
+    clf = NeuralNetClassifier(lr = params["lr"],
+                              optimizer__weight_decay = params["optimizer__weight_decay"],
+                              criterion = params["criterion"],
+                              batch_size = params["batch_size"],
+                              optimizer__betas = params["optimizer__betas"],
+                              #为了不再重新创建space,space_nodes就用下面的写法吧
+                              module = create_module(X_noise_train.columns.size, params["hidden_layers"], 
                                                       params["hidden_nodes"], params["output_nodes"], params["percentage"]),
                               max_epochs = params["max_epochs"],
                               callbacks=[skorch.callbacks.EarlyStopping(patience=params["patience"])],
@@ -447,7 +494,7 @@ def parse_trials(trials, space_nodes, num):
         nodes_list.append(nodes)
     return nodes_list
 
-def nn_model_train(nodes, X_train_scaled, Y_train, max_evals=5):
+def nn_model_train(nodes, X_train_scaled, Y_train, max_evals=10):
     
     #由于神经网络模型初始化、dropout等的问题导致网络不够稳定
     #解决这个问题的办法就是多重复计算几次，选择其中靠谱的模型
@@ -492,7 +539,7 @@ def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_eval
         X_split_train, Y_split_train = X_train_scaled[train_index], Y_train[train_index]
         X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
         
-        best_model, best_acc, flag = nn_model_train(nodes, X_split_train, Y_split_train, max_evals)
+        best_model, best_acc = nn_model_train(nodes, X_split_train, Y_split_train, max_evals)
             
         acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
         print_nnclf_acc(acc1)
@@ -508,34 +555,38 @@ def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_eval
     
     return oof_train, oof_test, best_model
 
-def stack_features(nodes_list, flods, max_evals):
+def stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, flods, max_evals):
     
     input_train = [] 
     input_test = []
     nodes_num = len(nodes_list)
     
     for i in range(0, nodes_num):
-        oof_train, oof_test, clf= get_oof(nodes_list[i], X_train_scaled.values, Y_train.values, X_test_scaled.values, flods, max_evals)
+        oof_train, oof_test, best_model= get_oof(nodes_list[i], X_train_scaled.values, Y_train.values, X_test_scaled.values, flods, max_evals)
         input_train.append(oof_train)
         input_test.append(oof_test)
     
     stacked_train = np.concatenate([f.reshape(-1, 1) for f in input_train], axis=1)
     stacked_test = np.concatenate([f.reshape(-1, 1) for f in input_test], axis=1)
-      
+    
+    stacked_train = pd.DataFrame(stacked_train)
+    stacked_test = pd.DataFrame(stacked_test)
     return stacked_train, stacked_test
- 
-def stacking_nn_predict(best_nodes, stacked_train, Y_train, stacked_test, max_evals=10):
+
+def nn_stacking_predict(best_nodes, stacked_train, Y_train, stacked_test, max_evals=10):
     
     best_acc = 0.0
     best_model = 0.0
 
-    #我已经将这份代码的best_nodes["title"]改为stacked_titanic
+    #我已经将这份代码的best_nodes["title"]由原来的titanic改为stacked_titanic作为新版本
     if (exist_files(best_nodes["title"])):
         best_model = load_best_model(best_nodes["title"])
-        best_acc = cal_nnclf_acc(best_model, X_train_scaled, Y_train)
+        best_acc = cal_nnclf_acc(best_model, stacked_train, Y_train.values)
          
     for i in range(0, max_evals):
         
+        #这边不是很想用nn_model_train代替下面的函数代码
+        #因为这下面的代码还涉及到预测输出的问题不好修改
         print(str(i+1)+"/"+str(max_evals)+" prediction progress have been made.")
         
         clf = NeuralNetClassifier(lr = best_nodes["lr"],
@@ -553,9 +604,9 @@ def stacking_nn_predict(best_nodes, stacked_train, Y_train, stacked_test, max_ev
         
         init_module(clf.module, best_nodes["weight_mode"], best_nodes["bias"])
         
-        clf.fit(X_train_scaled.values.astype(np.float32), Y_train.values.astype(np.longlong)) 
+        clf.fit(stacked_train.astype(np.float32), Y_train.values.astype(np.longlong)) 
         
-        metric = cal_nnclf_acc(clf, X_train_scaled, Y_train)
+        metric = cal_nnclf_acc(clf, stacked_train, Y_train.values)
         print_nnclf_acc(metric)
         
         best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
@@ -563,7 +614,7 @@ def stacking_nn_predict(best_nodes, stacked_train, Y_train, stacked_test, max_ev
         if (flag):
             #这个版本的best_model终于是全局的版本咯，真是开森呢。。
             save_best_model(best_model, best_nodes["title"])
-            Y_pred = best_model.predict(X_test_scaled.values.astype(np.float32))
+            Y_pred = best_model.predict(stacked_test.astype(np.float32))
             
             data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
             output = pd.DataFrame(data = data)
@@ -574,7 +625,7 @@ def stacking_nn_predict(best_nodes, stacked_train, Y_train, stacked_test, max_ev
      
     print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
        
-#现在直接利用经验参数值进行搜索咯，这样可以节约计算资源   
+#现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
          "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
@@ -683,12 +734,15 @@ best_nodes = {"title":"stacked_titanic",
               "optimizer":torch.optim.Adam
               }
 
+"""
 #从现在的结果看来应该是最后输出模型的问题咯
 #因为前面的模型输出效果都是挺好的准确率挺高的
 #我之前还在担心超参搜索的时候使用了所有的数据集
 #我使用所有的数据集只是选择超参但是模型训练
 #并没有用所有数据集所以不用担心过拟合的问题咯
 #现在这个问题最理想的解决方案可能只有一种了，就进行两次超参搜索咯
+#现在需要统一训练集的类型以及将训练集写到函数接口上面不然会出乱子
+#训练集写到接口上面倒是很容易，但是里面的数据类型真的是乱七八糟的不好管理
 start_time = datetime.datetime.now()
 
 trials = Trials()
@@ -697,25 +751,42 @@ algo = partial(tpe.suggest, n_startup_jobs=10)
 #第一次超参搜索搜索每层stacking的最佳结构超参
 X_train_f = X_train_scaled
 Y_train_f = Y_train
-best_params = fmin(nn_f, space, algo=algo, max_evals=30, trials=trials)
+best_params = fmin(nn_f, space, algo=algo, max_evals=10, trials=trials)
 print_best_params_acc(trials)
 
 #将获得的结构超参数据进行stacking获得新特征
 #best_nodes = parse_nodes(trials, space_nodes)
-nodes_list = parse_trials(trials, space_nodes, 5)
+nodes_list = parse_trials(trials, space_nodes, 3)
+#这里best_nodes其实没有保存任何重要信息但是还是保存一下吧
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
-stacked_train, stacked_test = stack_features(nodes_list, 5, 10)
+stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 10)
 
 #对获得的新特征进行超参搜索选择结构
 stacked_trials = Trials()
 #这里进行一次特征缩放说不定效果更好呢
 X_train_f = stacked_train
 Y_train_f = Y_train
-best_stacked_params = fmin(nn_f, space, algo=algo, max_evals=30, trials=stacked_trials)
+best_stacked_params = fmin(nn_f, space, algo=algo, max_evals=10, trials=stacked_trials)
 print_best_params_acc(stacked_trials)
 best_nodes = parse_nodes(stacked_trials, space_nodes)
-save_inter_params(trials, space_nodes, best_nodes, "stacked_titanic")
-
+save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+nn_stacking_predict(best_nodes, stacked_train, Y_train, stacked_test, 5, 10)
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+"""
+
+#有的地方有.values有的地方又没有这个感觉很凌乱还是都用吧
+#其实我早就应该知道的，直接把stacked_train之类的变成df吧
+algo = partial(tpe.suggest, n_startup_jobs=10)
+nodes_list = [best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 5)
+stacked_trials = Trials()
+#既然最后还是分裂为两个版本所以这些不需要了吧
+#X_train_f = stacked_train
+#Y_train_f = Y_train
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=10, trials=stacked_trials)
+print_best_params_acc(stacked_trials)
+best_nodes = parse_nodes(stacked_trials, space_nodes)
+save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+nn_stacking_predict(best_nodes, stacked_train, Y_train, stacked_test, 5, 5)
