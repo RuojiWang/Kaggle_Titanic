@@ -10,10 +10,6 @@ import datetime
 import warnings
 import numpy as np
 import pandas as pd
-from astropy.modeling.tests.test_models import create_model
-from networkx.readwrite.json_graph.node_link import node_link_data
-from xgboost.sklearn import XGBClassifier
-from idlelib import stackviewer
 
 sys.path.append("D:\\Workspace\\Titanic")
 
@@ -23,8 +19,6 @@ from sklearn.cross_validation import cross_val_score, StratifiedKFold
 import torch.nn.init
 import torch.nn as nn
 import torch.nn.functional as F
-
-from scipy.stats import pearsonr
 
 from sklearn.model_selection import KFold
 from sklearn.neighbors import KNeighborsClassifier
@@ -233,9 +227,9 @@ def save_best_model(best_model, title):
     pickle.dump(best_model, files)
     files.close()
     
-def load_best_model(title):
+def load_best_model(title_and_nodes):
     
-    files = open(str(title+"_best_model.pickle"), "rb")
+    files = open(str(title_and_nodes+"_best_model.pickle"), "rb")
     best_model = pickle.load(files)
     files.close()
     
@@ -573,15 +567,15 @@ def stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, flods, 
     stacked_test = pd.DataFrame(stacked_test)
     return stacked_train, stacked_test
 
-def nn_stacking_predict(best_nodes, stacked_train, Y_train, stacked_test, max_evals=10):
+def nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, max_evals=10):
     
     best_acc = 0.0
     best_model = 0.0
 
     #我已经将这份代码的best_nodes["title"]由原来的titanic改为stacked_titanic作为新版本
     if (exist_files(best_nodes["title"])):
-        best_model = load_best_model(best_nodes["title"])
-        best_acc = cal_nnclf_acc(best_model, stacked_train, Y_train.values)
+        best_model = load_best_model(best_nodes["title"]+"_"+str(len(nodes_list)))
+        best_acc = cal_nnclf_acc(best_model, stacked_train.values, Y_train.values)
          
     for i in range(0, max_evals):
         
@@ -613,7 +607,7 @@ def nn_stacking_predict(best_nodes, stacked_train, Y_train, stacked_test, max_ev
     
         if (flag):
             #这个版本的best_model终于是全局的版本咯，真是开森呢。。
-            save_best_model(best_model, best_nodes["title"])
+            save_best_model(best_model, best_nodes["title"]+"_"+str(len(nodes_list)))
             Y_pred = best_model.predict(stacked_test.values.astype(np.float32))
             
             data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
@@ -776,12 +770,19 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
-#现在的工作
 #有的地方有.values有的地方又没有这个感觉很凌乱还是都用吧
 #其实我早就应该知道的，直接把stacked_train之类的变成df吧
 algo = partial(tpe.suggest, n_startup_jobs=10)
+#好像这边重复增加超参节点结果居然没有改变耶？5个节点结果差不多的效果
+#感觉直接增加重复的次数是能够得到最大的提升的意思咯，我试一下提升比较有限吧
+#增加计算次数提升不是很明显，但是增加节点数目提升还是有点明显哦
 nodes_list = [best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 5)
+"""
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, 
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+              """
+stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 10)
 stacked_trials = Trials()
 #既然最后还是分裂为两个版本所以这些不需要了吧
 #X_train_f = stacked_train
@@ -793,4 +794,4 @@ print_best_params_acc(stacked_trials)
 best_nodes = parse_nodes(stacked_trials, space_nodes)
 save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
 #下面这函数一直报错，花了我很多的时间才知道是之前存储的stacked_titanic_best_model的问题
-nn_stacking_predict(best_nodes, stacked_train, Y_train, stacked_test, 5)
+nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 20)
