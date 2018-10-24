@@ -770,18 +770,20 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
+"""
+#下面的模型居然取得了85.29%的正确率，我真的是看到了希望了，看来stacking才是王道呀
+#the best accuracy rate of the model on the whole train dataset is: 0.8529741863075196
 #有的地方有.values有的地方又没有这个感觉很凌乱还是都用吧
 #其实我早就应该知道的，直接把stacked_train之类的变成df吧
 algo = partial(tpe.suggest, n_startup_jobs=10)
 #好像这边重复增加超参节点结果居然没有改变耶？5个节点结果差不多的效果
 #感觉直接增加重复的次数是能够得到最大的提升的意思咯，我试一下提升比较有限吧
 #增加计算次数提升不是很明显，但是增加节点数目提升还是有点明显哦
-nodes_list = [best_nodes]
-"""
 nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, 
               best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
               best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-              """
 stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 10)
 stacked_trials = Trials()
 #既然最后还是分裂为两个版本所以这些不需要了吧
@@ -789,9 +791,37 @@ stacked_trials = Trials()
 #Y_train_f = Y_train
 #下面的这个写法不行，因为我是真的可能使用以前的trials，如果修改了就不好了吧
 #space["input_nodes"]=hp.choice("input_nodes", [len(nodes_list)])
-best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=10, trials=stacked_trials)
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
 print_best_params_acc(stacked_trials)
 best_nodes = parse_nodes(stacked_trials, space_nodes)
 save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
 #下面这函数一直报错，花了我很多的时间才知道是之前存储的stacked_titanic_best_model的问题
 nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 20)
+"""
+
+#之前的数据基本都是试探性的测试，下面的数据才是真实的计算吧
+#要是今晚上的大计算效果不理想怎么办呢，感觉那就会很绝望呀
+#我总是没有办法在这上面在做一次超参搜索了吧，毕竟感觉只能这样了。
+#上面居然在平时只有83%正确率的，stacking以后居然达到了85%的正确率，看到希望了
+#刚才运行了一下11节点的60次搜索X2外加30次的结果感觉好像很垃圾的样子呢。
+#计算了大概45分钟准确率居然只有83.6%咯，看来新的stacking模型可以探索的超参还很多
+start_time = datetime.datetime.now()
+
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_params = fmin(nn_f, space, algo=algo, max_evals=600, trials=trials)
+print_best_params_acc(trials)
+
+nodes_list = parse_trials(trials, space_nodes, 25)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 10)
+
+stacked_trials = Trials()
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=600, trials=stacked_trials)
+print_best_params_acc(stacked_trials)
+best_nodes = parse_nodes(stacked_trials, space_nodes)
+save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 100)
+
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
