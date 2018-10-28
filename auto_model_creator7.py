@@ -46,8 +46,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -391,7 +391,10 @@ def nn_stacking_f(params):
     print("output_nodes", params["output_nodes"])
     print("percentage", params["percentage"])
     
-    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[0])
+    #这边的columns可以加入所有的选择部分
+    #但是先试一下不加和全家之间的区别呢？
+    #X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[i for i in range(0, stacked_train.columns.size)])
+    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[])
     
     clf = NeuralNetClassifier(lr = params["lr"],
                               optimizer__weight_decay = params["optimizer__weight_decay"],
@@ -621,7 +624,7 @@ def nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_
        
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -664,7 +667,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -799,20 +802,24 @@ save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
 nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 20)
 """
 
+"""
 #之前的数据基本都是试探性的测试，下面的数据才是真实的计算吧
 #要是今晚上的大计算效果不理想怎么办呢，感觉那就会很绝望呀
 #我总是没有办法在这上面在做一次超参搜索了吧，毕竟感觉只能这样了。
 #上面居然在平时只有83%正确率的，stacking以后居然达到了85%的正确率，看到希望了
 #刚才运行了一下11节点的60次搜索X2外加30次的结果感觉好像很垃圾的样子呢。
 #计算了大概45分钟准确率居然只有83.6%咯，看来新的stacking模型可以探索的超参还很多
+#我现在觉得影响这个结果的最大的因素应该是节点的数目吧，因为运行了45分钟那次
+#因为我试过增加训练模型的
+此外我在想stacked_train是否不应该加噪声？
 start_time = datetime.datetime.now()
 
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=600, trials=trials)
+best_params = fmin(nn_f, space, algo=algo, max_evals=0, trials=trials)
 print_best_params_acc(trials)
 
-nodes_list = parse_trials(trials, space_nodes, 25)
+nodes_list = parse_trials(trials, space_nodes, 10)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 10)
 
@@ -823,5 +830,32 @@ best_nodes = parse_nodes(stacked_trials, space_nodes)
 save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
 nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 100)
 
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+#针对nn_stacking_f噪声测试：
+#不加入噪声的时候[10, 5jiedian, 5, 10, 20, 20]的结果 0.8361391694725028
+#不加入噪声的时候[10, 5jiedian, 5, 10, 40, 40]的结果 0.8338945005611672
+#不加入噪声的时候[10, 5jiedian, 11, 10, 20, 20]的结果 0.8327721661054994 0.8428731762065096 
+#加入噪声的时候[10, 5jiedian, 5, 10, 20, 20]的结果 0.8338945005611672
+#加入噪声的时候[10, 5jiedian, 5, 10, 40, 40]的结果 0.8271604938271605
+#加入噪声的时候[10, 5jiedian, 11, 10, 20, 20]的结果 0.8383838383838383
+#我刚才还在想为什么节点增多提升最为明显，原来是每个节点得到的数据增加了= =所以小心过拟合。。
+#当噪声的问题得到了解决之后我就准备尝试是否过拟合，是否同一个节点进行stacking呢？？？
+start_time = datetime.datetime.now()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 10)
+stacked_trials = Trials()
+
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+print_best_params_acc(stacked_trials)
+best_nodes = parse_nodes(stacked_trials, space_nodes)
+save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+
+nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 20)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
