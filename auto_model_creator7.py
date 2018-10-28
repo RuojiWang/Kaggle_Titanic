@@ -393,8 +393,8 @@ def nn_stacking_f(params):
     
     #这边的columns可以加入所有的选择部分
     #但是先试一下不加和全家之间的区别呢？
-    #X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[i for i in range(0, stacked_train.columns.size)])
-    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[])
+    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[i for i in range(0, stacked_train.columns.size)])
+    #X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[])
     
     clf = NeuralNetClassifier(lr = params["lr"],
                               optimizer__weight_decay = params["optimizer__weight_decay"],
@@ -834,13 +834,20 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
+"""
+光是存储best_model是没用的因为stacked_train会变
+model = load_best_model("stacked_titanic_11")
+cal_nnclf_acc(model, stacked_train, Y_train)
+"""
+
 #针对nn_stacking_f噪声测试：
-#不加入噪声的时候[10, 5jiedian, 5, 10, 20, 20]的结果 0.8361391694725028
+#不加入噪声的时候[10, 5jiedian, 5, 10, 20, 20]的结果 0.8361391694725028 0.8361391694725028 
 #不加入噪声的时候[10, 5jiedian, 5, 10, 40, 40]的结果 0.8338945005611672
-#不加入噪声的时候[10, 5jiedian, 11, 10, 20, 20]的结果 0.8327721661054994 0.8428731762065096 
+#不加入噪声的时候[10, 5jiedian, 11, 10, 20, 20]的结果 0.8327721661054994 0.8428731762065096 0.8338945005611672
 #加入噪声的时候[10, 5jiedian, 5, 10, 20, 20]的结果 0.8338945005611672
 #加入噪声的时候[10, 5jiedian, 5, 10, 40, 40]的结果 0.8271604938271605
-#加入噪声的时候[10, 5jiedian, 11, 10, 20, 20]的结果 0.8383838383838383
+#加入噪声的时候[10, 5jiedian, 11, 10, 20, 20]的结果 0.8383838383838383 0.8428731762065096
+#对比第一列数据就会发现有噪声的时候基本完败，关键问题是节点增加与过拟合的关系咯
 #我刚才还在想为什么节点增多提升最为明显，原来是每个节点得到的数据增加了= =所以小心过拟合。。
 #当噪声的问题得到了解决之后我就准备尝试是否过拟合，是否同一个节点进行stacking呢？？？
 start_time = datetime.datetime.now()
