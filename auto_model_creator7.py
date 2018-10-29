@@ -10,6 +10,7 @@ import datetime
 import warnings
 import numpy as np
 import pandas as pd
+from Crypto.Random.random import shuffle
 
 sys.path.append("D:\\Workspace\\Titanic")
 
@@ -46,8 +47,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -393,8 +394,8 @@ def nn_stacking_f(params):
     
     #这边的columns可以加入所有的选择部分
     #但是先试一下不加和全家之间的区别呢？
-    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[i for i in range(0, stacked_train.columns.size)])
-    #X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[])
+    #X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[i for i in range(0, stacked_train.columns.size)])
+    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_split_train, columns=[])
     
     clf = NeuralNetClassifier(lr = params["lr"],
                               optimizer__weight_decay = params["optimizer__weight_decay"],
@@ -621,10 +622,12 @@ def nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_
         print()
      
     print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
-       
+    print()
+    return best_model   
+    
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -667,7 +670,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -840,8 +843,9 @@ model = load_best_model("stacked_titanic_11")
 cal_nnclf_acc(model, stacked_train, Y_train)
 """
 
+"""
 #针对nn_stacking_f噪声测试：
-#不加入噪声的时候[10, 5jiedian, 5, 10, 20, 20]的结果 0.8361391694725028 0.8361391694725028 
+#不加入噪声的时候[10, 5jiedian, 5, 10, 20, 20]的结果 0.8361391694725028 0.8361391694725028 0.8215488215488216
 #不加入噪声的时候[10, 5jiedian, 5, 10, 40, 40]的结果 0.8338945005611672
 #不加入噪声的时候[10, 5jiedian, 11, 10, 20, 20]的结果 0.8327721661054994 0.8428731762065096 0.8338945005611672
 #加入噪声的时候[10, 5jiedian, 5, 10, 20, 20]的结果 0.8338945005611672
@@ -850,12 +854,16 @@ cal_nnclf_acc(model, stacked_train, Y_train)
 #对比第一列数据就会发现有噪声的时候基本完败，关键问题是节点增加与过拟合的关系咯
 #我刚才还在想为什么节点增多提升最为明显，原来是每个节点得到的数据增加了= =所以小心过拟合。。
 #当噪声的问题得到了解决之后我就准备尝试是否过拟合，是否同一个节点进行stacking呢？？？
+#但是现在先解决稳定性的问题吧，我将stacked_features的第三个参数由10改为了20其他的应该不用吧
+#加入噪声的时候[10, 5jiedian, 5, 20, 20, 20]的结果 0.8361391694725028 0.8338945005611672 0.8237934904601572 0.8260381593714927
+#不加入噪声的时候[10, 5jiedian, 5, 20, 20, 20]的结果0.8338945005611672 0.8338945005611672 0.8316498316498316 0.8294051627384961 0.8316498316498316这个测试一回合计算600次呀
+#等经过计算测试这个节点已经稳定的时候再开始下一步过拟合的测试吧，经过这五次的节点计算现在每次的计算结果已经很稳定了吧
+#刚才看到了别人在处理titanic数据的使用采用了one-hot编码其实我也可以使用的呢，现在可以开始测试是否过拟合希望能够有好的结果吧
 start_time = datetime.datetime.now()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
-              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 10)
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 20)
 stacked_trials = Trials()
 
 best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
@@ -864,5 +872,25 @@ best_nodes = parse_nodes(stacked_trials, space_nodes)
 save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
 
 nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 20)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, random_state=0)
+start_time = datetime.datetime.now()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_test_scaled, 5, 20)
+stacked_trials = Trials()
+
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+print_best_params_acc(stacked_trials)
+best_nodes = parse_nodes(stacked_trials, space_nodes)
+save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+
+best_model = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 20)
+cal_nnclf_acc(best_model, X_split_train.values, Y_split_train.values)
+cal_nnclf_acc(best_model, X_split_test.values, Y_split_test.values)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
