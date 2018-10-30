@@ -624,11 +624,15 @@ def nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_
             save_best_model(best_model, best_nodes["title"]+"_"+str(len(nodes_list)))
             Y_pred = best_model.predict(stacked_test.values.astype(np.float32))
             
+            """
+            #原来在预测的时候下面的代码导致了错误，麻痹的之前搞了好久没弄清楚哦
             data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
+            
             output = pd.DataFrame(data = data)
             
             output.to_csv(best_nodes["path"], index=False)
             print("prediction file has been written.")
+            """
         print()
      
     print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
@@ -886,21 +890,22 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
-#以后记得修改nn_f和nn_stacking_f里面的数据集咯
+#以后记得修改nn_f和nn_stacking_f里面的数据集咯,放心吧已经修改在auto_model_creator8里面了
+#这里还涉及到数据集划分的问题，我觉得可以尝试直接多次重复下面的代码这样可以减少中间时间咯
 X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, random_state=0)
 start_time = datetime.datetime.now()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
 nodes_list = [best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 5)
+stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
 stacked_trials = Trials()
 
-best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=5, trials=stacked_trials)
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
 print_best_params_acc(stacked_trials)
 best_nodes = parse_nodes(stacked_trials, space_nodes)
 save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
 
 best_model, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 20)
-print(cal_acc(Y_train_pred, Y_split_test))
+print("accuracy rate of the validation dataset is:", cal_acc(Y_train_pred, Y_split_test))
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
