@@ -1,10 +1,6 @@
 #coding=utf-8
-#这个版本应该就是实现两次的超参搜索了吧
-#如果真的实现两次超参搜索应该结果会有所提升的吧
-#所以我准备在这个版本里面重构代码实现两次超参搜索咯
-#然后对于噪声还有相关参数的设置进行了很多的测试，最后发现稳定的参数设置大致是这个样子的
-#让我觉得很惊喜的一点就是节点数目的增加将极大的提高最终输出的结果，但是有点担心过拟合
 #所以我现在在接下来的版本中准备做一些过拟合相关的测试，还有nodes_list中多个相同节点的准确率咯
+#我希望能够得到很好的结果结束我最近的所有探索性质的活动了吧，之后就和别人直接开始battle咯
 import os
 import sys
 import random
@@ -404,9 +400,8 @@ def nn_stacking_f(params):
     #这边的columns可以加入所有的选择部分
     #但是先试一下不加和全家之间的区别呢？
     #X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[i for i in range(0, stacked_train.columns.size)])
-    #X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[])
-    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_split_train, columns=[])
-   
+    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[])
+    
     clf = NeuralNetClassifier(lr = params["lr"],
                               optimizer__weight_decay = params["optimizer__weight_decay"],
                               criterion = params["criterion"],
@@ -745,48 +740,6 @@ best_nodes = {"title":"stacked_titanic",
               }
 
 """
-#从现在的结果看来应该是最后输出模型的问题咯
-#因为前面的模型输出效果都是挺好的准确率挺高的
-#我之前还在担心超参搜索的时候使用了所有的数据集
-#我使用所有的数据集只是选择超参但是模型训练
-#并没有用所有数据集所以不用担心过拟合的问题咯
-#现在这个问题最理想的解决方案可能只有一种了，就进行两次超参搜索咯
-#现在需要统一训练集的类型以及将训练集写到函数接口上面不然会出乱子
-#训练集写到接口上面倒是很容易，但是里面的数据类型真的是乱七八糟的不好管理
-start_time = datetime.datetime.now()
-
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-
-#第一次超参搜索搜索每层stacking的最佳结构超参
-X_train_f = X_train_scaled
-Y_train_f = Y_train
-best_params = fmin(nn_f, space, algo=algo, max_evals=10, trials=trials)
-print_best_params_acc(trials)
-
-#将获得的结构超参数据进行stacking获得新特征
-#best_nodes = parse_nodes(trials, space_nodes)
-nodes_list = parse_trials(trials, space_nodes, 3)
-#这里best_nodes其实没有保存任何重要信息但是还是保存一下吧
-save_inter_params(trials, space_nodes, best_nodes, "titanic")
-stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 10)
-
-#对获得的新特征进行超参搜索选择结构
-stacked_trials = Trials()
-#这里进行一次特征缩放说不定效果更好呢
-X_train_f = stacked_train
-Y_train_f = Y_train
-best_stacked_params = fmin(nn_f, space, algo=algo, max_evals=10, trials=stacked_trials)
-print_best_params_acc(stacked_trials)
-best_nodes = parse_nodes(stacked_trials, space_nodes)
-save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
-nn_stacking_predict(best_nodes, stacked_train, Y_train, stacked_test, 5, 10)
-
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-"""
 #下面的模型居然取得了85.29%的正确率，我真的是看到了希望了，看来stacking才是王道呀
 #the best accuracy rate of the model on the whole train dataset is: 0.8529741863075196
 #有的地方有.values有的地方又没有这个感觉很凌乱还是都用吧
@@ -815,64 +768,10 @@ save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
 nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 20)
 """
 
-"""
-#之前的数据基本都是试探性的测试，下面的数据才是真实的计算吧
-#要是今晚上的大计算效果不理想怎么办呢，感觉那就会很绝望呀
-#我总是没有办法在这上面在做一次超参搜索了吧，毕竟感觉只能这样了。
-#上面居然在平时只有83%正确率的，stacking以后居然达到了85%的正确率，看到希望了
-#刚才运行了一下11节点的60次搜索X2外加30次的结果感觉好像很垃圾的样子呢。
-#计算了大概45分钟准确率居然只有83.6%咯，看来新的stacking模型可以探索的超参还很多
-#我现在觉得影响这个结果的最大的因素应该是节点的数目吧，因为运行了45分钟那次
-#因为我试过增加训练模型的
-此外我在想stacked_train是否不应该加噪声？
-start_time = datetime.datetime.now()
-
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=0, trials=trials)
-print_best_params_acc(trials)
-
-nodes_list = parse_trials(trials, space_nodes, 10)
-save_inter_params(trials, space_nodes, best_nodes, "titanic")
-stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 10)
-
-stacked_trials = Trials()
-best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=600, trials=stacked_trials)
-print_best_params_acc(stacked_trials)
-best_nodes = parse_nodes(stacked_trials, space_nodes)
-save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
-nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 100)
-
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-"""
-光是存储best_model是没用的因为stacked_train会变
-model = load_best_model("stacked_titanic_11")
-cal_nnclf_acc(model, stacked_train, Y_train)
-"""
-
-"""
-#针对nn_stacking_f噪声测试：
-#不加入噪声的时候[10, 5jiedian, 5, 10, 20, 20]的结果 0.8361391694725028 0.8361391694725028 0.8215488215488216
-#不加入噪声的时候[10, 5jiedian, 5, 10, 40, 40]的结果 0.8338945005611672
-#不加入噪声的时候[10, 5jiedian, 11, 10, 20, 20]的结果 0.8327721661054994 0.8428731762065096 0.8338945005611672
-#加入噪声的时候[10, 5jiedian, 5, 10, 20, 20]的结果 0.8338945005611672
-#加入噪声的时候[10, 5jiedian, 5, 10, 40, 40]的结果 0.8271604938271605
-#加入噪声的时候[10, 5jiedian, 11, 10, 20, 20]的结果 0.8383838383838383 0.8428731762065096 0.8417508417508418
-#对比第一列数据就会发现有噪声的时候基本完败，关键问题是节点增加与过拟合的关系咯
-#我刚才还在想为什么节点增多提升最为明显，原来是每个节点得到的数据增加了= =所以小心过拟合。。
-#当噪声的问题得到了解决之后我就准备尝试是否过拟合，是否同一个节点进行stacking呢？？？
-#但是现在先解决稳定性的问题吧，我将stacked_features的第三个参数由10改为了20其他的应该不用吧
-#加入噪声的时候[10, 5jiedian, 5, 20, 20, 20]的结果 0.8361391694725028 0.8338945005611672 0.8237934904601572 0.8260381593714927
-#不加入噪声的时候[10, 5jiedian, 5, 20, 20, 20]的结果0.8338945005611672 0.8338945005611672 0.8316498316498316 0.8294051627384961 0.8316498316498316这个测试一回合计算600次呀
-#等经过计算测试这个节点已经稳定的时候再开始下一步过拟合的测试吧，经过这五次的节点计算现在每次的计算结果已经很稳定了吧
-#刚才看到了别人在处理titanic数据的使用采用了one-hot编码其实我也可以使用的呢，现在可以开始测试是否过拟合希望能够有好的结果吧
 start_time = datetime.datetime.now()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+nodes_list = [best_nodes]
 stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 20)
 stacked_trials = Trials()
 
@@ -882,25 +781,5 @@ best_nodes = parse_nodes(stacked_trials, space_nodes)
 save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
 
 nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 20)
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-#以后记得修改nn_f和nn_stacking_f里面的数据集咯
-X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, random_state=0)
-start_time = datetime.datetime.now()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-
-nodes_list = [best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 5)
-stacked_trials = Trials()
-
-best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=5, trials=stacked_trials)
-print_best_params_acc(stacked_trials)
-best_nodes = parse_nodes(stacked_trials, space_nodes)
-save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
-
-best_model, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 20)
-print(cal_acc(Y_train_pred, Y_split_test))
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
