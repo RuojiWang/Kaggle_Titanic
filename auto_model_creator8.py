@@ -1,6 +1,8 @@
 #coding=utf-8
 #所以我现在在接下来的版本中准备做一些过拟合相关的测试，还有nodes_list中多个相同节点的准确率咯
 #我希望能够得到很好的结果结束我最近的所有探索性质的活动了吧，之后就和别人直接开始battle咯
+#这个版本可以修改一下保存机制，增加了stacking以后感觉原来的保存模型没什么卵用了吧。
+#我觉得可以把保存的东西从命名等都比较系统的修改一遍了吧，不然现在的保存好像没有意义，函数也在重构一下吧
 import os
 import sys
 import random
@@ -9,7 +11,7 @@ import datetime
 import warnings
 import numpy as np
 import pandas as pd
-from Crypto.Random.random import shuffle
+from mlxtend.plotting import stacked_barplot
 
 sys.path.append("D:\\Workspace\\Titanic")
 
@@ -226,7 +228,22 @@ def load_inter_params(title):
     files.close()
     
     return trials, space_nodes ,best_nodes
+
+#下面这个方式修改代码是最简单对于全局影响最小的方式了吧
+def save_stacked_dataset(stacked_train, stacked_test, title):
     
+    files = open(str(title+"_stacked_dataset.pickle"), "wb")
+    pickle.dump([stacked_train, stacked_test], files)
+    files.close()
+    
+def load_stacked_dataset(title):
+    
+    files = open(str(title+"_stacked_dataset.pickle"), "rb")
+    stacked_train, stacked_test = pickle.load(files)
+    files.close()
+    
+    return stacked_train, stacked_test
+
 def save_best_model(best_model, title):
     
     files = open(str(title+"_best_model.pickle"), "wb")
@@ -768,18 +785,77 @@ save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
 nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 20)
 """
 
+"""
+#反正现在要被保存的东西都在下面这里了吧，可以参考这里设置的数字
 start_time = datetime.datetime.now()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-nodes_list = [best_nodes]
+nodes_list = [best_nodes, best_nodes]
 stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 20)
-stacked_trials = Trials()
 
+stacked_trials = Trials()
+#这个数字可以再开大一点吧，除了节点数目其余数字可以不开大了。
 best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
 print_best_params_acc(stacked_trials)
 best_nodes = parse_nodes(stacked_trials, space_nodes)
 save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 
 nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 20)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+"""
+
+"""
+#下面的保存版本的代码算是调通实现了吧
+start_time = datetime.datetime.now()
+
+nodes_list = [best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 5)
+
+stacked_trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=5, trials=stacked_trials)
+
+best_nodes = parse_nodes(stacked_trials, space_nodes)
+save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+
+nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 5)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+
+stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
+best_model = load_best_model("stacked_titanic_2")
+print(cal_nnclf_acc(best_model, stacked_train.values, Y_train.values))
+"""
+
+#下面的保存版本的代码算是调通实现了吧
+start_time = datetime.datetime.now()
+
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_params = fmin(nn_f, space, algo=algo, max_evals=4, trials=trials)
+
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+#nodes_list = parse_trials(trials, space_nodes, 5)
+
+nodes_list = [best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 5)
+
+stacked_trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=5, trials=stacked_trials)
+
+best_nodes = parse_nodes(stacked_trials, space_nodes)
+save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+
+nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 5)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+
+stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
+best_model = load_best_model("stacked_titanic_2")
+print(cal_nnclf_acc(best_model, stacked_train.values, Y_train.values))

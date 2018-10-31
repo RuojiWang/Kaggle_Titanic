@@ -13,7 +13,6 @@ import datetime
 import warnings
 import numpy as np
 import pandas as pd
-from Crypto.Random.random import shuffle
 
 sys.path.append("D:\\Workspace\\Titanic")
 
@@ -637,7 +636,7 @@ def nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_
      
     print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
     print()
-    return best_model, Y_pred
+    return best_model, best_acc, Y_pred
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
@@ -875,37 +874,130 @@ cal_nnclf_acc(model, stacked_train, Y_train)
 #刚才看到了别人在处理titanic数据的使用采用了one-hot编码其实我也可以使用的呢，现在可以开始测试是否过拟合希望能够有好的结果吧
 start_time = datetime.datetime.now()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-
 nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+
 stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 20)
 stacked_trials = Trials()
-
 best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
 print_best_params_acc(stacked_trials)
 best_nodes = parse_nodes(stacked_trials, space_nodes)
 save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
 
 nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 20)
+
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
 #以后记得修改nn_f和nn_stacking_f里面的数据集咯,放心吧已经修改在auto_model_creator8里面了
 #这里还涉及到数据集划分的问题，我觉得可以尝试直接多次重复下面的代码这样可以减少中间时间咯
+#小心测试验证集的划分对于测试结果造成的影响，所以代码应该需要以下面的形式进行测试和验证吧
 X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, random_state=0)
 start_time = datetime.datetime.now()
 algo = partial(tpe.suggest, n_startup_jobs=10)
+train_acc = []
+valida_acc = []
 
+#这部分是两个节点的结果
 nodes_list = [best_nodes, best_nodes]
 stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
 stacked_trials = Trials()
-
 best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
 print_best_params_acc(stacked_trials)
 best_nodes = parse_nodes(stacked_trials, space_nodes)
 save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 20)
+test_acc = cal_acc(Y_train_pred, Y_split_test)
+train_acc.append(best_acc)
+valida_acc.append(test_acc)
 
-best_model, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 20)
-print("accuracy rate of the validation dataset is:", cal_acc(Y_train_pred, Y_split_test))
+#这部分五个节点的结果
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+stacked_trials = Trials()
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+print_best_params_acc(stacked_trials)
+best_nodes = parse_nodes(stacked_trials, space_nodes)
+save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 20)
+test_acc = cal_acc(Y_train_pred, Y_split_test)
+train_acc.append(best_acc)
+valida_acc.append(test_acc)
+
+#这部分是十一个节点的结果
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+stacked_trials = Trials()
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+print_best_params_acc(stacked_trials)
+best_nodes = parse_nodes(stacked_trials, space_nodes)
+save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 20)
+test_acc = cal_acc(Y_train_pred, Y_split_test)
+train_acc.append(best_acc)
+valida_acc.append(test_acc)
+
+#这部分是二十五个节点的结果
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+stacked_trials = Trials()
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+print_best_params_acc(stacked_trials)
+best_nodes = parse_nodes(stacked_trials, space_nodes)
+save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 20)
+test_acc = cal_acc(Y_train_pred, Y_split_test)
+train_acc.append(best_acc)
+valida_acc.append(test_acc)
+
+#这部分是三十五个节点的结果
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+stacked_trials = Trials()
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+print_best_params_acc(stacked_trials)
+best_nodes = parse_nodes(stacked_trials, space_nodes)
+save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 20)
+test_acc = cal_acc(Y_train_pred, Y_split_test)
+train_acc.append(best_acc)
+valida_acc.append(test_acc)
+
+#这部分是四十五个节点的结果
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+stacked_trials = Trials()
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+print_best_params_acc(stacked_trials)
+best_nodes = parse_nodes(stacked_trials, space_nodes)
+save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 20)
+test_acc = cal_acc(Y_train_pred, Y_split_test)
+train_acc.append(best_acc)
+valida_acc.append(test_acc)
+
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+
+#输出的结果大致是这个样子的呢
+#第一回合在计算了84分钟以后得到的输出结果如下：看起来我好想真的找到了无脑提升分了器结果的方法吧。总之是新的曙光
+#0.8282694848084544 0.7985074626865671 0.845442536327609 0.8059701492537313 0.8652575957727873 0.8208955223880597 0.8758256274768824 0.8134328358208955
+#然后在上面的基础上我新添加了三十五个节点和四十五个节点主要是和二十五个节点的版本对比选择最佳参数吧。。
+for i in range(0, len(train_acc)):
+    print(train_acc[i])
+    print(valida_acc[i])
