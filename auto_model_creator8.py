@@ -3,6 +3,18 @@
 #我希望能够得到很好的结果结束我最近的所有探索性质的活动了吧，之后就和别人直接开始battle咯
 #这个版本可以修改一下保存机制，增加了stacking以后感觉原来的保存模型没什么卵用了吧。
 #我觉得可以把保存的东西从命名等都比较系统的修改一遍了吧，不然现在的保存好像没有意义，函数也在重构一下吧
+#需要修改一下stacked数据集的保存，因为应该保存模型的时候保存数据，但是保存的模型肯定和数据配套就不用管了。
+#换个项目需要修改的地方：
+#（0）stacked的输入数据是否需要归一化呢？
+#（0）类别用one-hot编码咯
+#（1）需要进行特征缩放，共用之前的X_train_scaled, Y_train,  X_test_scaled
+#（2）nn_f(nn_stacking_f)中noise_augment_data中的columns是否需要修改呢
+#（3）space、space_nodes、best_nodes、parse_nodes、parse_trials可能需要同时修改
+#（4）不同类型的问题可能修改create_module，所有用到该函数的地方如nn_model_train均需要修改的吧
+#（5）save_stacked_dataset保存可能可能必须和nn_stacking_predict中的save_best_model配套才有
+#意义不然每次save_stacked_dataset并不是best_model所需要的数据呢
+#（6）现在的create_module居然是逢三建立一个层。可能需要改变
+#（7）init_module是对于模型的初始化方式，不同的问题不同的模型初始化方式也不同咯
 import os
 import sys
 import random
@@ -11,7 +23,6 @@ import datetime
 import warnings
 import numpy as np
 import pandas as pd
-from mlxtend.plotting import stacked_barplot
 
 sys.path.append("D:\\Workspace\\Titanic")
 
@@ -183,6 +194,7 @@ X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
 
 def cal_acc(Y_train_pred, Y_train):
+
     count = (Y_train_pred == Y_train).sum()
     acc = count/len(Y_train)
     
@@ -230,6 +242,7 @@ def load_inter_params(title):
     return trials, space_nodes ,best_nodes
 
 #下面这个方式修改代码是最简单对于全局影响最小的方式了吧
+#可能每次得到的stacked_train不一样所以保存的best_model并没有那么有意义
 def save_stacked_dataset(stacked_train, stacked_test, title):
     
     files = open(str(title+"_stacked_dataset.pickle"), "wb")
@@ -600,6 +613,7 @@ def nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_
 
     #我已经将这份代码的best_nodes["title"]由原来的titanic改为stacked_titanic作为新版本
     if (exist_files(best_nodes["title"])):
+        #在这里暂时不保存stakced_train以及stacked_test吧
         best_model = load_best_model(best_nodes["title"]+"_"+str(len(nodes_list)))
         best_acc = cal_nnclf_acc(best_model, stacked_train.values, Y_train.values)
          
@@ -856,6 +870,8 @@ nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 
+"""
 stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
 best_model = load_best_model("stacked_titanic_2")
 print(cal_nnclf_acc(best_model, stacked_train.values, Y_train.values))
+"""
