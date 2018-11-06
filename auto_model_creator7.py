@@ -905,28 +905,41 @@ algo = partial(tpe.suggest, n_startup_jobs=10)
 train_acc = []
 valida_acc = []
 
-#这部分是两个节点的结果
-nodes_list = [best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+#这部分是一个节点的结果
+nodes_list = [best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
 stacked_trials = Trials()
 best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
 print_best_params_acc(stacked_trials)
 best_nodes = parse_nodes(stacked_trials, space_nodes)
-save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
-best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 20)
+#save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 50)
+test_acc = cal_acc(Y_train_pred, Y_split_test)
+train_acc.append(best_acc)
+valida_acc.append(test_acc)
+
+#这部分是两个节点的结果
+nodes_list = [best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
+stacked_trials = Trials()
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+print_best_params_acc(stacked_trials)
+best_nodes = parse_nodes(stacked_trials, space_nodes)
+#save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 50)
 test_acc = cal_acc(Y_train_pred, Y_split_test)
 train_acc.append(best_acc)
 valida_acc.append(test_acc)
 
 #这部分五个节点的结果
 nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
 stacked_trials = Trials()
 best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
 print_best_params_acc(stacked_trials)
 best_nodes = parse_nodes(stacked_trials, space_nodes)
-save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
-best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 20)
+#save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 50)
 test_acc = cal_acc(Y_train_pred, Y_split_test)
 train_acc.append(best_acc)
 valida_acc.append(test_acc)
@@ -934,13 +947,13 @@ valida_acc.append(test_acc)
 #这部分是十一个节点的结果
 nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
               best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
 stacked_trials = Trials()
 best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
 print_best_params_acc(stacked_trials)
 best_nodes = parse_nodes(stacked_trials, space_nodes)
-save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
-best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 20)
+#save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 50)
 test_acc = cal_acc(Y_train_pred, Y_split_test)
 train_acc.append(best_acc)
 valida_acc.append(test_acc)
