@@ -15,6 +15,7 @@
 #意义不然每次save_stacked_dataset并不是best_model所需要的数据呢
 #（6）现在的create_module居然是逢三建立一个层。可能需要改变
 #（7）init_module是对于模型的初始化方式，不同的问题不同的模型初始化方式也不同咯
+#（8）可能会需要修改模型的评价指标哈
 import os
 import sys
 import random
