@@ -1301,6 +1301,7 @@ for i in range(0, len(train_acc)):
     print(valida_acc[i])
 """
 
+"""
 #那么下面就用之前计算过的超参来进行最佳模型的生成吧
 #最迟在周日肯定要提交这个比赛的结果了吧。
 #下面使用这个超参搜索得到的titanic_intermediate_parameters_2018-10-1104516.pickle
@@ -1308,56 +1309,269 @@ for i in range(0, len(train_acc)):
 #今天很开心的就是找到了量化交易相关的成都招聘了，我总觉得这个才是我真心喜欢的事业呢。。
 #那么接下来的事情就是准备调研一下国内的量化交易相关领域的现状如何咯？
 #这份代码主要是考虑到要是不是由于相同节点造成的对于性能的影响而建立的测试部分咯
+#我现在想要分析的问题大致有两个：节点的数目，以及第二层是否使用逻辑回归
+#就这三轮的数据总体而言表现出来的趋势大致是：
+#随着节点数目的增多，第一种结构中，训练集的准确率总体在增长，测试集的准确率总体在下降
+#随着节点数目的增多，第二种结构中，训练集的准确率总体在增长，测试集的准确率总体在增长
+#那么到现在为止，我真的觉得机器学习的很多东西其实就是玄学问题咯
+#但是至少有一点是肯定的，就是加入了stacking之后模型确实是有所提升的，这个数据集就选择9个节点吧
+0.8177014531043593 0.8208955223880597 #1
+0.8177014531043593 0.8134328358208955
+
+0.8190224570673712 0.8059701492537313 #2
+0.808454425363276 0.7985074626865671
+
+0.8269484808454426 0.8059701492537313 #3
+0.8150594451783355 0.7835820895522388
+
+0.8243064729194187 0.8059701492537313 #4
+0.8150594451783355 0.7985074626865671
+
+0.8282694848084544 0.7910447761194029 #5
+0.821664464993395 0.8059701492537313
+
+0.8335535006605019 0.7835820895522388 #7
+0.8256274768824307 0.8134328358208955
+
+0.8388375165125496 0.7835820895522388 #9
+0.8229854689564069 0.8208955223880597
+
+0.8480845442536328 0.7910447761194029 #11
+0.821664464993395 0.8208955223880597
+
+0.8467635402906208 0.7910447761194029 #13
+0.8269484808454426 0.8283582089552238
+
+0.821664464993395 0.7910447761194029 #1
+0.821664464993395 0.7910447761194029
+
+0.8243064729194187 0.8134328358208955 #2
+0.8243064729194187 0.7985074626865671
+
+0.8229854689564069 0.7985074626865671 #3
+0.8203434610303831 0.8059701492537313
+
+0.8190224570673712 0.7910447761194029 #4
+0.8110964332892999 0.8059701492537313
+
+0.8322324966974901 0.8134328358208955 #5
+0.8282694848084544 0.8059701492537313
+
+0.8348745046235139 0.7910447761194029 #7
+0.8282694848084544 0.8059701492537313
+
+0.8375165125495376 0.7910447761194029 #9
+0.8295904887714664 0.8059701492537313
+
+0.8388375165125496 0.8059701492537313 #11
+0.8269484808454426 0.7985074626865671
+
+0.8348745046235139 0.7835820895522388 #13
+0.8243064729194187 0.8134328358208955
+
+0.8229854689564069 0.8134328358208955 #1
+0.8229854689564069 0.8134328358208955
+
+0.8282694848084544 0.8134328358208955 #2
+0.8282694848084544 0.8134328358208955
+
+0.8256274768824307 0.7985074626865671 #3
+0.8203434610303831 0.8059701492537313
+
+0.8322324966974901 0.7910447761194029 #4
+0.8190224570673712 0.7985074626865671
+
+0.8256274768824307 0.8283582089552238 #5
+0.8190224570673712 0.8059701492537313
+
+0.8375165125495376 0.7910447761194029 #7
+0.8190224570673712 0.7910447761194029
+
+0.8322324966974901 0.7910447761194029 #9
+0.8243064729194187 0.8059701492537313
+
+0.8282694848084544 0.8059701492537313 #11
+0.8335535006605019 0.7985074626865671
+
+0.8388375165125496 0.7910447761194029 #13
+0.821664464993395 0.7835820895522388
+
 files = open("titanic_intermediate_parameters_2018-11-9172110.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
 files.close()
 train_acc = []
 valida_acc = []
+
+start_time = datetime.datetime.now()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-
 X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, random_state=0)
-#下面是一个节点的结果咯
-nodes_list = parse_trials(trials, space_nodes, 1)
-stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
-stacked_trials = Trials()
-best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
-best_nodes = parse_nodes(stacked_trials, space_nodes)
-best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 40)
-test_acc = cal_acc(Y_train_pred, Y_split_test)
-train_acc.append(best_acc)
-valida_acc.append(test_acc)
-#下面是放入逻辑回归的计算结果咯
-lr = LogisticRegression()
-lr.fit(stacked_train, Y_split_train)
-best_acc = lr.score(stacked_train, Y_split_train)
-lr_pred = lr.predict(stacked_test)
-test_acc = cal_acc(lr_pred, Y_split_test)
-train_acc.append(best_acc)
-valida_acc.append(test_acc)
 
+for i in range(0, 3):
+    #下面是一个节点的结果咯
+    nodes_list = parse_trials(trials, space_nodes, 1)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
+    stacked_trials = Trials()
+    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+    best_nodes = parse_nodes(stacked_trials, space_nodes)
+    best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 40)
+    test_acc = cal_acc(Y_train_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
 
-#下面是五个节点的结果咯
-nodes_list = parse_trials(trials, space_nodes, 5)
-stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
-stacked_trials = Trials()
-best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
-best_nodes = parse_nodes(stacked_trials, space_nodes)
-best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 40)
-test_acc = cal_acc(Y_train_pred, Y_split_test)
-train_acc.append(best_acc)
-valida_acc.append(test_acc)
-#下面是放入逻辑回归的计算结果咯
-lr = LogisticRegression()
-lr.fit(stacked_train, Y_split_train)
-best_acc = lr.score(stacked_train, Y_split_train)
-lr_pred = lr.predict(stacked_test)
-test_acc = cal_acc(lr_pred, Y_split_test)
-train_acc.append(best_acc)
-valida_acc.append(test_acc)
+    #下面是二个节点的结果咯
+    nodes_list = parse_trials(trials, space_nodes, 2)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
+    stacked_trials = Trials()
+    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+    best_nodes = parse_nodes(stacked_trials, space_nodes)
+    best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 40)
+    test_acc = cal_acc(Y_train_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
 
+    #下面是三个节点的结果咯
+    nodes_list = parse_trials(trials, space_nodes, 3)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
+    stacked_trials = Trials()
+    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+    best_nodes = parse_nodes(stacked_trials, space_nodes)
+    best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 40)
+    test_acc = cal_acc(Y_train_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
 
+    #下面是四个节点的结果咯
+    nodes_list = parse_trials(trials, space_nodes, 3)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
+    stacked_trials = Trials()
+    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+    best_nodes = parse_nodes(stacked_trials, space_nodes)
+    best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 40)
+    test_acc = cal_acc(Y_train_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
 
+    #下面是五个节点的结果咯
+    nodes_list = parse_trials(trials, space_nodes, 5)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
+    stacked_trials = Trials()
+    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+    best_nodes = parse_nodes(stacked_trials, space_nodes)
+    best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 40)
+    test_acc = cal_acc(Y_train_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+
+    #下面是七个节点的结果咯
+    nodes_list = parse_trials(trials, space_nodes, 7)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
+    stacked_trials = Trials()
+    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+    best_nodes = parse_nodes(stacked_trials, space_nodes)
+    best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 40)
+    test_acc = cal_acc(Y_train_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+
+    nodes_list = parse_trials(trials, space_nodes, 9)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
+    stacked_trials = Trials()
+    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+    best_nodes = parse_nodes(stacked_trials, space_nodes)
+    best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 40)
+    test_acc = cal_acc(Y_train_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+
+    nodes_list = parse_trials(trials, space_nodes, 11)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
+    stacked_trials = Trials()
+    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+    best_nodes = parse_nodes(stacked_trials, space_nodes)
+    best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 40)
+    test_acc = cal_acc(Y_train_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+
+    nodes_list = parse_trials(trials, space_nodes, 13)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
+    stacked_trials = Trials()
+    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
+    best_nodes = parse_nodes(stacked_trials, space_nodes)
+    best_model, best_acc, Y_train_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 40)
+    test_acc = cal_acc(Y_train_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
 #然后这里是输出计算的结果咯
 for i in range(0, len(train_acc)):
     print(train_acc[i])
     print(valida_acc[i])
+"""
+
+#所以今天晚上的计算任务就是计算六七千次然后采用九个节点的办法吧，我相信应该能够取得不错结果的
