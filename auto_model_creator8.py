@@ -60,8 +60,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -662,9 +662,44 @@ def nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_
     print()
     return best_model, Y_pred
     
+def lr_stacking_predict(stacked_train, Y_train, stacked_test, max_evals=50):
+    
+    best_acc = 0.0
+    best_model = 0.0
+       
+    #这里并不需要保存最佳的模型吧，只需要将stacked_train之类的数据记录下来就行了
+    for i in range(0, max_evals):
+        
+        print(str(i+1)+"/"+str(max_evals)+" prediction progress have been made.")
+        
+        #这边是不是需要加入一些随机化的因素或者其他因素？？
+        clf = LogisticRegression()        
+        clf.fit(stacked_train, Y_train)
+        
+        metric = cal_nnclf_acc(clf, stacked_train.values, Y_train.values)
+        print_nnclf_acc(metric)
+        
+        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
+    
+        if (flag):
+            #这个版本的best_model终于是全局的版本咯，真是开森呢。。
+            save_best_model(best_model, best_nodes["title"]+"_"+str(len(nodes_list)))
+            Y_pred = best_model.predict(stacked_test.values.astype(np.float32))
+            
+            data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
+            output = pd.DataFrame(data = data)
+            
+            output.to_csv(best_nodes["path"], index=False)
+            print("prediction file has been written.")
+        print()
+     
+    print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
+    print()
+    return best_model, Y_pred
+
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -707,7 +742,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -845,34 +880,85 @@ best_model = load_best_model("stacked_titanic_2")
 print(cal_nnclf_acc(best_model, stacked_train.values, Y_train.values))
 """
 
+"""
 #下面的保存版本的代码算是调通实现了吧
+#下面的这份代码算是一个完整的版本吧，但是下面的代码存在一个问题
+#第二层一般不再使用比较简单的模型这样能够防止过拟合咯
 start_time = datetime.datetime.now()
 
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=4, trials=trials)
+best_params = fmin(nn_f, space, algo=algo, max_evals=7000, trials=trials)
 
 best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
-#nodes_list = parse_trials(trials, space_nodes, 5)
 
-nodes_list = [best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 5)
+nodes_list = parse_trials(trials, space_nodes, 9)
+#nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
+#              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 25)
 
 stacked_trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=5, trials=stacked_trials)
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=100, trials=stacked_trials)
 
 best_nodes = parse_nodes(stacked_trials, space_nodes)
 save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 
-nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 5)
+nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 50)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+"""
 
 """
 stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
 best_model = load_best_model("stacked_titanic_2")
 print(cal_nnclf_acc(best_model, stacked_train.values, Y_train.values))
 """
+
+"""
+#下面的代码算是7000次测试的前戏吧，这样就可以无忧的执行大计算咯
+start_time = datetime.datetime.now()
+
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_params = fmin(nn_f, space, algo=algo, max_evals=10, trials=trials)
+
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+
+nodes_list = parse_trials(trials, space_nodes, 9)
+#nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
+#              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 10)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+
+lr_stacking_predict(stacked_train, Y_train, stacked_test, 10)
+
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+#下面的代码应该是类似最终实现的版本咯
+#这个版本在第二层还是要使用逻辑回归咯
+start_time = datetime.datetime.now()
+
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_params = fmin(nn_f, space, algo=algo, max_evals=7000, trials=trials)
+
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+
+nodes_list = parse_trials(trials, space_nodes, 9)
+#nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
+#              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 50)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+
+lr_stacking_predict(stacked_train, Y_train, stacked_test, 100)
+
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+

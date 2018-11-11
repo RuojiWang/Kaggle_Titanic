@@ -1574,4 +1574,87 @@ for i in range(0, len(train_acc)):
     print(valida_acc[i])
 """
 
-#所以今天晚上的计算任务就是计算六七千次然后采用九个节点的办法吧，我相信应该能够取得不错结果的
+"""
+#其实现在所有的步骤能够通过StackingCVClassifier实现的吧
+#只不过当时没有考虑到stacking的过拟合风险罢了吧
+#下面的这个实验可以很好的测试不同节点和meta_classifier对于结果的影响
+#不行哦，这样子的话所有模型都学习过所有的数据咯，这样子就很容易过拟合滴。。
+clf1 = nn_model_train(best_nodes, X_train_scaled, Y_train, max_evals=10)
+clf2 = nn_model_train(best_nodes, X_train_scaled, Y_train, max_evals=10)
+clf3 = nn_model_train(best_nodes, X_train_scaled, Y_train, max_evals=10)
+clf4 = nn_model_train(best_nodes, X_train_scaled, Y_train, max_evals=10)
+clf5 = nn_model_train(best_nodes, X_train_scaled, Y_train, max_evals=10)
+clf6 = nn_model_train(best_nodes, X_train_scaled, Y_train, max_evals=10)
+lr = LogisticRegression()
+sclf = StackingCVClassifier(classifiers=[clf1, clf2, clf3], meta_classifier=lr, use_probas=True, n_folds=3, verbose=3)
+sclf.fit(X_train_scaled, Y_train)
+"""
+
+#但是我们可以尝试一下到底是使用逻辑回归作为meta_class比较好还是使用knn算法吧
+train_acc = []
+valida_acc = []
+
+start_time = datetime.datetime.now()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+
+for i in range(0, 1):
+    #上一个实验居然没有把split的部分放入到循环内，但是好像目前为止没发现啥大的问题吧。
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, random_state=0)
+
+    nodes_list = [best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    knn = KNeighborsClassifier()
+    knn.fit(stacked_train, Y_split_train)
+    best_acc = knn.score(stacked_train, Y_split_train)
+    knn_pred = knn.predict(stacked_test)
+    test_acc = cal_acc(knn_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    
+    nodes_list = [best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    knn = KNeighborsClassifier()
+    knn.fit(stacked_train, Y_split_train)
+    best_acc = knn.score(stacked_train, Y_split_train)
+    knn_pred = knn.predict(stacked_test)
+    test_acc = cal_acc(knn_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    
+    nodes_list = [best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    knn = KNeighborsClassifier()
+    knn.fit(stacked_train, Y_split_train)
+    best_acc = knn.score(stacked_train, Y_split_train)
+    knn_pred = knn.predict(stacked_test)
+    test_acc = cal_acc(knn_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+
+for i in range(0, len(train_acc)):
+    print(train_acc[i])
+    print(valida_acc[i])
