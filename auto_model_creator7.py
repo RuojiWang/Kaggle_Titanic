@@ -57,8 +57,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -648,7 +648,7 @@ def nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -691,7 +691,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -1590,15 +1590,45 @@ sclf = StackingCVClassifier(classifiers=[clf1, clf2, clf3], meta_classifier=lr, 
 sclf.fit(X_train_scaled, Y_train)
 """
 
+"""
 #但是我们可以尝试一下到底是使用逻辑回归作为meta_class比较好还是使用knn算法吧
-#0.8269484808454426 0.8059701492537313
+#但是我发现如果不进行设置的话两种方式得到的结果基本上是差不多的
+#今天最大的收获可能真的是关于自己的副业的收获了，感觉遇到了蛮多神器事情的呢
+#0.8269484808454426 0.8059701492537313 #一个节点
 #0.8269484808454426 0.8059701492537313
 
-#0.821664464993395 0.8134328358208955
+#0.821664464993395 0.8134328358208955 #两个节点
 #0.821664464993395 0.8208955223880597
 
-#0.8295904887714664 0.8059701492537313
+#0.8295904887714664 0.8059701492537313 #三个节点
 #0.8309114927344782 0.7985074626865671
+
+#0.8243064729194187 0.8059701492537313 #一个节点
+#0.8243064729194187 0.8059701492537313
+
+#0.8322324966974901 0.7985074626865671 #两个节点
+#0.8322324966974901 0.8059701492537313
+
+#0.8282694848084544 0.7985074626865671 #三个节点
+#0.8335535006605019 0.8059701492537313
+
+#0.8269484808454426 0.8208955223880597 #一个节点
+#0.8269484808454426 0.8208955223880597
+
+#0.8335535006605019 0.8134328358208955 #两个节点
+#0.8335535006605019 0.8134328358208955
+
+#0.8295904887714664 0.8134328358208955 #三个节点
+#0.8322324966974901 0.8059701492537313
+
+#0.8243064729194187 0.8059701492537313 #九个节点
+#0.8322324966974901 0.8059701492537313
+
+#0.8282694848084544 0.8059701492537313 #九个节点
+#0.8295904887714664 0.7985074626865671
+
+#0.8335535006605019 0.7985074626865671 #九个节点
+#0.8335535006605019 0.7985074626865671
 
 train_acc = []
 valida_acc = []
@@ -1606,46 +1636,13 @@ valida_acc = []
 start_time = datetime.datetime.now()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 
-for i in range(0, 1):
+for i in range(0, 2):
     #上一个实验居然没有把split的部分放入到循环内，但是好像目前为止没发现啥大的问题吧。
     X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, random_state=0)
-
-    nodes_list = [best_nodes]
-    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
-    lr = LogisticRegression()
-    lr.fit(stacked_train, Y_split_train)
-    best_acc = lr.score(stacked_train, Y_split_train)
-    lr_pred = lr.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    knn = KNeighborsClassifier()
-    knn.fit(stacked_train, Y_split_train)
-    best_acc = knn.score(stacked_train, Y_split_train)
-    knn_pred = knn.predict(stacked_test)
-    test_acc = cal_acc(knn_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
     
-    nodes_list = [best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
-    lr = LogisticRegression()
-    lr.fit(stacked_train, Y_split_train)
-    best_acc = lr.score(stacked_train, Y_split_train)
-    lr_pred = lr.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    knn = KNeighborsClassifier()
-    knn.fit(stacked_train, Y_split_train)
-    best_acc = knn.score(stacked_train, Y_split_train)
-    knn_pred = knn.predict(stacked_test)
-    test_acc = cal_acc(knn_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    
-    nodes_list = [best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 25)
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
     lr = LogisticRegression()
     lr.fit(stacked_train, Y_split_train)
     best_acc = lr.score(stacked_train, Y_split_train)
@@ -1667,3 +1664,6 @@ print("time cost", (end_time - start_time))
 for i in range(0, len(train_acc)):
     print(train_acc[i])
     print(valida_acc[i])
+"""
+
+#那我现在要做的事情就是在上面的基础上
