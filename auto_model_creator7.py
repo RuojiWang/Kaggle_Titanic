@@ -36,6 +36,8 @@ from skorch import NeuralNetClassifier
 import hyperopt
 from hyperopt import fmin, tpe, hp, space_eval, rand, Trials, partial, STATUS_OK
 
+from tpot import TPOTClassifier
+
 from xgboost import XGBClassifier
 
 from mlxtend.classifier import StackingCVClassifier
@@ -1666,4 +1668,118 @@ for i in range(0, len(train_acc)):
     print(valida_acc[i])
 """
 
-#那我现在要做的事情就是在上面的基础上
+#昨日的大计算结果非常的。。不理想我比较好奇到底怎么才能够提高最后的准确率呢
+#我现在的思路主要是想借鉴TPOT的相关经验完成对于这个数据的优化吧
+#现在的思路：
+#（1）先尝试对于第二层进行超参搜索呢。
+#（2）然后尝试TPOT的相关方法能够进一步优化？
+#（3）然后处理一下感情相关的内容
+#（4）然后处理一下副业相关的内容
+#（5）然后处理一下姑妈的创业问题
+#（6）然后处理一下淘宝的问题
+#下面的这个数据就是11-12日7000次搜索的结果咯
+files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+
+best_nodes = parse_nodes(trials, space_nodes)
+
+train_acc = []
+valida_acc = []
+
+start_time = datetime.datetime.now()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+#0.8269484808454426 0.8059701492537313
+#0.8256274768824307 0.8134328358208955
+
+#0.8229854689564069 0.7985074626865671
+#0.6393659180977543 0.6119402985074627
+
+#0.845442536327609 0.7985074626865671
+
+#0.82034346103038310.7686567164179104
+
+for i in range(0, 1):
+    
+    #上一个实验居然没有把split的部分放入到循环内，但是好像目前为止没发现啥大的问题吧。
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, random_state=0)
+    
+    """
+    #下面是使用stacking的部分，使用九个best_nodes的那种，分为使用lr和knn的两部分计算
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    #下面的部分才是knn相关计算
+    knn = KNeighborsClassifier()
+    knn.fit(stacked_train, Y_split_train)
+    best_acc = knn.score(stacked_train, Y_split_train)
+    knn_pred = knn.predict(stacked_test)
+    test_acc = cal_acc(knn_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    
+    #下面是使用stacking的部分，使用九个不同节点的那种，分为使用lr和knn的两部分计算
+    nodes_list = parse_trials(trials, space_nodes, 9)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    #下面的部分才是knn相关计算
+    knn = KNeighborsClassifier()
+    knn.fit(stacked_train, Y_split_train)
+    best_acc = knn.score(stacked_train, Y_split_train)
+    knn_pred = knn.predict(stacked_test)
+    test_acc = cal_acc(knn_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    
+    #下面是使用神经网络单模型的部分
+    best_model, best_acc = nn_model_train(best_nodes, X_split_train.values, Y_split_train.values, 50)
+    best_acc = cal_nnclf_acc(best_model, X_split_train.values, Y_split_train.values)
+    test_acc = cal_nnclf_acc(best_model, X_split_test.values, Y_split_test.values)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    
+    #下面也是使用但模型但是只使用lr
+    lr = LogisticRegression()
+    lr.fit(X_split_train, Y_split_train)
+    best_acc = lr.score(X_split_train, Y_split_train)
+    lr_pred = lr.predict(X_split_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)    
+    """
+    
+    #最下面是使用TPOT来battle一下
+    #TPOT应该能够完爆以上模型吧
+    #0.8388375165125496
+    #0.8208955223880597
+    #我有一个想法，可以将stacking输出的数据放入其中呢
+    #这样子既避免了做特征工程，而且还可以利用tpot很屌吧
+    #我觉得原来模型的问题主要是第二层没有进行cv的操作吧
+    #现在的情况是要么只使用tpot或者两层神经网络都要交叉验证咯
+    tpot = TPOTClassifier(generations=40, population_size=40, verbosity = 2)
+    tpot.fit(X_split_train, Y_split_train)
+    best_acc = tpot.score(X_split_train, Y_split_train)
+    tpot_pred = tpot.predict(X_split_test)
+    test_acc = cal_acc(tpot_pred, Y_split_test)  
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)  
+    
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+
+for i in range(0, len(train_acc)):
+    print(train_acc[i])
+    print(valida_acc[i])

@@ -63,4 +63,14 @@
         import warnings
 
         warnings.filterwarnings('ignore')
+        
+    10.使用TPOT等产生下列错误：ImportWarning: Falling back to the python version of hypervolume module. 
+    Expect this to be very slow."module. Expect this to be very slow.", ImportWarning)或者
+    ImportWarning: can't resolve package from __spec__ or __package__, falling back on __name__ and __path__
+    return f(*args, **kwds)错误
+    
+        这个主要是因为你deap的版本问题，我之前自己安装过其他版本的deap
+        先 pip uninstall deap
+        然后 pip install deap=1.0.2
+  
 """
