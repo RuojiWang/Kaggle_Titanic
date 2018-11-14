@@ -8,7 +8,7 @@
 #（0）stacked的输入数据是否需要归一化呢？
 #（0）类别用one-hot编码咯
 #（1）需要进行特征缩放，共用之前的X_train_scaled, Y_train,  X_test_scaled
-#（2）nn_f(nn_stacking_f)中noise_augment_data中的columns是否需要修改呢
+#（2）nn_f(nn_stacking_f)中noise_augment_data中的columns是否需要修改，其中训练集是否为X_split或者Y_split
 #（3）space、space_nodes、best_nodes、parse_nodes、parse_trials可能需要同时修改
 #（4）不同类型的问题可能修改create_module，所有用到该函数的地方如nn_model_train均需要修改的吧
 #（5）save_stacked_dataset保存可能可能必须和nn_stacking_predict中的save_best_model配套才有
@@ -47,6 +47,8 @@ from skorch import NeuralNetClassifier
 import hyperopt
 from hyperopt import fmin, tpe, hp, space_eval, rand, Trials, partial, STATUS_OK
 
+from tpot import TPOTClassifier
+
 from xgboost import XGBClassifier
 
 from mlxtend.classifier import StackingCVClassifier
@@ -60,8 +62,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -661,7 +663,8 @@ def nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_
     print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
     print()
     return best_model, Y_pred
-    
+   
+#lr没有超参搜索而且没有进行过cv怎么可能会取得好成绩呢？ 
 def lr_stacking_predict(stacked_train, Y_train, stacked_test, max_evals=50):
     
     best_acc = 0.0
@@ -697,9 +700,30 @@ def lr_stacking_predict(stacked_train, Y_train, stacked_test, max_evals=50):
     print()
     return best_model, Y_pred
 
+def tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=100, population_size=100):
+    
+    tpot = TPOTClassifier(generations=generations, population_size=population_size, verbosity = 2)
+    tpot.fit(stacked_train, Y_train)
+    best_acc = tpot.score(stacked_train, Y_train)
+    Y_pred = tpot.predict(stacked_test)
+    best_model = tpot
+         
+    save_best_model(best_model.fitted_pipeline_, best_nodes["title"]+"_"+"tpot")
+    Y_pred = best_model.predict(stacked_test)
+            
+    data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
+    output = pd.DataFrame(data = data)
+            
+    output.to_csv(best_nodes["path"], index=False)
+    print("prediction file has been written.")
+            
+    print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
+    print()
+    return best_model, Y_pred
+    
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -742,7 +766,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -940,8 +964,11 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
+"""
 #下面的代码应该是类似最终实现的版本咯
 #这个版本在第二层还是要使用逻辑回归咯
+#lr在大计算中表现的结果确实太糟糕，
+#感觉只能够在第二层使用tpot或者
 start_time = datetime.datetime.now()
 
 trials = Trials()
@@ -961,4 +988,70 @@ lr_stacking_predict(stacked_train, Y_train, stacked_test, 100)
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+"""
 
+"""
+#就目前的结果而言，下面的代码应该是目前能够取得的最佳效果之一
+#这份代码主要的问题就是计算量过大了，涉及到了两次超参搜索
+start_time = datetime.datetime.now()
+
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_params = fmin(nn_f, space, algo=algo, max_evals=7000, trials=trials)
+
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+
+#nodes_list = parse_trials(trials, space_nodes, 9)
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 70)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+
+stacked_trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=7000, trials=stacked_trials)
+
+best_nodes = parse_nodes(stacked_trials, space_nodes)
+save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
+
+nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 1000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+#下面这份代码的模板能够避免第二次超参搜索
+#具体地说就是将第一次的搜索之后stacking之后的输出
+#作为新的特征，然后是用tpot的方式对这个特征进行搜索咯
+#这样做的好处在于一方面能够节约第二次超参搜索的时间
+#并且避免了第一次stacking之前做特征工程的时间咯
+start_time = datetime.datetime.now()
+
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_params = fmin(nn_f, space, algo=algo, max_evals=2, trials=trials)
+
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+
+#nodes_list = parse_trials(trials, space_nodes, 9)
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
+              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 1)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+
+tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=3, population_size=3)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+
+"""
+tpot = TPOTClassifier(generations=3, population_size=3, verbosity = 2)
+tpot.fit(X_train_scaled, Y_train)
+best_acc = tpot.score(X_train_scaled, Y_train)
+print(best_acc)
+Y_pred = tpot.predict(X_test_scaled)
+save_best_model(tpot.fitted_pipeline_, "stacked_titanic_tpot")
+
+best_model = load_best_model("stacked_titanic_tpot")
+print(best_model.score(X_train_scaled, Y_train))
+"""

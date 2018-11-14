@@ -54,8 +54,6 @@ warnings.filterwarnings('ignore')
 #两者的区别在于前者返回indice或者索引列表后者直接返回迭代器，虽然我这一份代码两种方式都有但是让他们并存吧
 #from sklearn.model_selection import KFold,StratifiedKFold
 
-warnings.filterwarnings('ignore')
-
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
@@ -1671,7 +1669,7 @@ for i in range(0, len(train_acc)):
 #昨日的大计算结果非常的。。不理想我比较好奇到底怎么才能够提高最后的准确率呢
 #我现在的思路主要是想借鉴TPOT的相关经验完成对于这个数据的优化吧
 #现在的思路：
-#（1）先尝试对于第二层进行超参搜索呢。
+#（1）先尝试对于第二层进行超参搜索呢。已经实现过类似的代码了弟弟。
 #（2）然后尝试TPOT的相关方法能够进一步优化？
 #（3）然后处理一下感情相关的内容
 #（4）然后处理一下副业相关的内容
@@ -1689,15 +1687,6 @@ valida_acc = []
 
 start_time = datetime.datetime.now()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-#0.8269484808454426 0.8059701492537313
-#0.8256274768824307 0.8134328358208955
-
-#0.8229854689564069 0.7985074626865671
-#0.6393659180977543 0.6119402985074627
-
-#0.845442536327609 0.7985074626865671
-
-#0.82034346103038310.7686567164179104
 
 for i in range(0, 1):
     
@@ -1751,7 +1740,7 @@ for i in range(0, 1):
     train_acc.append(best_acc)
     valida_acc.append(test_acc)
     
-    #下面也是使用但模型但是只使用lr
+    #下面也是使用lr单模型的部分咯
     lr = LogisticRegression()
     lr.fit(X_split_train, Y_split_train)
     best_acc = lr.score(X_split_train, Y_split_train)
@@ -1761,22 +1750,30 @@ for i in range(0, 1):
     valida_acc.append(test_acc)    
     """
     
-    #最下面是使用TPOT来battle一下
-    #TPOT应该能够完爆以上模型吧
-    #0.8388375165125496
-    #0.8208955223880597
-    #我有一个想法，可以将stacking输出的数据放入其中呢
-    #这样子既避免了做特征工程，而且还可以利用tpot很屌吧
-    #我觉得原来模型的问题主要是第二层没有进行cv的操作吧
-    #现在的情况是要么只使用tpot或者两层神经网络都要交叉验证咯
-    tpot = TPOTClassifier(generations=40, population_size=40, verbosity = 2)
-    tpot.fit(X_split_train, Y_split_train)
-    best_acc = tpot.score(X_split_train, Y_split_train)
-    tpot_pred = tpot.predict(X_split_test)
+    #下面是使用stacking而且第二层使用神经网络咯
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 50)
+    stacked_trials = Trials()
+    algo = partial(tpe.suggest, n_startup_jobs=10)
+    #留意这个nn_stacking_f内部的参数哈
+    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=100, trials=stacked_trials)
+    best_nodes = parse_nodes(stacked_trials, space_nodes)
+    best_model, best_acc, Y_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 50)
+    best_acc = cal_nnclf_acc(best_model, X_split_train.values, Y_split_train.values)
+    test_acc = cal_acc(Y_pred, Y_split_test.values)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)  
+
+    #下面是使用stacking然而第二层使用tpot进行计算
+    tpot = TPOTClassifier(generations=50, population_size=50, verbosity = 2)
+    tpot.fit(stacked_train, Y_split_train)
+    best_acc = tpot.score(stacked_train, Y_split_train)
+    tpot_pred = tpot.predict(stacked_test)
     test_acc = cal_acc(tpot_pred, Y_split_test)  
     train_acc.append(best_acc)
     valida_acc.append(test_acc)  
-    
+
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 
