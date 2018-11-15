@@ -72,5 +72,11 @@
         这个主要是因为你deap的版本问题，我之前自己安装过其他版本的deap
         先 pip uninstall deap
         然后 pip install deap=1.0.2
-  
+        
+    11.使用TPOT产生下列错误：Check failed: (n) > (0) colsample_bytree=1 is too small that no feature can be included
+      
+          这个主要是因为TPOT采用了老版本的xgboost的缘故，更具体地说好像是因为老版本的xgboost使用了多线程？反正是某些设置导致的。
+          解决的方法就是直接安装新版本的xgboost就完事了，md这是我查询了一个班小时论坛得到的解决方案。
+          首先输入pip install xgboost==1.,由于没有这个版本，所以对话框会弹出所有版本，这个时候你可以看到最佳的版本是0.81
+          接下来就直接输入pip install xgboost==0.81这一条指令就可以卸载老版本并安装新版本咯，接下来的实验就可以正常进行啦。
 """

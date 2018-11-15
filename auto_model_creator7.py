@@ -1751,9 +1751,10 @@ for i in range(0, 1):
     """
     
     #下面是使用stacking而且第二层使用神经网络咯
+    #为什么会得到下面的输出呢，太奇怪了吧 0.7635402906208718 0.7910447761194029
     nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 50)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
     stacked_trials = Trials()
     algo = partial(tpe.suggest, n_startup_jobs=10)
     #留意这个nn_stacking_f内部的参数哈
@@ -1763,16 +1764,18 @@ for i in range(0, 1):
     best_acc = cal_nnclf_acc(best_model, X_split_train.values, Y_split_train.values)
     test_acc = cal_acc(Y_pred, Y_split_test.values)
     train_acc.append(best_acc)
-    valida_acc.append(test_acc)  
+    valida_acc.append(test_acc)
 
+    """
     #下面是使用stacking然而第二层使用tpot进行计算
-    tpot = TPOTClassifier(generations=50, population_size=50, verbosity = 2)
+    tpot = TPOTClassifier(generations=100, population_size=100, verbosity = 2)
     tpot.fit(stacked_train, Y_split_train)
     best_acc = tpot.score(stacked_train, Y_split_train)
     tpot_pred = tpot.predict(stacked_test)
     test_acc = cal_acc(tpot_pred, Y_split_test)  
     train_acc.append(best_acc)
     valida_acc.append(test_acc)  
+    """
 
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
