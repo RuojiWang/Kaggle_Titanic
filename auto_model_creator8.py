@@ -1046,121 +1046,18 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
-"""
-tpot = TPOTClassifier(generations=40, population_size=40, verbosity = 2)
-tpot.fit(X_train_scaled, Y_train)
-best_acc = tpot.score(X_train_scaled, Y_train)
-print(best_acc)
-Y_pred = tpot.predict(X_test_scaled)
-save_best_model(tpot.fitted_pipeline_, "stacked_titanic_tpot")
-
-best_model = load_best_model("stacked_titanic_tpot")
-print(best_model.score(X_train_scaled, Y_train))
-"""
-
-
-files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
-trials, space_nodes, best_nodes = pickle.load(files)
-files.close()
-
-best_nodes = parse_nodes(trials, space_nodes)
-
 train_acc = []
-valida_acc = []
-
-start_time = datetime.datetime.now()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-
-for i in range(0, 1):
-    
-    #上一个实验居然没有把split的部分放入到循环内，但是好像目前为止没发现啥大的问题吧。
-    #X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, random_state=0)
-    
-    """
-    #下面是使用stacking的部分，使用九个best_nodes的那种，分为使用lr和knn的两部分计算
-    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
-                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    lr = LogisticRegression()
-    lr.fit(stacked_train, Y_split_train)
-    best_acc = lr.score(stacked_train, Y_split_train)
-    lr_pred = lr.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
+test_acc = []
+for i in range(0, 10):
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, random_state=0)
+    tpot = TPOTClassifier(generations=2000, population_size=2000, verbosity = 2)
+    tpot.fit(X_split_train, Y_split_train)
+    best_acc = tpot.score(X_split_train, Y_split_train)
     train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    #下面的部分才是knn相关计算
-    knn = KNeighborsClassifier()
-    knn.fit(stacked_train, Y_split_train)
-    best_acc = knn.score(stacked_train, Y_split_train)
-    knn_pred = knn.predict(stacked_test)
-    test_acc = cal_acc(knn_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    
-    #下面是使用stacking的部分，使用九个不同节点的那种，分为使用lr和knn的两部分计算
-    nodes_list = parse_trials(trials, space_nodes, 9)
-    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    lr = LogisticRegression()
-    lr.fit(stacked_train, Y_split_train)
-    best_acc = lr.score(stacked_train, Y_split_train)
-    lr_pred = lr.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    #下面的部分才是knn相关计算
-    knn = KNeighborsClassifier()
-    knn.fit(stacked_train, Y_split_train)
-    best_acc = knn.score(stacked_train, Y_split_train)
-    knn_pred = knn.predict(stacked_test)
-    test_acc = cal_acc(knn_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    
-    #下面是使用神经网络单模型的部分
-    best_model, best_acc = nn_model_train(best_nodes, X_split_train.values, Y_split_train.values, 50)
-    best_acc = cal_nnclf_acc(best_model, X_split_train.values, Y_split_train.values)
-    test_acc = cal_nnclf_acc(best_model, X_split_test.values, Y_split_test.values)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    
-    #下面也是使用lr单模型的部分咯
-    lr = LogisticRegression()
-    lr.fit(X_split_train, Y_split_train)
-    best_acc = lr.score(X_split_train, Y_split_train)
-    lr_pred = lr.predict(X_split_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)    
-    """
-    
-    #下面是使用stacking而且第二层使用神经网络咯
-    #为什么会得到下面的输出呢，太奇怪了吧 0.7635402906208718 0.7910447761194029
-    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
-                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 30)
-    stacked_trials = Trials()
-    algo = partial(tpe.suggest, n_startup_jobs=10)
-    #留意这个nn_stacking_f内部的参数哈
-    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=100, trials=stacked_trials)
-    best_nodes = parse_nodes(stacked_trials, space_nodes)
-    best_model, best_acc, Y_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 50)
-    best_acc = cal_nnclf_acc(best_model, X_train_scaled.values, Y_train.values)
-    train_acc.append(best_acc)
-
-    """
-    #下面是使用stacking然而第二层使用tpot进行计算
-    tpot = TPOTClassifier(generations=100, population_size=100, verbosity = 2)
-    tpot.fit(stacked_train, Y_split_train)
-    best_acc = tpot.score(stacked_train, Y_split_train)
-    tpot_pred = tpot.predict(stacked_test)
-    test_acc = cal_acc(tpot_pred, Y_split_test)  
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)  
-    """
-
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
+    Y_pred = tpot.predict(X_split_test)
+    tests_acc = cal_acc(Y_pred, Y_split_test)
+    test_acc.append(tests_acc)
 
 for i in range(0, len(train_acc)):
     print(train_acc[i])
-    print(valida_acc[i])
+    print(test_acc[i])

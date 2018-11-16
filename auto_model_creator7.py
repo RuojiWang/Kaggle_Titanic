@@ -1684,20 +1684,26 @@ best_nodes = parse_nodes(trials, space_nodes)
 
 train_acc = []
 valida_acc = []
+time_cost = []
 
-start_time = datetime.datetime.now()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-
-for i in range(0, 1):
+#从下面的实验数据而言我觉得总有些东西可以总结出来：
+#（0）先看一下是不是有bug，我怎么觉得现在的结果很奇怪呢？并实现数据集样本类型均匀划分
+#（1）九个节点的总体而言似乎效果最好
+#（2）用九个最佳节点比用前九个节点效果好
+#（3）stacking第二层用stacking或者tpot效果没有逻辑回归好。。
+#（4）我现在怀疑是不是第二层超参搜索越久越容易过拟合？？一会儿做点实验验证一下。。
+#（5）然后我现在觉得真的有必要在第二层lr增加超参搜索咯。。
+for i in range(0, 3):
     
+    start_time = datetime.datetime.now()
     #上一个实验居然没有把split的部分放入到循环内，但是好像目前为止没发现啥大的问题吧。
     X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, random_state=0)
     
-    """
     #下面是使用stacking的部分，使用九个best_nodes的那种，分为使用lr和knn的两部分计算
     nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 50)
     lr = LogisticRegression()
     lr.fit(stacked_train, Y_split_train)
     best_acc = lr.score(stacked_train, Y_split_train)
@@ -1714,6 +1720,10 @@ for i in range(0, 1):
     train_acc.append(best_acc)
     valida_acc.append(test_acc)
     
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    """
     #下面是使用stacking的部分，使用九个不同节点的那种，分为使用lr和knn的两部分计算
     nodes_list = parse_trials(trials, space_nodes, 9)
     stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
@@ -1750,36 +1760,43 @@ for i in range(0, 1):
     valida_acc.append(test_acc)    
     """
     
+    """
     #下面是使用stacking而且第二层使用神经网络咯
     #为什么会得到下面的输出呢，太奇怪了吧 0.7635402906208718 0.7910447761194029
     nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 60)
+    """
+    start_time = datetime.datetime.now()
     stacked_trials = Trials()
     algo = partial(tpe.suggest, n_startup_jobs=10)
     #留意这个nn_stacking_f内部的参数哈
-    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=100, trials=stacked_trials)
+    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=220, trials=stacked_trials)
     best_nodes = parse_nodes(stacked_trials, space_nodes)
-    best_model, best_acc, Y_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 50)
-    best_acc = cal_nnclf_acc(best_model, X_split_train.values, Y_split_train.values)
+    best_model, best_acc, Y_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 100)
+    best_acc = cal_nnclf_acc(best_model, stacked_train.values, Y_split_train.values)
     test_acc = cal_acc(Y_pred, Y_split_test.values)
     train_acc.append(best_acc)
     valida_acc.append(test_acc)
 
-    """
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()
     #下面是使用stacking然而第二层使用tpot进行计算
-    tpot = TPOTClassifier(generations=100, population_size=100, verbosity = 2)
+    tpot = TPOTClassifier(generations=130, population_size=130, verbosity = 2)
     tpot.fit(stacked_train, Y_split_train)
     best_acc = tpot.score(stacked_train, Y_split_train)
     tpot_pred = tpot.predict(stacked_test)
     test_acc = cal_acc(tpot_pred, Y_split_test)  
     train_acc.append(best_acc)
-    valida_acc.append(test_acc)  
-    """
-
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
 
 for i in range(0, len(train_acc)):
     print(train_acc[i])
     print(valida_acc[i])
+
+for i in range(0, len(time_cost)):
+    print(time_cost[i])
