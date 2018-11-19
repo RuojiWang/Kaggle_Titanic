@@ -1013,78 +1013,6 @@ for i in range(0, len(train_acc)):
 
 """
 #第二层使用逻辑回归是真的更好一些的呢。。
-0.8229854689564069 0.8059701492537313 #1
-0.8229854689564069 1.0
-
-0.8256274768824307 0.8134328358208955 #2
-0.8256274768824307 1.0
-
-0.8295904887714664 0.8283582089552238 #4
-0.8190224570673712 1.0
-
-0.8269484808454426 0.7835820895522388 #5
-0.821664464993395 1.0
-
-0.8309114927344782 0.7910447761194029 #7
-0.8150594451783355 1.0
-
-0.8414795244385733 0.8208955223880597 #9
-0.8361955085865258 1.0
-
-0.8229854689564069 0.8432835820895522 #1
-0.8229854689564069 1.0
-
-0.8295904887714664 0.7910447761194029 #2
-0.8295904887714664 1.0
-
-0.8361955085865258 0.8059701492537313 #4
-0.8282694848084544 1.0
-
-0.8335535006605019 0.8134328358208955 #5
-0.8295904887714664 1.0
-
-0.8322324966974901 0.8134328358208955 #7
-0.8229854689564069 1.0
-
-0.8388375165125496 0.8208955223880597 #9
-0.8256274768824307 1.0
-
-0.8150594451783355 0.8134328358208955 #1
-0.8150594451783355 1.0
-
-0.7648612945838837 0.7388059701492538 #2
-0.7648612945838837 1.0
-
-0.8295904887714664 0.7910447761194029 #4
-0.821664464993395 1.0
-
-0.8309114927344782 0.8208955223880597 #5
-0.8163804491413474 1.0
-
-0.8414795244385733 0.8208955223880597 #7
-0.8282694848084544 1.0
-
-0.8414795244385733 0.8134328358208955 #9
-0.8269484808454426 1.0
-
-0.808454425363276 0.8134328358208955 #1
-0.808454425363276 1.0
-
-0.8295904887714664 0.7985074626865671 #2
-0.8177014531043593 1.0
-
-0.8282694848084544 0.835820895522388 #4
-0.8229854689564069 1.0
-
-0.8295904887714664 0.7985074626865671 #5
-0.8203434610303831 1.0
-
-0.8295904887714664 0.8134328358208955 #7
-0.8309114927344782 1.0
-
-0.857331571994716 0.835820895522388 #9
-0.8256274768824307 1.0
-
 0.8295904887714664 0.7910447761194029 #1
 0.8295904887714664 0.7985074626865671
 
@@ -1666,6 +1594,7 @@ for i in range(0, len(train_acc)):
     print(valida_acc[i])
 """
 
+"""
 #昨日的大计算结果非常的。。不理想我比较好奇到底怎么才能够提高最后的准确率呢
 #我现在的思路主要是想借鉴TPOT的相关经验完成对于这个数据的优化吧
 #现在的思路：
@@ -1691,9 +1620,56 @@ algo = partial(tpe.suggest, n_startup_jobs=10)
 #（0）先看一下是不是有bug，我怎么觉得现在的结果很奇怪呢？并实现数据集样本类型均匀划分
 #（1）九个节点的总体而言似乎效果最好
 #（2）用九个最佳节点比用前九个节点效果好
-#（3）stacking第二层用stacking或者tpot效果没有逻辑回归好。。
-#（4）我现在怀疑是不是第二层超参搜索越久越容易过拟合？？一会儿做点实验验证一下。。
-#（5）然后我现在觉得真的有必要在第二层lr增加超参搜索咯。。
+#（3）第二层使用超参搜索比不使用效果好点
+#（4）stacking第二层不应该增加噪声的
+#（5）第二层使用超参搜索的效果应该较好比不使用的好
+#（6）stacking第二层用stacking或者tpot泛化效果没有逻辑回归好。。
+#（7）我现在怀疑是不是第二层超参搜索越久越容易过拟合？？一会儿做点实验验证一下。。
+#（8）然后我现在觉得真的有必要在第二层lr增加超参搜索咯。。
+0.8256274768824307
+0.7985074626865671
+0.8480845442536328
+0.7985074626865671
+
+0.8626155878467635
+0.8059701492537313
+
+0.857331571994716
+0.8656716417910447
+
+0.821664464993395
+0.8283582089552238
+0.8401585204755614
+0.8134328358208955
+
+0.8348745046235139
+0.8059701492537313
+
+0.8401585204755614
+0.7910447761194029
+
+0.8229854689564069
+0.8134328358208955
+0.8414795244385733
+0.8283582089552238
+
+0.8507265521796565
+0.8059701492537313
+
+0.8295904887714664
+0.7985074626865671
+
+0:20:19.970833
+0:28:16.862013
+3:14:11.963033
+
+0:34:06.591781
+0:21:54.658663
+1:15:40.699845
+
+0:19:55.276038
+0:29:27.091579
+3:21:25.778325
 for i in range(0, 3):
     
     start_time = datetime.datetime.now()
@@ -1723,50 +1699,6 @@ for i in range(0, 3):
     end_time = datetime.datetime.now()
     time_cost.append((end_time - start_time))
     
-    """
-    #下面是使用stacking的部分，使用九个不同节点的那种，分为使用lr和knn的两部分计算
-    nodes_list = parse_trials(trials, space_nodes, 9)
-    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    lr = LogisticRegression()
-    lr.fit(stacked_train, Y_split_train)
-    best_acc = lr.score(stacked_train, Y_split_train)
-    lr_pred = lr.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    #下面的部分才是knn相关计算
-    knn = KNeighborsClassifier()
-    knn.fit(stacked_train, Y_split_train)
-    best_acc = knn.score(stacked_train, Y_split_train)
-    knn_pred = knn.predict(stacked_test)
-    test_acc = cal_acc(knn_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    
-    #下面是使用神经网络单模型的部分
-    best_model, best_acc = nn_model_train(best_nodes, X_split_train.values, Y_split_train.values, 50)
-    best_acc = cal_nnclf_acc(best_model, X_split_train.values, Y_split_train.values)
-    test_acc = cal_nnclf_acc(best_model, X_split_test.values, Y_split_test.values)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    
-    #下面也是使用lr单模型的部分咯
-    lr = LogisticRegression()
-    lr.fit(X_split_train, Y_split_train)
-    best_acc = lr.score(X_split_train, Y_split_train)
-    lr_pred = lr.predict(X_split_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)    
-    """
-    
-    """
-    #下面是使用stacking而且第二层使用神经网络咯
-    #为什么会得到下面的输出呢，太奇怪了吧 0.7635402906208718 0.7910447761194029
-    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
-                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 60)
-    """
     start_time = datetime.datetime.now()
     stacked_trials = Trials()
     algo = partial(tpe.suggest, n_startup_jobs=10)
@@ -1800,3 +1732,236 @@ for i in range(0, len(train_acc)):
 
 for i in range(0, len(time_cost)):
     print(time_cost[i])
+"""
+
+#现在看一下如何实现均匀划分版本的实验咯
+#我觉得以后建议使用均匀划分的版本吧，不然泛化性能难以衡量
+#虽然比一定每次的比赛都是均匀划分的数据，但是更有意义一些吧
+#顺便看一下代码是否存在BUG，虽然我自己内心觉得应该没问题的吧
+files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+
+best_nodes = parse_nodes(trials, space_nodes)
+
+train_acc = []
+valida_acc = []
+time_cost = []
+
+algo = partial(tpe.suggest, n_startup_jobs=10)
+ 
+for i in range(0, 4):
+    
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
+    
+    start_time = datetime.datetime.now()
+    #下面是使用stacking的部分，使用九个best_nodes的那种，分为使用lr和knn的两部分计算
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    #下面的部分才是knn相关计算
+    knn = KNeighborsClassifier()
+    knn.fit(stacked_train, Y_split_train)
+    best_acc = knn.score(stacked_train, Y_split_train)
+    knn_pred = knn.predict(stacked_test)
+    test_acc = cal_acc(knn_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))    
+    
+    #下面是stacking第二层使用tpot进行计算900次
+    start_time = datetime.datetime.now()
+    tpot = TPOTClassifier(generations=30, population_size=30, verbosity = 2)
+    tpot.fit(stacked_train, Y_split_train)
+    best_acc = tpot.score(stacked_train, Y_split_train)
+    tpot_pred = tpot.predict(stacked_test)
+    test_acc = cal_acc(tpot_pred, Y_split_test)  
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    #下面是stacking第二层使用tpot进行计算1600次
+    start_time = datetime.datetime.now()
+    tpot = TPOTClassifier(generations=40, population_size=40, verbosity = 2)
+    tpot.fit(stacked_train, Y_split_train)
+    best_acc = tpot.score(stacked_train, Y_split_train)
+    tpot_pred = tpot.predict(stacked_test)
+    test_acc = cal_acc(tpot_pred, Y_split_test)  
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))    
+
+    #下面是stacking第二层使用tpot进行计算2500次
+    start_time = datetime.datetime.now()
+    tpot = TPOTClassifier(generations=50, population_size=50, verbosity = 2)
+    tpot.fit(stacked_train, Y_split_train)
+    best_acc = tpot.score(stacked_train, Y_split_train)
+    tpot_pred = tpot.predict(stacked_test)
+    test_acc = cal_acc(tpot_pred, Y_split_test)  
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    #下面是stacking第二层使用tpot进行计算3600次
+    start_time = datetime.datetime.now()
+    tpot = TPOTClassifier(generations=60, population_size=60, verbosity = 2)
+    tpot.fit(stacked_train, Y_split_train)
+    best_acc = tpot.score(stacked_train, Y_split_train)
+    tpot_pred = tpot.predict(stacked_test)
+    test_acc = cal_acc(tpot_pred, Y_split_test)  
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+for i in range(0, len(train_acc)):
+    print(train_acc[i])
+    print(valida_acc[i])
+
+for i in range(0, len(time_cost)):
+    print(time_cost[i])
+    
+"""
+#这个实验主要验证超参搜索的次数和泛化性能的情况
+#具体一点说，我感觉stacking第二层搜索越久泛化性能越差
+files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+
+best_nodes = parse_nodes(trials, space_nodes)
+
+train_acc = []
+valida_acc = []
+time_cost = []
+
+algo = partial(tpe.suggest, n_startup_jobs=10)
+
+for i in range(0, 2):
+    
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
+    
+    start_time = datetime.datetime.now()
+    #下面是使用stacking的部分，使用九个best_nodes的那种，分为使用lr和knn的两部分计算
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    #下面的部分才是knn相关计算
+    knn = KNeighborsClassifier()
+    knn.fit(stacked_train, Y_split_train)
+    best_acc = knn.score(stacked_train, Y_split_train)
+    knn_pred = knn.predict(stacked_test)
+    test_acc = cal_acc(knn_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    #下面是stacking第二层的神经网络超参搜索30次
+    start_time = datetime.datetime.now()
+    stacked_trials = Trials()
+    algo = partial(tpe.suggest, n_startup_jobs=10)
+    #留意这个nn_stacking_f内部的参数哈
+    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=30, trials=stacked_trials)
+    best_nodes = parse_nodes(stacked_trials, space_nodes)
+    best_model, best_acc, Y_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 30)
+    best_acc = cal_nnclf_acc(best_model, stacked_train.values, Y_split_train.values)
+    test_acc = cal_acc(Y_pred, Y_split_test.values)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    #下面是stacking第二层的神经网络超参搜索120次
+    start_time = datetime.datetime.now()
+    stacked_trials = Trials()
+    algo = partial(tpe.suggest, n_startup_jobs=10)
+    #留意这个nn_stacking_f内部的参数哈
+    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=120, trials=stacked_trials)
+    best_nodes = parse_nodes(stacked_trials, space_nodes)
+    best_model, best_acc, Y_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 120)
+    best_acc = cal_nnclf_acc(best_model, stacked_train.values, Y_split_train.values)
+    test_acc = cal_acc(Y_pred, Y_split_test.values)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    #下面是stacking第二层的神经网络超参搜索500次
+    start_time = datetime.datetime.now()
+    stacked_trials = Trials()
+    algo = partial(tpe.suggest, n_startup_jobs=10)
+    #留意这个nn_stacking_f内部的参数哈
+    best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=500, trials=stacked_trials)
+    best_nodes = parse_nodes(stacked_trials, space_nodes)
+    best_model, best_acc, Y_pred = nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_split_train, stacked_test, 500)
+    best_acc = cal_nnclf_acc(best_model, stacked_train.values, Y_split_train.values)
+    test_acc = cal_acc(Y_pred, Y_split_test.values)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+        
+    #下面是stacking第二层使用tpot进行计算900次
+    start_time = datetime.datetime.now()
+    tpot = TPOTClassifier(generations=30, population_size=30, verbosity = 2)
+    tpot.fit(stacked_train, Y_split_train)
+    best_acc = tpot.score(stacked_train, Y_split_train)
+    tpot_pred = tpot.predict(stacked_test)
+    test_acc = cal_acc(tpot_pred, Y_split_test)  
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    #下面是stacking第二层使用tpot进行计算3600次
+    start_time = datetime.datetime.now()
+    tpot = TPOTClassifier(generations=60, population_size=60, verbosity = 2)
+    tpot.fit(stacked_train, Y_split_train)
+    best_acc = tpot.score(stacked_train, Y_split_train)
+    tpot_pred = tpot.predict(stacked_test)
+    test_acc = cal_acc(tpot_pred, Y_split_test)  
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    #下面是stacking第二层使用tpot进行计算10000次
+    start_time = datetime.datetime.now()
+    tpot = TPOTClassifier(generations=100, population_size=100, verbosity = 2)
+    tpot.fit(stacked_train, Y_split_train)
+    best_acc = tpot.score(stacked_train, Y_split_train)
+    tpot_pred = tpot.predict(stacked_test)
+    test_acc = cal_acc(tpot_pred, Y_split_test)  
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+        
+for i in range(0, len(train_acc)):
+    print(train_acc[i])
+    print(valida_acc[i])
+
+for i in range(0, len(time_cost)):
+    print(time_cost[i])
+"""
+
+#接下来尝试一下4000的情况，分层划分数据集
+#然后尝试一下lr超参的提高程度如何，分层划分数据集
