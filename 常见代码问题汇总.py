@@ -65,18 +65,24 @@
         warnings.filterwarnings('ignore')
         
     10.使用TPOT等产生下列错误：ImportWarning: Falling back to the python version of hypervolume module. 
-    Expect this to be very slow."module. Expect this to be very slow.", ImportWarning)或者
-    ImportWarning: can't resolve package from __spec__ or __package__, falling back on __name__ and __path__
-    return f(*args, **kwds)错误
+        Expect this to be very slow."module. Expect this to be very slow.", ImportWarning)或者
+        ImportWarning: can't resolve package from __spec__ or __package__, falling back on __name__ and __path__
+        return f(*args, **kwds)错误
     
-        这个主要是因为你deap的版本问题，我之前自己安装过其他版本的deap
-        先 pip uninstall deap
-        然后 pip install deap=1.0.2
+                这个主要是因为你deap的版本问题，我之前自己安装过其他版本的deap
+                先 pip uninstall deap
+                然后 pip install deap=1.0.2
         
-    11.使用TPOT产生下列错误：Check failed: (n) > (0) colsample_bytree=1 is too small that no feature can be included
-      
-          这个主要是因为TPOT采用了老版本的xgboost的缘故，更具体地说好像是因为老版本的xgboost使用了多线程？反正是某些设置导致的。
-          解决的方法就是直接安装新版本的xgboost就完事了，md这是我查询了一个班小时论坛得到的解决方案。
-          首先输入pip install xgboost==1.,由于没有这个版本，所以对话框会弹出所有版本，这个时候你可以看到最佳的版本是0.81
-          接下来就直接输入pip install xgboost==0.81这一条指令就可以卸载老版本并安装新版本咯，接下来的实验就可以正常进行啦。
+    11.使用TPOT产生下列错误：Check failed: (n) > (0) colsample_bytree=1 is too small that no feature can be included    
+                这个主要是因为TPOT采用了老版本的xgboost的缘故，更具体地说好像是因为老版本的xgboost使用了多线程？反正是某些设置导致的。
+                解决的方法就是直接安装新版本的xgboost就完事了，md这是我查询了一个班小时论坛得到的解决方案。
+                首先输入pip install xgboost==1.,由于没有这个版本，所以对话框会弹出所有版本，这个时候你可以看到最佳的版本是0.81
+                接下来就直接输入pip install xgboost==0.81这一条指令就可以卸载老版本并安装新版本咯，接下来的实验就可以正常进行啦。
+          
+    12.之前遇到的很多的版本的问题，其实或许可以通过Anaconda进行一定程度的减少吧。
+                比如说上面的deap版本等问题也许直接通过conda命令安装就会顺带升级的，conda的机制决定了他会顺带升级相关依赖的版本。
+                但是之所以没有一直使用conda指令主要缘故在于其指令不太简洁直观，pip指令直接就是pip install 包名，只能够试一下
+        conda install 包名，但是大部分时候这个指令是不能够成功执行滴。所以我的解决方案就是：使用pip安装，出问题的时候在conda安装。。
+    
+          
 """
