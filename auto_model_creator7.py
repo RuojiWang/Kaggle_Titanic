@@ -23,12 +23,13 @@ import torch.nn.init
 import torch.nn as nn
 import torch.nn.functional as F
 
-from sklearn.model_selection import KFold
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression 
 from sklearn.ensemble import RandomForestClassifier
 
 from sklearn.cross_validation import train_test_split
+
+from sklearn.model_selection import KFold, RandomizedSearchCV
 
 import skorch
 from skorch import NeuralNetClassifier
@@ -57,8 +58,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -648,7 +649,7 @@ def nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -691,7 +692,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -1733,11 +1734,106 @@ for i in range(0, len(time_cost)):
     print(time_cost[i])
 """
 
+"""
 #现在看一下如何实现均匀划分版本的实验咯
 #我觉得以后建议使用均匀划分的版本吧，不然泛化性能难以衡量
 #虽然比一定每次的比赛都是均匀划分的数据，但是更有意义一些吧
 #顺便看一下代码是否存在BUG，虽然我自己内心觉得应该没问题的吧
-#好像我烦了一个错误，之前不应该直接把上回的代码直接删除的，似乎现在计算结果和代码对不上？
+#下面的计算结果似乎除了一点问题，偶尔会出现只有40%正确率的情况
+#但是我走查了几遍应该不是代码的问题，否则会大规模的每次都出现问题
+#所以好像神经网络从未出现过类似的问题吧？这也和我几十次计算神经网络选择其中一次有关吧。
+#我仔细看了一下这么多的历史数据，确实是tpot偶尔会给出非常奇怪的数据
+#所以说tpot好像神奇不在了，在我stacking出来的特征上并不能够给我更好的结果咯？
+#神经网络超参搜索的效果也不明显是不是因为我的节点数目过多了呢？
+#感觉现在可以做的事情就是节点数目再次确定以及lr的超参搜索部分了吧啊
+0.8322324966974901
+0.8059701492537313
+0.8467635402906208
+0.7985074626865671
+
+0.8546895640686922 #tpot900次的计算结果
+0.8059701492537313
+
+0.3844121532364597 #tpot1600次的计算结果
+0.8059701492537313
+
+0.8494055482166446 #tpot2500次的计算结果
+0.6194029850746269
+
+0.8494055482166446 #tpot3600次的计算结果
+0.6194029850746269
+
+0.8256274768824307
+0.7910447761194029
+0.8467635402906208
+0.7686567164179104
+
+0.8388375165125496 #tpot900次的计算结果
+0.7910447761194029
+
+0.8705416116248349 #tpot1600次的计算结果
+0.7835820895522388
+
+0.869220607661823  #tpot2500次的计算结果
+0.7910447761194029
+
+0.8480845442536328 #tpot3600次的计算结果
+0.7835820895522388
+
+0.8243064729194187
+0.835820895522388
+0.40290620871862615
+0.417910447761194
+
+0.8282694848084544 #tpot900次的计算结果
+0.835820895522388
+
+0.8599735799207398 #tpot1600次的计算结果
+0.835820895522388
+
+0.8586525759577279 #tpot2500次的计算结果
+0.8208955223880597
+
+0.8639365918097754 #tpot3600次的计算结果
+0.8283582089552238
+
+0.8388375165125496
+0.7164179104477612
+0.8520475561426685
+0.746268656716418
+
+0.857331571994716  #tpot900次的计算结果
+0.7089552238805971
+
+0.8665785997357992 #tpot1600次的计算结果
+0.7313432835820896
+
+0.8560105680317041 #tpot2500次的计算结果
+0.7611940298507462
+
+0.8507265521796565 #tpot3600次的计算结果
+0.7164179104477612
+
+0:08:59.675000
+0:13:55.633000
+0:15:28.455000
+0:08:43.518000
+0:13:09.351000
+0:12:58.694000
+0:14:32.505000
+0:17:03.329000
+0:24:33.828000
+2:08:25.978000
+0:10:19.448000
+0:09:09.583000
+0:11:05.819000
+0:16:15.389000
+0:29:49.463000
+0:08:53.075000
+0:03:10.867000
+0:03:37.609000
+0:27:48.822000
+0:09:57.731000
 files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
 files.close()
@@ -1799,7 +1895,7 @@ for i in range(0, 4):
     train_acc.append(best_acc)
     valida_acc.append(test_acc)
     end_time = datetime.datetime.now()
-    time_cost.append((end_time - start_time))    
+    time_cost.append((end_time - start_time))
 
     #下面是stacking第二层使用tpot进行计算2500次
     start_time = datetime.datetime.now()
@@ -1831,7 +1927,8 @@ for i in range(0, len(train_acc)):
 
 for i in range(0, len(time_cost)):
     print(time_cost[i])
-    
+"""    
+
 """
 #这个实验主要验证超参搜索的次数和泛化性能的情况
 #具体一点说，我感觉stacking第二层搜索越久泛化性能越差
@@ -2053,5 +2150,105 @@ for i in range(0, len(time_cost)):
     print(time_cost[i])
 """
 
+"""
+X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
+start_time = datetime.datetime.now()
+clf = LogisticRegression(class_weight={0:549/(549+342),1:342/(549+342)})
+param_dist = {"penalty": ["l1", "l2"],
+              "C": np.linspace(0.001, 100000, 1000),
+              "fit_intercept": [True, False],
+              #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+             }
+random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=200)
+random_search.fit(X_split_train, Y_split_train)
+best_acc = random_search.best_estimator_.score(X_split_train, Y_split_train)
+print(best_acc)
+test_acc = random_search.best_estimator_.score(X_split_test, Y_split_test)
+print(test_acc)
+"""
+
 #接下来尝试一下4000的情况，分层划分数据集
 #然后尝试一下lr超参的提高程度如何，分层划分数据集
+#顺便将就测试一下节点数目对于结果最后的影响呢？
+files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+
+best_nodes = parse_nodes(trials, space_nodes)
+
+train_acc = []
+valida_acc = []
+time_cost = []
+
+algo = partial(tpe.suggest, n_startup_jobs=10)
+ 
+for i in range(0, 3):
+    
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
+    
+    start_time = datetime.datetime.now()
+    #下面是使用stacking的部分，使用九个best_nodes的那种，分为使用lr和knn的两部分计算
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    #下面是knn不进行任何的超参搜索
+    knn = KNeighborsClassifier()
+    knn.fit(stacked_train, Y_split_train)
+    best_acc = knn.score(stacked_train, Y_split_train)
+    knn_pred = knn.predict(stacked_test)
+    test_acc = cal_acc(knn_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))    
+    
+    #下面是针对逻辑回归进行超参搜索的结果
+    start_time = datetime.datetime.now()
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    #下面是针对逻辑回归进行超参搜索的结果，额外设置了class_weight参数
+    start_time = datetime.datetime.now()
+    clf = LogisticRegression(class_weight={0:549/(549+342),1:342/(549+342)})
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 1000000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+for i in range(0, len(train_acc)):
+    print(train_acc[i])
+    print(valida_acc[i])
+
+for i in range(0, len(time_cost)):
+    print(time_cost[i])
