@@ -2167,9 +2167,97 @@ test_acc = random_search.best_estimator_.score(X_split_test, Y_split_test)
 print(test_acc)
 """
 
+"""
+0.8335535006605019
+0.7835820895522388
+0.8480845442536328
+0.7835820895522388
+
+0.8361955085865258
+0.7910447761194029
+
+0.8335535006605019
+0.7910447761194029
+
+0.8401585204755614
+0.7611940298507462
+0.8494055482166446
+0.7686567164179104
+
+0.8309114927344782
+0.7761194029850746
+
+0.8401585204755614
+0.7686567164179104
+
+0.8269484808454426
+0.8059701492537313
+0.8361955085865258
+0.8134328358208955
+
+0.8282694848084544
+0.8059701492537313
+
+0.8295904887714664
+0.7985074626865671
+
+0:14:46.113082
+0:00:01.862015
+0:00:01.797007
+0:18:17.693555
+0:00:01.947334
+0:00:01.893192
+0:17:17.253070
+0:00:01.937408
+0:00:01.797965
+####################
+0.8309114927344782
+0.7910447761194029
+0.8441215323645971
+0.7985074626865671
+
+0.8335535006605019
+0.7910447761194029
+
+0.8348745046235139
+0.7910447761194029
+
+0.8256274768824307
+0.8208955223880597
+0.8361955085865258
+0.8208955223880597
+
+0.8282694848084544
+0.8208955223880597
+
+0.8295904887714664
+0.8059701492537313
+
+0.8335535006605019
+0.835820895522388
+0.8322324966974901
+0.835820895522388
+
+0.8361955085865258
+0.835820895522388
+
+0.8309114927344782
+0.835820895522388
+
+0:13:23.866440
+0:00:18.095085
+0:00:18.396097
+0:16:13.145594
+0:00:17.968607
+0:00:17.958160
+0:13:46.971559
+0:00:38.931998
+0:00:48.588609
 #接下来尝试一下4000的情况，分层划分数据集
 #然后尝试一下lr超参的提高程度如何，分层划分数据集
 #顺便将就测试一下节点数目对于结果最后的影响呢？
+#这个实验的结果就是超参搜索之后结果稍微好一点，但是加上了class_weight结果反而下降了。。
+#而且超参搜索的次数对于结果的影响真的是非常之小的。看得我怀疑人生咯。
 files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
 files.close()
@@ -2252,3 +2340,643 @@ for i in range(0, len(train_acc)):
 
 for i in range(0, len(time_cost)):
     print(time_cost[i])
+"""
+
+"""
+#下面进行提交代码之前的最后一个实验咯
+#分析不同节点数目stacking之后的差异，lr作为第二层模型
+#外加测试单个神经网络节点的情况呢？
+0.8124174372523117 #两个节点
+0.7985074626865671
+
+0.8137384412153237 #三个节点
+0.7985074626865671
+
+0.8243064729194187 #四个节点
+0.7910447761194029
+        
+0.8150594451783355 #五个节点
+0.7910447761194029
+        
+0.8256274768824307 #六个节点
+0.7985074626865671
+        
+0.8256274768824307 #七个节点
+0.7910447761194029
+        
+0.8203434610303831 #八个节点
+0.7910447761194029
+
+0.8229854689564069 #九个节点
+0.7835820895522388
+
+0.8295904887714664 #十一个节点
+0.7910447761194029
+
+0.8177014531043593 #十三个节点
+0.8134328358208955
+
+0.8467635402906208 #10次神经网络
+0.7835820895522388
+
+0.8560105680317041 #100次神经网络
+0.8134328358208955
+
+0.8586525759577279 #400次神经网络
+0.8134328358208955
+
+0.8229854689564069 #两个节点
+0.835820895522388
+
+0.8163804491413474 #三个节点
+0.8507462686567164
+
+0.8190224570673712 #四个节点
+0.835820895522388
+
+0.8309114927344782 #五个节点
+0.835820895522388
+
+0.8256274768824307 #六个节点
+0.835820895522388
+
+0.8243064729194187 #七个节点
+0.8283582089552238
+
+0.8124174372523117 #八个节点
+0.8432835820895522
+
+0.8203434610303831 #九个节点
+0.835820895522388
+
+0.8243064729194187 #十一个节点
+0.835820895522388
+        
+0.8322324966974901 #十三个节点
+0.835820895522388
+
+0.8467635402906208 #10次神经网络
+0.8432835820895522
+
+0.8480845442536328 #100次神经网络
+0.8059701492537313
+
+0.8533685601056803 #400次神经网络
+0.8432835820895522
+
+0.8375165125495376 #两个节点 
+0.7611940298507462
+
+0.8295904887714664 #三个节点
+0.7686567164179104
+
+0.8256274768824307 #四个节点
+0.7835820895522388
+
+0.8269484808454426 #五个节点
+0.7835820895522388
+
+0.8335535006605019 #六个节点
+0.7686567164179104
+
+0.8335535006605019 #七个节点
+0.7611940298507462
+
+0.8309114927344782 #八个节点
+0.7611940298507462
+
+0.8335535006605019 #九个节点
+0.7686567164179104
+
+0.8335535006605019 #十一个节点
+0.7835820895522388
+
+0.821664464993395   #十三个节点
+0.7686567164179104
+
+0.8560105680317041 #10次神经网络
+0.7686567164179104
+
+0.857331571994716  #100次神经网络
+0.7686567164179104
+
+0.8586525759577279 #400次神经网络
+0.7611940298507462
+0:04:37.330400
+0:08:15.503000
+0:09:18.100000
+0:11:54.366000
+0:10:21.130202
+0:08:11.146003
+0:09:36.958603
+0:11:15.150405
+0:13:24.964405
+0:15:43.971406
+0:00:05.137400
+0:01:00.045000
+0:03:52.026802
+0:02:16.640001
+0:03:23.916801
+0:04:31.114602
+0:05:52.844002
+0:06:51.465003
+0:08:13.671803
+0:09:14.153003
+0:10:22.026204
+0:12:33.625405
+0:14:54.138606
+0:00:05.341200
+0:00:54.938800
+0:03:31.597002
+0:02:22.392801
+0:03:21.122401
+0:04:39.672402
+0:05:55.505002
+0:06:56.333203
+0:07:58.216803
+0:08:53.121403
+0:10:30.706804
+0:12:55.363205
+0:14:41.417206
+0:00:05.606400
+0:00:48.551400
+0:03:42.557201
+files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+
+best_nodes = parse_nodes(trials, space_nodes)
+
+train_acc = []
+valida_acc = []
+time_cost = []
+
+algo = partial(tpe.suggest, n_startup_jobs=10)
+ 
+for i in range(0, 3):
+    
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
+    
+    start_time = datetime.datetime.now()
+    #下面使用两个节点进行stacking咯
+    nodes_list = [best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+   
+    start_time = datetime.datetime.now()
+    #下面使用三个节点进行stacking咯
+    nodes_list = [best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)    
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    start_time = datetime.datetime.now()
+    #下面使用四个节点进行stacking咯
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc) 
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()       
+    #下面使用五个节点进行stacking咯
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc) 
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    start_time = datetime.datetime.now()     
+    #下面使用六个节点进行stacking咯
+    nodes_list = [best_nodes, best_nodes, best_nodes, 
+                  best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc) 
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()               
+    #下面使用七个节点进行stacking咯
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, 
+                  best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc) 
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()          
+    #下面使用八个节点进行stacking咯
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, 
+                  best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc) 
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()            
+    #下面使用九个节点进行stacking咯
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, 
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc) 
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()          
+    #下面使用十一个节点进行stacking咯
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    start_time = datetime.datetime.now()       
+    #下面使用十三个节点进行stacking咯
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    #下面是使用单个神经网络节点进行计算的结果呢
+    #其实说真的我觉得单节点神经网络的结果还是蛮漂亮滴。。
+    #但是stacking之后的模型不论说什么都能够稳压单模型一头吧。。
+    start_time = datetime.datetime.now()  
+    best_model, best_acc = nn_model_train(best_nodes, X_split_train.values, Y_split_train.values, 10)
+    best_acc = cal_nnclf_acc(best_model, X_split_train.values, Y_split_train.values)
+    nn_pred = best_model.predict(X_split_test.values.astype(np.float32))
+    test_acc = cal_acc(nn_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()  
+    best_model, best_acc = nn_model_train(best_nodes, X_split_train.values, Y_split_train.values, 100)
+    best_acc = cal_nnclf_acc(best_model, X_split_train.values, Y_split_train.values)
+    nn_pred = best_model.predict(X_split_test.values.astype(np.float32))
+    test_acc = cal_acc(nn_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()  
+    best_model, best_acc = nn_model_train(best_nodes, X_split_train.values, Y_split_train.values, 400)
+    best_acc = cal_nnclf_acc(best_model, X_split_train.values, Y_split_train.values)
+    nn_pred = best_model.predict(X_split_test.values.astype(np.float32))
+    test_acc = cal_acc(nn_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+        
+for i in range(0, len(train_acc)):
+    print(train_acc[i])
+    print(valida_acc[i])
+
+for i in range(0, len(time_cost)):
+    print(time_cost[i])
+"""
+
+"""
+#现在试一下不同的不同节点数目加上逻辑回归之后的结果呢？
+#就从结果而言反正最佳节点肯定效果更好。
+#我现在终于明白什么叫做玄学了，我连节点数目和类型都无法判断最佳，可能三个比较好吧
+0.8243064729194187 #2
+0.835820895522388
+0.8177014531043593
+0.8283582089552238
+
+0.821664464993395 #3
+0.8208955223880597
+0.8124174372523117
+0.8208955223880597
+
+0.821664464993395 #4
+0.835820895522388
+0.8177014531043593
+0.8208955223880597
+
+0.8243064729194187 #5
+0.835820895522388
+0.8177014531043593
+0.8283582089552238
+
+0:04:01.607295
+0:04:57.274840
+0:05:25.459516
+0:06:27.508562
+0:09:21.269598
+0:07:42.915371
+0:09:20.039520
+0:09:10.421594
+
+0.8348745046235139 #2
+0.753731343283582
+0.8361955085865258
+0.753731343283582
+
+0.8507265521796565 #3
+0.7611940298507462
+0.8335535006605019
+0.753731343283582
+
+0.8335535006605019 #4
+0.753731343283582
+0.845442536327609
+0.753731343283582
+
+0.8361955085865258 #5
+0.753731343283582
+0.8388375165125496
+0.7611940298507462
+
+0:04:00.861806
+0:04:22.542471
+0:06:17.815740
+0:06:28.175681
+0:06:42.118229
+0:06:42.673251
+0:09:27.315337
+0:08:08.794147
+
+0.8229854689564069 #2
+0.835820895522388
+0.8190224570673712
+0.835820895522388
+
+0.8295904887714664 #3
+0.835820895522388
+0.8256274768824307
+0.8432835820895522
+
+0.8203434610303831 #4
+0.8283582089552238
+0.8190224570673712
+0.8283582089552238
+
+0.8282694848084544 #5
+0.8283582089552238
+0.8256274768824307
+0.8432835820895522
+
+0:02:51.707598
+0:03:43.067853
+0:04:38.034026
+0:04:58.721174
+0:06:22.981574
+0:06:18.159467
+0:07:52.790226
+0:08:17.716682
+
+0.8190224570673712 #2
+0.8059701492537313
+0.8163804491413474
+0.8059701492537313
+
+0.8203434610303831 #3
+0.8059701492537313
+0.8243064729194187
+0.8059701492537313
+
+0.8309114927344782 #4
+0.7835820895522388
+0.8309114927344782
+0.8059701492537313
+
+0.8269484808454426 #5
+0.8059701492537313
+0.8243064729194187
+0.7835820895522388
+
+0:03:15.636598
+0:04:16.570638
+0:05:24.351454
+0:05:47.676822
+0:07:12.192169
+0:07:18.854929
+0:10:06.427877
+0:08:38.120118
+files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+
+best_nodes = parse_nodes(trials, space_nodes)
+
+train_acc = []
+valida_acc = []
+time_cost = []
+
+algo = partial(tpe.suggest, n_startup_jobs=10)
+ 
+for i in range(0, 1):
+    
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
+    
+    start_time = datetime.datetime.now()
+    #下面使用两个节点进行stacking咯
+    nodes_list = [best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()
+    #下面使用两个节点进行stacking咯
+    nodes_list = parse_trials(trials, space_nodes, 2)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))   
+
+
+    start_time = datetime.datetime.now()
+    #下面使用三个节点进行stacking咯
+    nodes_list = [best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()
+    #下面使用三个节点进行stacking咯
+    nodes_list = parse_trials(trials, space_nodes, 3)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))       
+    
+    
+    start_time = datetime.datetime.now()
+    #下面使用四个节点进行stacking咯
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()
+    #下面使用四个节点进行stacking咯
+    nodes_list = parse_trials(trials, space_nodes, 4)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))    
+    
+    start_time = datetime.datetime.now()
+    #下面使用五个节点进行stacking咯
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()
+    #下面使用五个节点进行stacking咯
+    nodes_list = parse_trials(trials, space_nodes, 5)
+    stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 30)
+    #下面是逻辑回归不进行任何超参搜索
+    lr = LogisticRegression()
+    lr.fit(stacked_train, Y_split_train)
+    best_acc = lr.score(stacked_train, Y_split_train)
+    lr_pred = lr.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))   
+  
+for i in range(0, len(train_acc)):
+    print(train_acc[i])
+    print(valida_acc[i])
+
+for i in range(0, len(time_cost)):
+    print(time_cost[i])
+"""
+
+#我现在在想神经网络训练模型的时候是否需要保存初始化的值呀，不然仅仅保存超参感觉意义不大呀？
