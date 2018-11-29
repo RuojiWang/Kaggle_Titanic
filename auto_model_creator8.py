@@ -15,7 +15,7 @@
 #意义不然每次save_stacked_dataset并不是best_model所需要的数据呢
 #（6）现在的create_module居然是逢三建立一个层。可能需要改变
 #（7）init_module是对于模型的初始化方式，不同的问题不同的模型初始化方式也不同咯
-#（8）可能会需要修改模型的评价指标哈
+#（8）可能会需要修改模型的评价指标（准确率）以及lossfunction哈
 import os
 import sys
 import random
@@ -1046,18 +1046,24 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
-train_acc = []
-test_acc = []
-for i in range(0, 10):
-    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, random_state=0)
-    tpot = TPOTClassifier(generations=2000, population_size=2000, verbosity = 2)
-    tpot.fit(X_split_train, Y_split_train)
-    best_acc = tpot.score(X_split_train, Y_split_train)
-    train_acc.append(best_acc)
-    Y_pred = tpot.predict(X_split_test)
-    tests_acc = cal_acc(Y_pred, Y_split_test)
-    test_acc.append(tests_acc)
+#下面这份代码的模板是我目前最新的实践结果
+#主要成果在于发现了第二层使用随机超参搜索的逻辑回归验证集效果最好
+#除此之前将节点数目修改为了三个，感觉三四个节点的情况超参逻辑回归要好一点。。
+#然后
+start_time = datetime.datetime.now()
 
-for i in range(0, len(train_acc)):
-    print(train_acc[i])
-    print(test_acc[i])
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_params = fmin(nn_f, space, algo=algo, max_evals=2, trials=trials)
+
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+
+#nodes_list = parse_trials(trials, space_nodes, 9)
+nodes_list = [best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 1)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+
+tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=3, population_size=3)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
