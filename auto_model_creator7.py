@@ -511,6 +511,7 @@ def parse_trials(trials, space_nodes, num):
         nodes_list.append(nodes)
     return nodes_list
 
+#这个选择最佳模型的时候存在过拟合的风险
 def nn_model_train(nodes, X_train_scaled, Y_train, max_evals=10):
     
     #由于神经网络模型初始化、dropout等的问题导致网络不够稳定
@@ -534,11 +535,42 @@ def nn_model_train(nodes, X_train_scaled, Y_train, max_evals=10):
         init_module(clf.module, nodes["weight_mode"], nodes["bias"])
         clf.fit(X_train_scaled.astype(np.float32), Y_train.astype(np.longlong))
     
-        metric = cal_nnclf_acc(clf, X_train_scaled, Y_train)
+        metric = cal_nnclf_acc(clf, X_train_scaled.astype(np.float32), Y_train.astype(np.longlong))
         print_nnclf_acc(metric)
         best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)        
     
     return best_model, best_acc
+
+#下面的这个方式选择模型应该一定程度能够避免过拟合的问题吧
+def nn_model_train_validate(nodes, X_split_train, Y_split_train, X_split_test, Y_split_test, max_evals=10):
+    
+    #由于神经网络模型初始化、dropout等的问题导致网络不够稳定
+    #解决这个问题的办法就是多重复计算几次，选择其中靠谱的模型
+    best_acc = 0.0
+    best_model = 0.0
+    for j in range(0, max_evals):
+        
+        clf = NeuralNetClassifier(lr = nodes["lr"],
+                                  optimizer__weight_decay = nodes["optimizer__weight_decay"],
+                                  criterion = nodes["criterion"],
+                                  batch_size = nodes["batch_size"],
+                                  optimizer__betas = nodes["optimizer__betas"],
+                                  module = create_module(nodes["input_nodes"], nodes["hidden_layers"], 
+                                                         nodes["hidden_nodes"], nodes["output_nodes"], nodes["percentage"]),
+                                  max_epochs = nodes["max_epochs"],
+                                  callbacks=[skorch.callbacks.EarlyStopping(patience=nodes["patience"])],
+                                  device = nodes["device"],
+                                  optimizer = nodes["optimizer"]
+                                  )
+        init_module(clf.module, nodes["weight_mode"], nodes["bias"])
+        clf.fit(X_split_train.astype(np.float32), Y_split_train.astype(np.longlong))
+    
+        metric = cal_nnclf_acc(clf, X_split_test, Y_split_test)
+        print_nnclf_acc(metric)
+        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)        
+    
+    return best_model, best_acc
+
 
 def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
     
@@ -590,6 +622,7 @@ def stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, 
     stacked_test = pd.DataFrame(stacked_test)
     return stacked_train, stacked_test
 
+#这个选择最佳模型的时候存在过拟合的风险
 def nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, max_evals=10):
     
     best_acc = 0.0
@@ -3152,7 +3185,9 @@ for i in range(0, 1):
     #然后我之前一直没搞清楚skroch计算的loss是采用什么方式计算的，原来是用BatchScoring及EpochScoring计算，可以设置准确率哈
     #但是如果将准确率参与模型的选择会不会造成模型过于相似？虽然没有直接参与训练但是还是以某种方式使用了验证集数据呢。。
     #所以是简单的修改一下搜索次数就完事儿了还是真的使用验证集选择学习器呢，如果使用验证集可能有部分数据无法得到利用这又怎么算呢？
+    #而且就算是能够如预期那样计算出来，这个也不能说一定能够代表未知数据集上的表现呀。关于第二层超参搜索感觉太麻烦了，而且提升比较有限，大致随缘吧看看别人的先进经验再说
     #所以我们回过头来看这个问题，这个问题真的有这么难么，可能大道至简吧，简单的修改一下参数就vans了，所以真的机器学习就是玄学。。
+    #但是我转念一想我觉得还是在单节点模型选择的时候泛化性能不够好，一定还是要做一些优化的。我修改了一下nn_train_model函数看起来结果好像更屌了。。
     stacked_train, stacked_test = stacked_features(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 10)
     #下面是进行超参搜索的lr咯
     clf = LogisticRegression()

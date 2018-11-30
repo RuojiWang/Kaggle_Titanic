@@ -1,9 +1,21 @@
 #coding=utf-8
-#这个版本应该就是通过大量的实验发现第二层效果最好的应该是进行lr的超参搜索
-#不论是使用tpot还是使用第二层的贝叶斯优化神经网络基本都被不加优化的lr稳压。。
-#然后还在观察代码的运行过程中发现了单节点训练过程中存在过拟合的问题并给出了一种解决方案
-#其余问题，诸如stacking中所包含的模型的数量以及单节点搜索的次数等等均无稳定答案，第二层不增加噪声哈。
-#我将这些实验的结果形成了这个版本的代码咯，并将这个版本的结果提交咯。
+#所以我现在在接下来的版本中准备做一些过拟合相关的测试，还有nodes_list中多个相同节点的准确率咯
+#我希望能够得到很好的结果结束我最近的所有探索性质的活动了吧，之后就和别人直接开始battle咯
+#这个版本可以修改一下保存机制，增加了stacking以后感觉原来的保存模型没什么卵用了吧。
+#我觉得可以把保存的东西从命名等都比较系统的修改一遍了吧，不然现在的保存好像没有意义，函数也在重构一下吧
+#需要修改一下stacked数据集的保存，因为应该保存模型的时候保存数据，但是保存的模型肯定和数据配套就不用管了。
+#换个项目需要修改的地方：
+#（0）stacked的输入数据是否需要归一化呢？
+#（0）类别用one-hot编码咯
+#（1）需要进行特征缩放，共用之前的X_train_scaled, Y_train,  X_test_scaled
+#（2）nn_f(nn_stacking_f)中noise_augment_data中的columns是否需要修改，其中训练集是否为X_split或者Y_split
+#（3）space、space_nodes、best_nodes、parse_nodes、parse_trials可能需要同时修改
+#（4）不同类型的问题可能修改create_module，所有用到该函数的地方如nn_model_train均需要修改的吧
+#（5）save_stacked_dataset保存可能可能必须和nn_stacking_predict中的save_best_model配套才有
+#意义不然每次save_stacked_dataset并不是best_model所需要的数据呢
+#（6）现在的create_module居然是逢三建立一个层。可能需要改变
+#（7）init_module是对于模型的初始化方式，不同的问题不同的模型初始化方式也不同咯
+#（8）可能会需要修改模型的评价指标（准确率）以及lossfunction哈
 import os
 import sys
 import random
@@ -520,36 +532,6 @@ def parse_trials(trials, space_nodes, num):
 
 #这个选择最佳模型的时候存在过拟合的风险
 def nn_model_train(nodes, X_train_scaled, Y_train, max_evals=10):
-    
-    #由于神经网络模型初始化、dropout等的问题导致网络不够稳定
-    #解决这个问题的办法就是多重复计算几次，选择其中靠谱的模型
-    best_acc = 0.0
-    best_model = 0.0
-    for j in range(0, max_evals):
-        
-        clf = NeuralNetClassifier(lr = nodes["lr"],
-                                  optimizer__weight_decay = nodes["optimizer__weight_decay"],
-                                  criterion = nodes["criterion"],
-                                  batch_size = nodes["batch_size"],
-                                  optimizer__betas = nodes["optimizer__betas"],
-                                  module = create_module(nodes["input_nodes"], nodes["hidden_layers"], 
-                                                         nodes["hidden_nodes"], nodes["output_nodes"], nodes["percentage"]),
-                                  max_epochs = nodes["max_epochs"],
-                                  callbacks=[skorch.callbacks.EarlyStopping(patience=nodes["patience"])],
-                                  device = nodes["device"],
-                                  optimizer = nodes["optimizer"]
-                                  )
-        init_module(clf.module, nodes["weight_mode"], nodes["bias"])
-        clf.fit(X_train_scaled.astype(np.float32), Y_train.astype(np.longlong))
-            
-        metric = cal_nnclf_acc(clf, X_train_scaled, Y_train)
-        print_nnclf_acc(metric)
-        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)        
-    
-    return best_model, best_acc
-
-#我尽量用了一点别的方式减小模型选择时候可能带来的过拟合风险吧
-def nn_model_train_and_validate(nodes, X_split_train, Y_split_train, X_split_test, Y_split_test, max_evals=10):
     
     #由于神经网络模型初始化、dropout等的问题导致网络不够稳定
     #解决这个问题的办法就是多重复计算几次，选择其中靠谱的模型
