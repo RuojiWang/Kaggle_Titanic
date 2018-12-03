@@ -53,8 +53,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -556,7 +556,9 @@ def nn_model_train(nodes, X_train_scaled, Y_train, max_evals=10):
 #下面的修改方式比我之前想到的修改方式感觉上还要高明一些的呢。。
 def nn_model_train_validate(nodes, X_train_scaled, Y_train, max_evals=10):
     
-    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.12, stratify=Y_train)
+    #我觉得0.12的设置有点多了，还有很多数据没用到呢，感觉这样子设置应该会好一些的吧？
+    #X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.12, stratify=Y_train)
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.05, stratify=Y_train)
     #由于神经网络模型初始化、dropout等的问题导致网络不够稳定
     #解决这个问题的办法就是多重复计算几次，选择其中靠谱的模型
     best_acc = 0.0
@@ -826,7 +828,7 @@ def tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=100,
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -869,7 +871,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -2579,8 +2581,103 @@ for i in range(0, len(time_cost)):
     print(time_cost[i])
 """
 
+"""
+#得到的是这种结果我也觉得很绝望呀，到底怎么做才能够迅猛的提升泛化性能呢
+0.8375165125495376
+0.7985074626865671
+0.8414795244385733
+0.8059701492537313
+0.8348745046235139
+0.8208955223880597
+0.8467635402906208
+0.8134328358208955
+0.845442536327609
+0.7761194029850746
+0.8428005284015853
+0.7985074626865671
+0:14:31.484134
+0:33:30.003851
+0:14:53.732157
+0:30:45.822111
+0:12:12.323397
+0:28:13.400339
+files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+
+best_nodes = parse_nodes(trials, space_nodes)
+
+train_acc = []
+valida_acc = []
+time_cost = []
+
+algo = partial(tpe.suggest, n_startup_jobs=10)
+ 
+for i in range(0, 3):
+    
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
+    
+    #下面是11节点20次搜索的结果呢
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+    #下面是进行超参搜索的lr咯
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    
+    #下面是45节点20次搜索的结果呢
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+    #下面是进行超参搜索的lr咯
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))    
+    
+for i in range(0, len(train_acc)):
+    print(train_acc[i])
+    print(valida_acc[i])
+
+for i in range(0, len(time_cost)):
+    print(time_cost[i])
+"""    
+
+"""
 #所以其实我又产生了另外的想法好像无脑增加节点的方式似乎可以获得更好的结果吧？
 #但是今天还是先把结果提交了再说其他的事情吧。下面的代码就是我的提交结果的版本咯
+#提交了四次左右，最后获得的成绩大概是23%左右大致是24%吧。。没有我想象中那么完美呀。。
+#现在突然很想去参加比赛，我觉得完整的做一场比赛应该就能够能够得到很多的提升吧
 start_time = datetime.datetime.now()
 
 files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
@@ -2588,13 +2685,11 @@ trials, space_nodes, best_nodes = pickle.load(files)
 files.close()
 best_nodes = parse_nodes(trials, space_nodes)
 
-nodes_list = [best_nodes, best_nodes, best_nodes,
-              best_nodes, best_nodes, best_nodes,
-              best_nodes, best_nodes, best_nodes,
-              best_nodes, best_nodes, best_nodes, best_nodes]
+nodes_list = [best_nodes, best_nodes]
 stacked_train, stacked_test = stacked_features_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 20)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 
 lr_stacking_cv_predict(stacked_train, Y_train, stacked_test, max_evals=2000)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+"""
