@@ -635,7 +635,12 @@ def get_oof_validate(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5,
         X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
         
         best_model, best_acc = nn_model_train_validate(nodes, X_split_train, Y_split_train, max_evals)
-            
+        
+        #这里输出的是最佳模型的训练集和验证集上面的结果咯
+        #很容易和上面的训练过程的最后一个输出重叠
+        #这三个输出结果肯定是不一样的：
+        #第一个输出和第二个输出的区别在于最佳模型和普通模型在训练集上面的输出
+        #第二个输出和第三个输出的区别在于最佳模型在训练集和验证集上面的输出
         acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
         print_nnclf_acc(acc1)
         train_acc.append(acc1)
@@ -805,6 +810,33 @@ def lr_stacking_cv_predict(stacked_train, Y_train, stacked_test, max_evals=2000)
     print()
     return random_search.best_estimator_, Y_pred
 
+#lr进行了超参搜索选出最好的结果进行预测咯 
+def lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, path, max_evals=2000):
+    
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=max_evals)
+    random_search.fit(stacked_train, Y_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+
+    #save_best_model(random_search.best_estimator_, best_nodes["title"]+"_"+str(len(nodes_list)))
+    Y_pred = random_search.best_estimator_.predict(stacked_test.values.astype(np.float32))
+            
+    data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
+    output = pd.DataFrame(data = data)
+            
+    output.to_csv(path, index=False)
+    print("prediction file has been written.")
+     
+    print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
+    print()
+    return random_search.best_estimator_, Y_pred
+
 def tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=100, population_size=100):
     
     tpot = TPOTClassifier(generations=generations, population_size=population_size, verbosity = 2)
@@ -914,7 +946,7 @@ space_nodes = {"title":["stacked_titanic"],
 #其实本身不需要best_nodes主要是为了快速测试
 #不然每次超参搜索的best_nodes效率太低了吧
 best_nodes = {"title":"stacked_titanic",
-              "path":"path",
+              "path":"C:/Users/1/Desktop/Titanic_Prediction.csv",
               "mean":0,
               "std":0.1,
               "max_epochs":400,
@@ -2692,4 +2724,115 @@ save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_cv_predict(stacked_train, Y_train, stacked_test, max_evals=2000)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+"""
+
+"""
+#下面的实验结果如下：
+#我好像真的找到了有效的办法提升模型的准确率咯，就是修改模型的折数
+#当进行预测的时候将折数由5修改为20折就vans了。具体的实验结果如下：
+#结果明显的提升是因为数据的使用率上升，使用率由原来只有0.95*4/5=0.76变为0.95*19/20=0.9026
+#我在想到底有没有必要修改为50折呢，如果改为50使用率则为0.95*49/50=0.931
+#然后我觉得节点数目应该还是保持为45个吧，我不知道为什么节点数目越多确实结果越好呀。。。
+#所以晚上修改为50折以及51个节点看看到底会发生什么样子的结果呢，我还蛮期待的咧~~~~~~~~~~~~~~
+#0.8309114927344782
+#0.8059701492537313
+#0.8348745046235139
+#0.8208955223880597
+#0:59:54.911778
+#2:10:25.467866
+files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+
+best_nodes = parse_nodes(trials, space_nodes)
+
+train_acc = []
+valida_acc = []
+time_cost = []
+
+algo = partial(tpe.suggest, n_startup_jobs=10)
+ 
+for i in range(0, 1):
+    
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
+    
+    #下面是11节点20次搜索的结果呢
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate(nodes_list, X_split_train, Y_split_train, X_split_test, 20, 20)
+    #下面是进行超参搜索的lr咯
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    
+    #下面是45节点20次搜索的结果呢
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate(nodes_list, X_split_train, Y_split_train, X_split_test, 20, 20)
+    #下面是进行超参搜索的lr咯
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))    
+    
+for i in range(0, len(train_acc)):
+    print(train_acc[i])
+    print(valida_acc[i])
+
+for i in range(0, len(time_cost)):
+    print(time_cost[i])
+"""
+
+start_time = datetime.datetime.now()
+
+files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+
+#best_nodes = parse_nodes(trials, space_nodes)
+#nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+
+nodes_list = parse_trials(trials, space_nodes, 21)
+
+stacked_train, stacked_test = stacked_features_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 20)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+
+lr_stacking_cv_predict(stacked_train, Y_train, stacked_test, max_evals=2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+
+"""
+#如果上面的代码在最后的预测阶段出现问题，应该是best_nodes内部的path设置的问题咯
+#可以用下面的最原始的方法去解决，也可以在开始预测的时候设置一下best_nodes的path咯
+stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
+lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, "C:/Users/1/Desktop/ssss.csv", 2000)
 """

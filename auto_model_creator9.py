@@ -1,21 +1,9 @@
 #coding=utf-8
-#所以我现在在接下来的版本中准备做一些过拟合相关的测试，还有nodes_list中多个相同节点的准确率咯
-#我希望能够得到很好的结果结束我最近的所有探索性质的活动了吧，之后就和别人直接开始battle咯
-#这个版本可以修改一下保存机制，增加了stacking以后感觉原来的保存模型没什么卵用了吧。
-#我觉得可以把保存的东西从命名等都比较系统的修改一遍了吧，不然现在的保存好像没有意义，函数也在重构一下吧
-#需要修改一下stacked数据集的保存，因为应该保存模型的时候保存数据，但是保存的模型肯定和数据配套就不用管了。
-#换个项目需要修改的地方：
-#（0）stacked的输入数据是否需要归一化呢？
-#（0）类别用one-hot编码咯
-#（1）需要进行特征缩放，共用之前的X_train_scaled, Y_train,  X_test_scaled
-#（2）nn_f(nn_stacking_f)中noise_augment_data中的columns是否需要修改，其中训练集是否为X_split或者Y_split
-#（3）space、space_nodes、best_nodes、parse_nodes、parse_trials可能需要同时修改
-#（4）不同类型的问题可能修改create_module，所有用到该函数的地方如nn_model_train均需要修改的吧
-#（5）save_stacked_dataset保存可能可能必须和nn_stacking_predict中的save_best_model配套才有
-#意义不然每次save_stacked_dataset并不是best_model所需要的数据呢
-#（6）现在的create_module居然是逢三建立一个层。可能需要改变
-#（7）init_module是对于模型的初始化方式，不同的问题不同的模型初始化方式也不同咯
-#（8）可能会需要修改模型的评价指标（准确率）以及lossfunction哈
+#这个版本应该就是通过大量的实验发现第二层效果最好的应该是进行lr的超参搜索
+#不论是使用tpot还是使用第二层的贝叶斯优化神经网络基本都被不加优化的lr稳压。。
+#然后还在观察代码的运行过程中发现了单节点训练过程中存在过拟合的问题并给出了一种解决方案
+#其余问题，诸如stacking中所包含的模型的数量以及单节点搜索的次数等等均无稳定答案，第二层不增加噪声哈。
+#我将这些实验的结果形成了这个版本的代码咯，并将这个版本的结果提交咯。
 import os
 import sys
 import random
@@ -34,12 +22,13 @@ import torch.nn.init
 import torch.nn as nn
 import torch.nn.functional as F
 
-from sklearn.model_selection import KFold
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression 
 from sklearn.ensemble import RandomForestClassifier
 
 from sklearn.cross_validation import train_test_split
+
+from sklearn.model_selection import KFold, RandomizedSearchCV
 
 import skorch
 from skorch import NeuralNetClassifier
@@ -52,6 +41,8 @@ from tpot import TPOTClassifier
 from xgboost import XGBClassifier
 
 from mlxtend.classifier import StackingCVClassifier
+
+from sklearn.linear_model import LogisticRegression
 #下面的这个kfold是实现k折交叉的功能，返回每次的indice，可以设置为shuffle但默认未设
 #然后这个StratifiedKFold是返回k折交叉的迭代器，每次通过迭代器返回结果，可以设置为shuffle
 #两者的区别在于前者返回indice或者索引列表后者直接返回迭代器，虽然我这一份代码两种方式都有但是让他们并存吧
@@ -560,6 +551,41 @@ def nn_model_train(nodes, X_train_scaled, Y_train, max_evals=10):
     
     return best_model, best_acc
 
+#我尽量用了一点别的方式减小模型选择时候可能带来的过拟合风险吧
+#为了不改变原来参数的接口或者以最小修改代价的方式修改代码我想到了下面的办法咯
+#下面的修改方式比我之前想到的修改方式感觉上还要高明一些的呢。。
+def nn_model_train_validate(nodes, X_train_scaled, Y_train, max_evals=10):
+    
+    #我觉得0.12的设置有点多了，还有很多数据没用到呢，感觉这样子设置应该会好一些的吧？
+    #X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.12, stratify=Y_train)
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.05, stratify=Y_train)
+    #由于神经网络模型初始化、dropout等的问题导致网络不够稳定
+    #解决这个问题的办法就是多重复计算几次，选择其中靠谱的模型
+    best_acc = 0.0
+    best_model = 0.0
+    for j in range(0, max_evals):
+        
+        clf = NeuralNetClassifier(lr = nodes["lr"],
+                                  optimizer__weight_decay = nodes["optimizer__weight_decay"],
+                                  criterion = nodes["criterion"],
+                                  batch_size = nodes["batch_size"],
+                                  optimizer__betas = nodes["optimizer__betas"],
+                                  module = create_module(nodes["input_nodes"], nodes["hidden_layers"], 
+                                                         nodes["hidden_nodes"], nodes["output_nodes"], nodes["percentage"]),
+                                  max_epochs = nodes["max_epochs"],
+                                  callbacks=[skorch.callbacks.EarlyStopping(patience=nodes["patience"])],
+                                  device = nodes["device"],
+                                  optimizer = nodes["optimizer"]
+                                  )
+        init_module(clf.module, nodes["weight_mode"], nodes["bias"])
+        clf.fit(X_split_train.astype(np.float32), Y_split_train.astype(np.longlong))
+            
+        metric = cal_nnclf_acc(clf, X_split_test, Y_split_test)
+        print_nnclf_acc(metric)
+        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)        
+    
+    return best_model, best_acc
+
 def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
     
     """K-fold stacking"""
@@ -592,6 +618,43 @@ def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_eval
     
     return oof_train, oof_test, best_model
 
+def get_oof_validate(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
+    
+    """K-fold stacking"""
+    num_train, num_test = X_train_scaled.shape[0], X_test_scaled.shape[0]
+    oof_train = np.zeros((num_train,)) 
+    oof_test = np.zeros((num_test,))
+    oof_test_all_fold = np.zeros((num_test, n_folds))
+    train_acc = []
+    valida_acc = []
+
+    KF = KFold(n_splits =n_folds, shuffle=True)
+    for i, (train_index, valida_index) in enumerate(KF.split(X_train_scaled)):
+        #划分数据集
+        X_split_train, Y_split_train = X_train_scaled[train_index], Y_train[train_index]
+        X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
+        
+        best_model, best_acc = nn_model_train_validate(nodes, X_split_train, Y_split_train, max_evals)
+        
+        #这里输出的是最佳模型的训练集和验证集上面的结果咯
+        #很容易和上面的训练过程的最后一个输出重叠
+        #这三个输出结果肯定是不一样的：
+        #第一个输出和第二个输出的区别在于最佳模型和普通模型在训练集上面的输出
+        #第二个输出和第三个输出的区别在于最佳模型在训练集和验证集上面的输出
+        acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
+        print_nnclf_acc(acc1)
+        train_acc.append(acc1)
+        acc2 = cal_nnclf_acc(best_model, X_split_valida, Y_split_valida)
+        print_nnclf_acc(acc2)
+        valida_acc.append(acc2)
+        
+        oof_train[valida_index] = best_model.predict(X_split_valida.astype(np.float32))
+        oof_test_all_fold[:, i] = best_model.predict(X_test_scaled.astype(np.float32))
+        
+    oof_test = np.mean(oof_test_all_fold, axis=1)
+    
+    return oof_train, oof_test, best_model
+
 def stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, max_evals):
     
     input_train = [] 
@@ -600,6 +663,24 @@ def stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, 
     
     for i in range(0, nodes_num):
         oof_train, oof_test, best_model= get_oof(nodes_list[i], X_train_scaled.values, Y_train.values, X_test_scaled.values, folds, max_evals)
+        input_train.append(oof_train)
+        input_test.append(oof_test)
+    
+    stacked_train = np.concatenate([f.reshape(-1, 1) for f in input_train], axis=1)
+    stacked_test = np.concatenate([f.reshape(-1, 1) for f in input_test], axis=1)
+    
+    stacked_train = pd.DataFrame(stacked_train)
+    stacked_test = pd.DataFrame(stacked_test)
+    return stacked_train, stacked_test
+
+def stacked_features_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, max_evals):
+    
+    input_train = [] 
+    input_test = []
+    nodes_num = len(nodes_list)
+    
+    for i in range(0, nodes_num):
+        oof_train, oof_test, best_model= get_oof_validate(nodes_list[i], X_train_scaled.values, Y_train.values, X_test_scaled.values, folds, max_evals)
         input_train.append(oof_train)
         input_test.append(oof_test)
     
@@ -701,6 +782,33 @@ def lr_stacking_predict(stacked_train, Y_train, stacked_test, max_evals=50):
     print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
     print()
     return best_model, Y_pred
+
+#lr进行了超参搜索选出最好的结果进行预测咯 
+def lr_stacking_cv_predict(stacked_train, Y_train, stacked_test, max_evals=2000):
+    
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=max_evals)
+    random_search.fit(stacked_train, Y_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+
+    save_best_model(random_search.best_estimator_, best_nodes["title"]+"_"+str(len(nodes_list)))
+    Y_pred = random_search.best_estimator_.predict(stacked_test.values.astype(np.float32))
+            
+    data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
+    output = pd.DataFrame(data = data)
+            
+    output.to_csv(best_nodes["path"], index=False)
+    print("prediction file has been written.")
+     
+    print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
+    print()
+    return random_search.best_estimator_, Y_pred
 
 def tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=100, population_size=100):
     
@@ -811,7 +919,7 @@ space_nodes = {"title":["stacked_titanic"],
 #其实本身不需要best_nodes主要是为了快速测试
 #不然每次超参搜索的best_nodes效率太低了吧
 best_nodes = {"title":"stacked_titanic",
-              "path":"path",
+              "path":"C:/Users/1/Desktop/Titanic_Prediction.csv",
               "mean":0,
               "std":0.1,
               "max_epochs":400,
@@ -1049,23 +1157,50 @@ print("time cost", (end_time - start_time))
 """
 
 #下面这份代码的模板是我目前最新的实践结果
+#从目前的实践来看应该可以是最终的版本咯，具体结果如何至少超过之前的前23%的成绩吧
 #主要成果在于发现了第二层使用随机超参搜索的逻辑回归验证集效果最好
-#除此之前将节点数目修改为了三个，感觉三四个节点的情况超参逻辑回归要好一点。。
-#然后就进行逻辑回归的超参搜索咯，目前的版本大致是这个样子的。
+#最新的发现，当节点似乎是使用的越多最后结果就是越好，所以现在改为45个节点？？
+#然后实现了stacked_features_validate系列函数，这个函数的设计思路大致是：
+#就是少量数据（大致5%）不参与训练，只用于过拟合验证&模型选择，配合early stopping应该差不多能够防止过拟合了吧
+#这个函数在实现的时候还考虑了尽量不要影响之前的stacked_features系列函数的接口设计
+#stacked_features_validate系列函数的第二个参数经过验证最佳值是20，第一个参数的值（折数）和节点数目都是越多越好。
+#第一个参数的值（折数）越大能够使用到的数据就越多因而准确率一般会提升，但是节点数目（模型数）越多为毛会越好用呢。。
+#可能是因为模型数量越多的时候逻辑回归能够得到的数据维度越大从而划分越。。越稳定？？
+#我觉得晚上离开的时候可以来一个50折的交叉验证还有45个节点。。感觉应该会很劲爆的吧。。
 start_time = datetime.datetime.now()
 
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=2, trials=trials)
+best_params = fmin(nn_f, space, algo=algo, max_evals=7, trials=trials)
 
 best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 
 #nodes_list = parse_trials(trials, space_nodes, 9)
-nodes_list = [best_nodes, best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 1)
+nodes_list = [best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 5)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 
-tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=3, population_size=3)
+lr_stacking_cv_predict(stacked_train, Y_train, stacked_test, 2000)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+
+#以下是对整个比赛的结果进行最后的总结与展望咯：
+#（0）现在还有啥办法可以进一步提升kaggle的准确率呢。我找到一个办法，修改stacking时候的折数。。
+#OK这确实是个可行的办法咯，好像增加模型数目也可以哦。。至于原因好像没办法从数学上解释？？？
+#（1）神经网络的模型融合呢？这个我找了很久就只找到了stacking其余的还真的没有，
+#只有一篇周志华的论文感觉不想看呢而且未必能看懂。。时间也不够了不做这个探索咯。。
+#2）是不是哪里还可以进行交叉验证或者数据使用率如何进一步提高呀？ 
+#交叉验证几乎用到了每个步骤从超参选择节点到节点选出来之后进行stacking，
+#之前单模型泛化性能不行主要是因为选择最佳单模型时过拟合了，在留出部分数据专门做验证之后泛化性能得到了提升。
+#我发现神经网络进行stacking的好处多多呀，至少不像别的模型那样单模型进行优化，可以一批一批的对模型进行优化咯。
+# 数据使用率上面除了修改折数其余没啥可以提升的了，必须要留出部分数据进行验证，当然验证的方式可以是early stopping，
+#但是多次训练模型选择最优时early stopping、dropout不全管用，最简单的办法就是留出5%的数据用于验证咯，
+#虽然可以人为的加入一些噪声然后可以将留出的数据参与交叉验证，但是噪声等的超参这些还需要确定比较麻烦，
+#其他防止过拟合的方法比如说正则化需要API的支持吧，pytorch的API其实支持正则化项但是需要设置torch.optim.Adam内的参数，
+#我勒个去，我现在才想起来其实我之前的节点超参搜索的时候已经搜索过这个参数了，所以单节点模型训练的时候用了这个的，
+#所以好像真的暂时只能用现在的办法，其实现在的做法已经不错啦交叉验证+留出的验证集已经不错了。单模型的训练一定是使用除去某一折之后的所有数据咯。
+
+#以后可以采用的更好的细节：
+#（1）使用类似one-hot编码
+#（2）可以先删除离群点咯
