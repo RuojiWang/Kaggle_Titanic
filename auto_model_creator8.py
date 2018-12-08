@@ -2821,7 +2821,7 @@ files.close()
 #best_nodes = parse_nodes(trials, space_nodes)
 #nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
 
-nodes_list = parse_trials(trials, space_nodes, 21)
+nodes_list = parse_trials(trials, space_nodes, 7)
 
 stacked_train, stacked_test = stacked_features_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 20)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
@@ -2836,3 +2836,10 @@ print("time cost", (end_time - start_time))
 stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
 lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, "C:/Users/1/Desktop/ssss.csv", 2000)
 """
+
+#我在kaggle上面看了几个kernel了，感觉特征工程之类的并没有太多特殊的地方
+#而且我还遇到过没有用规则化处理就直接进行预测最后居然还得到了3%的结果。。
+#我仔细看了一下用的都是统计学习的方法而且没有使用诸如贝叶斯优化之类的技术也没有新的特征创建也没有stacking。。
+#我觉得以后特征工程这些东西肯定是要做的，只是说我使用神经网络只需要做初级的特征处理而已。。
+#我看了这么久感觉好像真的没看到任何的黑魔法，难道说我的超参搜索次数太少了吗。。我觉得特征也没啥问题呀
+#我现在感觉答案可能在周志华的论文或者是神经网络的书籍里面？我很好奇神经网络做kaggle到底要怎么做呢？？
