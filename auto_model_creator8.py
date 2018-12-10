@@ -53,8 +53,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -860,7 +860,7 @@ def tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=100,
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -903,7 +903,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -946,7 +946,7 @@ space_nodes = {"title":["stacked_titanic"],
 #其实本身不需要best_nodes主要是为了快速测试
 #不然每次超参搜索的best_nodes效率太低了吧
 best_nodes = {"title":"stacked_titanic",
-              "path":"C:/Users/1/Desktop/Titanic_Prediction.csv",
+              "path":"C:/Users/win7/Desktop/Titanic_Prediction.csv",
               "mean":0,
               "std":0.1,
               "max_epochs":400,
@@ -2812,6 +2812,49 @@ for i in range(0, len(time_cost)):
     print(time_cost[i])
 """
 
+#今天有一件事情让我觉得特别的高兴呀，就是不同节点训练出的神经网络stacking出来的结果居然进入了前17%
+#看来之前的问题果然是选择了相同的节点进行stacking的缘故咯，毕竟我修改了交叉验证的折数居然都还是不行
+#我仔细推敲一下选择相同的节点stacking不行，主要是不满足分类器差异越大效果越好的规则吧
+#但是我自己实验的时候相同节点stacking的实验结果明显比不同节点stacking的结果更好呀
+#如果真的说原因的话，应该是说相同节点的stacking可能训练出来的是同一类，所以提升比较有限
+#但是不同节点的stacking可能是不同类型或者不同视角的分类器，所以在有更明显的提升咯
+#也可以从数据集的角度描述这个问题，可能是最佳节点在公开的训练集上表现是最好的
+#但是当预测的数据是未知数据集时，原来的模型的表现就比较一般啦，也就是泛化性能比较有限的意思吧。
+#所以多个best_nodes在公开的数据集上面的预测效果是最好的，但是在其他数据集上就不好说咯。。
+#所以按照这个解释的话，我超参搜索的次数好像对于提交结果影响不是特别大咯？
+#可能影响更大的会是节点数目咯，但是节点数目怎么确定呢我觉得还蛮难知道的，说不定45比7个节点好呢？？
+#至于交叉验证的折数和单个节点训练的次数我觉得50和25已经差不多了，改成60和25我觉得也是可以的吧。。
+"""
+start_time = datetime.datetime.now()
+
+files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+
+#best_nodes = parse_nodes(trials, space_nodes)
+#nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+
+nodes_list = parse_trials(trials, space_nodes, 7)
+
+stacked_train, stacked_test = stacked_features_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 25)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+
+lr_stacking_cv_predict(stacked_train, Y_train, stacked_test, max_evals=2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+"""
+#如果上面的代码在最后的预测阶段出现问题，应该是best_nodes内部的path设置的问题咯
+#可以用下面的最原始的方法去解决，也可以在开始预测的时候设置一下best_nodes的path咯
+stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
+lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, "C:/Users/win7/Desktop/ssss.csv", 2000)
+"""
+
+#他妈的kaggle上面的45个不同节点结果并不是特别好呀，但是还是追平了我同的节点最好记录，说不通节点可能真的好些。
+#mmp真的郁闷，我在家里面的机器计算了十个小时得到的结果居然就是这个样子的吗，我还以为可以无脑加节点提升正确率呢
+#所以现在怎么做呢？准备试试其他节点的计算结果咯？看来还是要期待更多的超参搜索带来惊喜咯？？？
+#那因为之前是7个节点25次的计算，我这次试试7个节点20次的计算结果如何呢？？
 start_time = datetime.datetime.now()
 
 files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
@@ -2830,16 +2873,13 @@ lr_stacking_cv_predict(stacked_train, Y_train, stacked_test, max_evals=2000)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 
-"""
-#如果上面的代码在最后的预测阶段出现问题，应该是best_nodes内部的path设置的问题咯
-#可以用下面的最原始的方法去解决，也可以在开始预测的时候设置一下best_nodes的path咯
-stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
-lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, "C:/Users/1/Desktop/ssss.csv", 2000)
-"""
-
 #我在kaggle上面看了几个kernel了，感觉特征工程之类的并没有太多特殊的地方
 #而且我还遇到过没有用规则化处理就直接进行预测最后居然还得到了3%的结果。。
 #我仔细看了一下用的都是统计学习的方法而且没有使用诸如贝叶斯优化之类的技术也没有新的特征创建也没有stacking。。
 #我觉得以后特征工程这些东西肯定是要做的，只是说我使用神经网络只需要做初级的特征处理而已。。
 #我看了这么久感觉好像真的没看到任何的黑魔法，难道说我的超参搜索次数太少了吗。。我觉得特征也没啥问题呀
 #我现在感觉答案可能在周志华的论文或者是神经网络的书籍里面？我很好奇神经网络做kaggle到底要怎么做呢？？
+#现在我已经找到了一个主要原因就是因为stacking的时候使用了相同的节点，换成使用不同的节点只有提升比较明显
+#我觉得剩下的就是看一下周志华神经网络stacking的论文或者做一次神经网络的比赛，看看那些人是如何选择最佳模型的。。
+#明天找了两篇周志华的论文试一下效果到底如何哦，然后就准备进入到下一个阶段了，开始正式着手比赛的相关事情咯。。
+
