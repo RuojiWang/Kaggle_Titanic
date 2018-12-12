@@ -182,8 +182,11 @@ X_test = data_test_1[['Pclass', 'Sex', 'Age', 'Fare', 'Embarked', 'Cabin', 'Titl
 
 X_all = pd.concat([X_train, X_test], axis=0)
 #我觉得训练集和测试集需要在一起进行特征缩放，所以注释掉了原来的X_train的特征缩放咯
-X_all_scaled = pd.DataFrame(preprocessing.scale(X_all), columns = X_train.columns)
+#用了五个月之后我发现我的特征缩放好像做错了？？所以试一下下面的特征缩放吧。。不过变量名好像可以不用修改吧
+#X_all_scaled = pd.DataFrame(preprocessing.scale(X_all), columns = X_train.columns)
+X_all_scaled = pd.DataFrame(preprocessing.StandardScaler().fit_transform(X_all), columns = X_train.columns)
 #X_train_scaled = pd.DataFrame(preprocessing.scale(X_train), columns = X_train.columns)
+#https://blog.csdn.net/CherDW/article/details/56011531讲解了几种特征缩放的区别，scale和.StandardScaler其实差不多。。
 X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
 
@@ -2851,6 +2854,7 @@ stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
 lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, "C:/Users/1/Desktop/ssss.csv", 2000)
 """
 
+"""
 #他妈的kaggle上面的45个不同节点结果并不是特别好呀，但是还是追平了我同的节点最好记录，说不通节点可能真的好些。
 #mmp真的郁闷，我在家里面的机器计算了十个小时得到的结果居然就是这个样子的吗，我还以为可以无脑加节点提升正确率呢
 #所以现在怎么做呢？准备试试其他节点的计算结果咯？看来还是要期待更多的超参搜索带来惊喜咯？？？
@@ -2859,16 +2863,21 @@ lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, "C:/Users/1/De
 #我觉得最佳节点数应该是3到9之间吧，然后最佳计算次数应该是20次到25次之间吧，说不定上次的17%的结果并不是因为
 #我找到了不同的节点的原因，反而可能是因为节点数目的增加导致的准确率的下降咯，我之前有实验确实表明较少的节点效果更好。
 #他妈的五个不同的节点计算出来的结果还是并不是特别理想呀，我感觉可能问题出在前面的代码或者超参搜索太少的问题上吧。。
+#卧槽我觉得最佳的方式还是要使用五个节点左右吧，而且第二个参数20确实是比25要好一些的说呢。。之前使用的25次所以不太好？？
+#我刚才使用的五个相同节点的结果已经追平了使用七个不同节点的结果咯，或许试试使用五个不同节点效果如何呢？
+#我刚才使用的五个不同节点的结果已经追平了使用七个不同节点的结果咯，这些结果都是我的最佳结果，所以说最佳节点数真是3到11吧。。
+#3个节点的数据在验证集上面居然是历史最低的结果，我有时候感觉挺困惑的，可能是因为超参搜索或者以前的代码有问题的缘故吧。
+#我查了一下自己的代码感觉好像前面的特征缩放似乎是做错咯？我改一下再用神经网络计算一下看看能否获得更好的结果呢。
 start_time = datetime.datetime.now()
 
 files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
 files.close()
 
-best_nodes = parse_nodes(trials, space_nodes)
-nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+#best_nodes = parse_nodes(trials, space_nodes)
+#nodes_list = [best_nodes, best_nodes, best_nodes]
 
-#nodes_list = parse_trials(trials, space_nodes, 5)
+nodes_list = parse_trials(trials, space_nodes, 7)
 
 stacked_train, stacked_test = stacked_features_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 20)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
@@ -2876,14 +2885,14 @@ save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_cv_predict(stacked_train, Y_train, stacked_test, max_evals=2000)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
-
-
 """
+
 #如果上面的代码在最后的预测阶段出现问题，应该是best_nodes内部的path设置的问题咯
 #可以用下面的最原始的方法去解决，也可以在开始预测的时候设置一下best_nodes的path咯
 stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
 lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, "C:/Users/1/Desktop/ssss.csv", 2000)
-"""
+
+
 
 #我在kaggle上面看了几个kernel了，感觉特征工程之类的并没有太多特殊的地方
 #而且我还遇到过没有用规则化处理就直接进行预测最后居然还得到了3%的结果。。
