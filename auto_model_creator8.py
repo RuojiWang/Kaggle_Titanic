@@ -2887,11 +2887,12 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
+"""
 #如果上面的代码在最后的预测阶段出现问题，应该是best_nodes内部的path设置的问题咯
 #可以用下面的最原始的方法去解决，也可以在开始预测的时候设置一下best_nodes的path咯
 stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
 lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, "C:/Users/1/Desktop/ssss.csv", 2000)
-
+"""
 
 
 #我在kaggle上面看了几个kernel了，感觉特征工程之类的并没有太多特殊的地方
@@ -2905,4 +2906,10 @@ lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, "C:/Users/1/De
 #明天找了两篇周志华的论文试一下效果到底如何哦，然后就准备进入到下一个阶段了，开始正式着手比赛的相关事情咯。。
 #我在kaggle的讨论板块上看到了几篇使用神经网络进行计算的，还是有人在验证集上面获得了82%的准确率咯，我觉得还是蛮屌的
 #现在主要就是实验一下周志华的算法咯，然后完成之后就专心对比这几篇kernel上面给出的结果（只有一篇能用的吧）。。
-#泰坦尼克号的性别上面完全可以使用one-hot编码，然后年龄上面的完全可以采用新的办法进行处理。。
+#泰坦尼克号的性别上面完全可以使用one-hot编码，然后年龄上面的完全可以采用新的办法进行处理。。以及自助法构建数据集咯~
+#昨天花了很多时间解决论文中部分没有理解的内容，现在开始准备尝试使用周志华提出的一些算法跑一下结果呢。然后就是kernel咯
+#周志华的GASEN就是使用自助法构建数据集然后再使用遗传算法对于权重进行遗传优化并配合论文提出的一些观点选择吧，没有代码
+#我了个大去我居然在南京大学的周志华的实验室中找到了相关GASEN的代码，具体网址在http://lamda.nju.edu.cn/CH.Data.ashx
+#但是找到的是个.m文件也就是matlab写出来的文件，感觉还是不用尝试这个了，直接试一下gcForest算了吧。。居然需要Jason定义格式
+#我靠看了一下github上面的和gcForest的代码（和南京大学实验室官网上面的一样哈），这个模型其实是用于图像处理滴，果然我还是用不了哈~~
+#下面的问题就剩下研究那篇kernel并实现它的思路，然后修改一下数据处理流程和最佳模型的选择过程咯，这波我必上top5%吧？
