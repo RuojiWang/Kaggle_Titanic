@@ -1,9 +1,11 @@
 #coding=utf-8
-#这个版本应该就是通过大量的实验发现第二层效果最好的应该是进行lr的超参搜索
-#不论是使用tpot还是使用第二层的贝叶斯优化神经网络基本都被不加优化的lr稳压。。
-#然后还在观察代码的运行过程中发现了单节点训练过程中存在过拟合的问题并给出了一种解决方案
-#其余问题，诸如stacking中所包含的模型的数量以及单节点搜索的次数等等均无稳定答案，第二层不增加噪声哈。
-#我将这些实验的结果形成了这个版本的代码咯，并将这个版本的结果提交咯。
+#这个版本主要是在kaggle上面提交了数据之后，发现只能够处于17%左右的结果吧，所以又做了其他优化得到的版本
+#这个版本的优化在于1）改变了特征的处理（修改了年龄的处理方式，增加了one-hot编码处理性别、姓名、港口等）。现在这里发现了一个BUG？？
+#2)删除了best_nodes["path"]，因为这个参数在我写入预测文件时候造成困扰，毕竟我是在两台机器上面运行程序。
+#3）然后估计应该会重新修改对于最佳模型的选择过程咯，目前看来感觉还是存在一些过拟合的风险咯。4）修改nn_model_train设置咯
+#接下来是实现别人kernel的结果并实现优化咯，中间可能会涉及到重新对模型进行超参搜索吧，毕竟我已经修改了流程处理。
+#我看了一下kernel除了构造的新的特征有点意思以外，其他的东西我觉得都没有太多的值得学习的地方，所以就按照自己的方式修改吧。。
+#关于这个best_nodes["path"]暂时不删除吧，因为虽然没什么卵用处，但是在预测的时候修改一下写函数就可以解决这个问题。
 import os
 import sys
 import random
@@ -15,7 +17,8 @@ import pandas as pd
 
 sys.path.append("D:\\Workspace\\Titanic")
 
-from sklearn import preprocessing
+#原来DictVectorizer类也可以实现OneHotEncoder()的效果，而且更简单一些
+from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.cross_validation import cross_val_score, StratifiedKFold
 
 import torch.nn.init
@@ -25,6 +28,8 @@ import torch.nn.functional as F
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression 
 from sklearn.ensemble import RandomForestClassifier
+
+from sklearn.feature_extraction import DictVectorizer
 
 from sklearn.cross_validation import train_test_split
 
@@ -53,19 +58,22 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
     dataset['Title'] = dataset.Name.str.extract('([A-Za-z]+)\.', expand=False)
-    dataset['Title'] = dataset['Title'].replace(['Lady', 'Countess', 'Col', 'Don', 'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer', 'Dona'], 'Rare')
+    dataset['Title'] = dataset['Title'].replace(['Lady', 'Countess', 'Col', 'Don', 'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer', 'Dona', 'Capt'], 'Rare')
     dataset['Title'] = dataset['Title'].replace('Mlle', 'Miss')
     dataset['Title'] = dataset['Title'].replace('Ms', 'Miss')
     dataset['Title'] = dataset['Title'].replace('Mme', 'Mrs')
+"""
+    DictVectorizer类只能够映射非数值的类，所以取消了这里的映射
     title_map = {'Mr': 1, 'Miss': 2, 'Mrs': 3, 'Master': 4, 'Rare': 5}
     dataset['Title'] = dataset['Title'].map(title_map)
     dataset['Title'] = dataset['Title'].fillna(0)
+"""
 
 for dataset in combine:
     dataset['FamilySize'] = dataset['SibSp'] + dataset['Parch'] + 1
@@ -93,33 +101,56 @@ for dataset in combine:
             dataset.loc[(dataset.Age.isnull()) & (dataset.Sex == i) & (dataset.Pclass == j + 1), 'Age'] = guess_ages[i, j]
     dataset['Age'] = dataset['Age'].astype(int)
     
+#为了之后使用dictvector进行映射，现在又将性别变为字符串
+#如果不用这样的操作变为字符串就无法用dictvector替换啦
+#因为dictvector的替换就是直接将非数值的东西变成单独的一类
+for dataset in combine:
+    dataset['Sex'] = dataset['Sex'].map({1:'female', 0:'male'})
+
+"""
+#我觉得年龄好像没有必要划分的吧，就删除下面这段也挺好的
+#我在想这样划分了年龄之后是不是限制了模型的拟合过程
+#毕竟神经网络理论上是能够以任何精度拟合任何函数的吧？
+#我个人的理解这样子划分之后损失了原来的信息，导致函数性能无法提高咯。。
 for dataset in combine: 
     dataset.loc[ dataset['Age'] <= 16, 'Age'] = 0 
     dataset.loc[(dataset['Age'] > 16) & (dataset['Age'] <= 32), 'Age'] = 1 
     dataset.loc[(dataset['Age'] > 32) & (dataset['Age'] <= 48), 'Age'] = 2 
     dataset.loc[(dataset['Age'] > 48) & (dataset['Age'] <= 64), 'Age'] = 3 
     dataset.loc[ dataset['Age'] > 64, 'Age'] = 4
+"""   
     
 #这里的mode是求解pandas.core.series.Series众数的第一个值（可能有多个众数）
 freq_port = data_train.Embarked.dropna().mode()[0]
 for dataset in combine:
     dataset['Embarked'] = dataset['Embarked'].fillna(freq_port)
+"""
+DictVectorizer类只能够映射非数值的类，所以取消了这里的映射
 for dataset in combine:
-    dataset['Embarked'] = dataset['Embarked'].map({'S': 0, 'C': 1, 'Q': 2})
+    dataset['Embarked'] = dataset['Embarked'].map({'S': 0, 'C': 1, 'Q': 2}) 
+"""
 
 #将data_test中的fare元素所缺失的部分由已经包含的数据的中位数决定哈
 data_test['Fare'].fillna(data_test['Fare'].dropna().median(), inplace=True)
 
+"""
+我觉得这个船票的费用好像也不用这样子处理吧，试一下原生态的感觉呢
 for dataset in combine:
     dataset.loc[ dataset['Fare'] <= 7.91, 'Fare'] = 0
     dataset.loc[(dataset['Fare'] > 7.91) & (dataset['Fare'] <= 14.454), 'Fare'] = 1
     dataset.loc[(dataset['Fare'] > 14.454) & (dataset['Fare'] <= 31), 'Fare']   = 2
     dataset.loc[ dataset['Fare'] > 31, 'Fare'] = 3
     dataset['Fare'] = dataset['Fare'].astype(int)
+"""
 
+#按照下面的写法那么Cabin肯定都是1了呀，所以我自己写出了下面的写法咯
+#for dataset in combine:
+#    dataset.loc[(dataset.Cabin.isnull()), 'Cabin'] = 0
+#    dataset.loc[(dataset.Cabin.notnull()), 'Cabin'] = 1
 for dataset in combine:
-    dataset.loc[(dataset.Cabin.isnull()), 'Cabin'] = 0
-    dataset.loc[(dataset.Cabin.notnull()), 'Cabin'] = 1
+    dataset.loc[(dataset.Cabin.notnull()), 'Cabin'] = "cabin"  
+    dataset.loc[(dataset.Cabin.isnull()), 'Cabin'] = "no cabin" 
+    
 
 #尼玛给你说的这个是贡献船票，原来的英文里面根本就没有这种说法嘛
 df = data_train['Ticket'].value_counts()
@@ -146,9 +177,12 @@ tickets = data_train.Ticket.values   #所有的船票
 result = []
 for ticket in tickets:
     if ticket in df_ticket:
-        ticket = 1
+        #主要是为了使用DictVectorizer类映射所以改写下面的样子
+        #ticket = 1
+        ticket = "share"
     else:
-        ticket = 0                   #遍历所有船票，在共享船票里面的为1，否则为0
+        #ticket = 0                   #遍历所有船票，在共享船票里面的为1，否则为0
+        ticket = "no share"
     result.append(ticket)
 
 results = pd.DataFrame(result)
@@ -163,13 +197,22 @@ tickets = data_test.Ticket.values
 result = []
 for ticket in tickets:
     if ticket in df_ticket:
-        ticket = 1
+        #ticket = 1
+        ticket = "share"
     else:
-        ticket = 0                   
+        #ticket = 0                  
+        ticket = "no share"               
     result.append(ticket)
 results = pd.DataFrame(result)
 results.columns = ['Ticket_Count']
 data_test = pd.concat([data_test, results], axis=1) 
+
+#为了强行把Pclass进行One-Hot编码强行进行下面的转换。。
+for dataset in combine:
+    #dataset['Pclass'] = dataset['Pclass'].map({1: "1st", 2: "2nd", 3: "3rd"})
+    dataset.loc[ dataset['Pclass'] == 1, 'Pclass'] = "1st"
+    dataset.loc[ dataset['Pclass'] == 2, 'Pclass'] = "2nd"
+    dataset.loc[ dataset['Pclass'] == 3, 'Pclass'] = "3rd"
 
 data_train_1 = data_train.copy()
 data_test_1  = data_test.copy()
@@ -181,9 +224,26 @@ Y_train = data_train_1['Survived']
 X_test = data_test_1[['Pclass', 'Sex', 'Age', 'Fare', 'Embarked', 'Cabin', 'Title', 'FamilySizePlus', 'Ticket_Count']]
 
 X_all = pd.concat([X_train, X_test], axis=0)
+print(X_all.columns)
+#下面是我补充的将性别、姓名、Embarked修改为了one-hot编码类型了
+#原来DictVectorizer类也可以实现OneHotEncoder()的效果，而且更简单一些
+dict_vector = DictVectorizer(sparse=False)
+X_all = dict_vector.fit_transform(X_all.to_dict(orient='record'))
+X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
+#print(X_all.columns)到这里已经是ndarray已经没有了columns咯
+print(dict_vector.feature_names_)
+
+output = pd.DataFrame(data = X_all)            
+output.to_csv("C:/Users/win7/Desktop/dict.csv", columns=X_all.columns, index=False)
+            
 #我觉得训练集和测试集需要在一起进行特征缩放，所以注释掉了原来的X_train的特征缩放咯
-X_all_scaled = pd.DataFrame(preprocessing.scale(X_all), columns = X_train.columns)
+#用了五个月之后我发现我的特征缩放好像做错了？？所以试一下下面的特征缩放吧。。不过变量名好像可以不用修改吧
+#原来这两种特征缩放的结果是差不多的，我勒个去当时吓我一跳我我还以为这么久的工作都白做了呢。
+#X_all_scaled = pd.DataFrame(preprocessing.scale(X_all), columns = X_train.columns)
+#X_all_scaled = pd.DataFrame(StandardScaler().fit_transform(X_all), columns = X_train.columns)
+X_all_scaled = pd.DataFrame(StandardScaler().fit_transform(X_all), columns = X_all.columns)
 #X_train_scaled = pd.DataFrame(preprocessing.scale(X_train), columns = X_train.columns)
+#https://blog.csdn.net/CherDW/article/details/56011531讲解了几种特征缩放的区别，scale和.StandardScaler其实差不多。。
 X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
 
@@ -810,6 +870,33 @@ def lr_stacking_cv_predict(stacked_train, Y_train, stacked_test, max_evals=2000)
     print()
     return random_search.best_estimator_, Y_pred
 
+#lr进行了超参搜索选出最好的结果进行预测咯 
+def lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, path, max_evals=2000):
+    
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=max_evals)
+    random_search.fit(stacked_train, Y_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+
+    #save_best_model(random_search.best_estimator_, best_nodes["title"]+"_"+str(len(nodes_list)))
+    Y_pred = random_search.best_estimator_.predict(stacked_test.values.astype(np.float32))
+            
+    data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
+    output = pd.DataFrame(data = data)
+            
+    output.to_csv(path, index=False)
+    print("prediction file has been written.")
+     
+    print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
+    print()
+    return random_search.best_estimator_, Y_pred
+
 def tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=100, population_size=100):
     
     tpot = TPOTClassifier(generations=generations, population_size=population_size, verbosity = 2)
@@ -833,7 +920,7 @@ def tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=100,
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -876,7 +963,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -919,7 +1006,7 @@ space_nodes = {"title":["stacked_titanic"],
 #其实本身不需要best_nodes主要是为了快速测试
 #不然每次超参搜索的best_nodes效率太低了吧
 best_nodes = {"title":"stacked_titanic",
-              "path":"C:/Users/1/Desktop/Titanic_Prediction.csv",
+              "path":"C:/Users/win7/Desktop/Titanic_Prediction.csv",
               "mean":0,
               "std":0.1,
               "max_epochs":400,
@@ -940,268 +1027,3 @@ best_nodes = {"title":"stacked_titanic",
               "optimizer":torch.optim.Adam
               }
 
-"""
-#下面的模型居然取得了85.29%的正确率，我真的是看到了希望了，看来stacking才是王道呀
-#the best accuracy rate of the model on the whole train dataset is: 0.8529741863075196
-#有的地方有.values有的地方又没有这个感觉很凌乱还是都用吧
-#其实我早就应该知道的，直接把stacked_train之类的变成df吧
-algo = partial(tpe.suggest, n_startup_jobs=10)
-#好像这边重复增加超参节点结果居然没有改变耶？5个节点结果差不多的效果
-#感觉直接增加重复的次数是能够得到最大的提升的意思咯，我试一下提升比较有限吧
-#增加计算次数提升不是很明显，但是增加节点数目提升还是有点明显哦
-nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, 
-              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
-              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
-              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
-              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 10)
-stacked_trials = Trials()
-#既然最后还是分裂为两个版本所以这些不需要了吧
-#X_train_f = stacked_train
-#Y_train_f = Y_train
-#下面的这个写法不行，因为我是真的可能使用以前的trials，如果修改了就不好了吧
-#space["input_nodes"]=hp.choice("input_nodes", [len(nodes_list)])
-best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
-print_best_params_acc(stacked_trials)
-best_nodes = parse_nodes(stacked_trials, space_nodes)
-save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
-#下面这函数一直报错，花了我很多的时间才知道是之前存储的stacked_titanic_best_model的问题
-nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 20)
-"""
-
-"""
-#反正现在要被保存的东西都在下面这里了吧，可以参考这里设置的数字
-start_time = datetime.datetime.now()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-
-nodes_list = [best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 20)
-
-stacked_trials = Trials()
-#这个数字可以再开大一点吧，除了节点数目其余数字可以不开大了。
-best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=20, trials=stacked_trials)
-print_best_params_acc(stacked_trials)
-best_nodes = parse_nodes(stacked_trials, space_nodes)
-save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
-save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
-
-nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 20)
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-"""
-#下面的保存版本的代码算是调通实现了吧
-start_time = datetime.datetime.now()
-
-nodes_list = [best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 5)
-
-stacked_trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=5, trials=stacked_trials)
-
-best_nodes = parse_nodes(stacked_trials, space_nodes)
-save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
-save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
-
-nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 5)
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-
-stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
-best_model = load_best_model("stacked_titanic_2")
-print(cal_nnclf_acc(best_model, stacked_train.values, Y_train.values))
-"""
-
-"""
-#下面的保存版本的代码算是调通实现了吧
-#下面的这份代码算是一个完整的版本吧，但是下面的代码存在一个问题
-#第二层一般不再使用比较简单的模型这样能够防止过拟合咯
-start_time = datetime.datetime.now()
-
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=7000, trials=trials)
-
-best_nodes = parse_nodes(trials, space_nodes)
-save_inter_params(trials, space_nodes, best_nodes, "titanic")
-
-nodes_list = parse_trials(trials, space_nodes, 9)
-#nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
-#              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 25)
-
-stacked_trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=100, trials=stacked_trials)
-
-best_nodes = parse_nodes(stacked_trials, space_nodes)
-save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
-save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
-
-nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 50)
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-"""
-stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
-best_model = load_best_model("stacked_titanic_2")
-print(cal_nnclf_acc(best_model, stacked_train.values, Y_train.values))
-"""
-
-"""
-#下面的代码算是7000次测试的前戏吧，这样就可以无忧的执行大计算咯
-start_time = datetime.datetime.now()
-
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=10, trials=trials)
-
-best_nodes = parse_nodes(trials, space_nodes)
-save_inter_params(trials, space_nodes, best_nodes, "titanic")
-
-nodes_list = parse_trials(trials, space_nodes, 9)
-#nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
-#              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 10)
-save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
-
-lr_stacking_predict(stacked_train, Y_train, stacked_test, 10)
-
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-"""
-#下面的代码应该是类似最终实现的版本咯
-#这个版本在第二层还是要使用逻辑回归咯
-#lr在大计算中表现的结果确实太糟糕，
-#感觉只能够在第二层使用tpot或者
-start_time = datetime.datetime.now()
-
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=7000, trials=trials)
-
-best_nodes = parse_nodes(trials, space_nodes)
-save_inter_params(trials, space_nodes, best_nodes, "titanic")
-
-nodes_list = parse_trials(trials, space_nodes, 9)
-#nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
-#              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 50)
-save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
-
-lr_stacking_predict(stacked_train, Y_train, stacked_test, 100)
-
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-"""
-#就目前的结果而言，下面的代码应该是目前能够取得的最佳效果之一
-#这份代码主要的问题就是计算量过大了，涉及到了两次超参搜索
-start_time = datetime.datetime.now()
-
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=7000, trials=trials)
-
-best_nodes = parse_nodes(trials, space_nodes)
-save_inter_params(trials, space_nodes, best_nodes, "titanic")
-
-#nodes_list = parse_trials(trials, space_nodes, 9)
-nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
-              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 70)
-save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
-
-stacked_trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best_stacked_params = fmin(nn_stacking_f, space, algo=algo, max_evals=7000, trials=stacked_trials)
-
-best_nodes = parse_nodes(stacked_trials, space_nodes)
-save_inter_params(stacked_trials, space_nodes, best_nodes, "stacked_titanic")
-
-nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_test, 1000)
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-"""
-#下面这份代码的模板能够避免第二次超参搜索
-#具体地说就是将第一次的搜索之后stacking之后的输出
-#作为新的特征，然后是用tpot的方式对这个特征进行搜索咯
-#这样做的好处在于一方面能够节约第二次超参搜索的时间
-#并且避免了第一次stacking之前做特征工程的时间咯
-start_time = datetime.datetime.now()
-
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=2, trials=trials)
-
-best_nodes = parse_nodes(trials, space_nodes)
-save_inter_params(trials, space_nodes, best_nodes, "titanic")
-
-#nodes_list = parse_trials(trials, space_nodes, 9)
-nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
-              best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 1)
-save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
-
-tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=3, population_size=3)
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-#下面这份代码的模板是我目前最新的实践结果
-#从目前的实践来看应该可以是最终的版本咯，具体结果如何至少超过之前的前23%的成绩吧
-#主要成果在于发现了第二层使用随机超参搜索的逻辑回归验证集效果最好
-#最新的发现，当节点似乎是使用的越多最后结果就是越好，所以现在改为45个节点？？
-#然后实现了stacked_features_validate系列函数，这个函数的设计思路大致是：
-#就是少量数据（大致5%）不参与训练，只用于过拟合验证&模型选择，配合early stopping应该差不多能够防止过拟合了吧
-#这个函数在实现的时候还考虑了尽量不要影响之前的stacked_features系列函数的接口设计
-#stacked_features_validate系列函数的第二个参数经过验证最佳值是20，第一个参数的值（折数）和节点数目都是越多越好。
-#第一个参数的值（折数）越大能够使用到的数据就越多因而准确率一般会提升，但是节点数目（模型数）越多为毛会越好用呢。。
-#可能是因为模型数量越多的时候逻辑回归能够得到的数据维度越大从而划分越。。越稳定？？
-#我觉得晚上离开的时候可以来一个50折的交叉验证还有45个节点。。感觉应该会很劲爆的吧。。结果提示非常不明显呀，我都累觉不爱了。。
-start_time = datetime.datetime.now()
-
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=7, trials=trials)
-
-best_nodes = parse_nodes(trials, space_nodes)
-save_inter_params(trials, space_nodes, best_nodes, "titanic")
-
-#nodes_list = parse_trials(trials, space_nodes, 9)
-nodes_list = [best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 5)
-save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
-
-lr_stacking_cv_predict(stacked_train, Y_train, stacked_test, 2000)
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-
-#以下是对整个比赛的结果进行最后的总结与展望咯：
-#（0）现在还有啥办法可以进一步提升kaggle的准确率呢。我找到一个办法，修改stacking时候的折数。。
-#OK这确实是个可行的办法咯，好像增加模型数目也可以哦。。至于原因好像没办法从数学上解释？？？
-#（1）神经网络的模型融合呢？这个我找了很久就只找到了stacking其余的还真的没有，
-#只有一篇周志华的论文感觉不想看呢而且未必能看懂。。时间也不够了不做这个探索咯。。
-#2）是不是哪里还可以进行交叉验证或者数据使用率如何进一步提高呀？ 
-#交叉验证几乎用到了每个步骤从超参选择节点到节点选出来之后进行stacking，
-#之前单模型泛化性能不行主要是因为选择最佳单模型时过拟合了，在留出部分数据专门做验证之后泛化性能得到了提升。
-#我发现神经网络进行stacking的好处多多呀，至少不像别的模型那样单模型进行优化，可以一批一批的对模型进行优化咯。
-# 数据使用率上面除了修改折数其余没啥可以提升的了，必须要留出部分数据进行验证，当然验证的方式可以是early stopping，
-#但是多次训练模型选择最优时early stopping、dropout不全管用，最简单的办法就是留出5%的数据用于验证咯，
-#虽然可以人为的加入一些噪声然后可以将留出的数据参与交叉验证，但是噪声等的超参这些还需要确定比较麻烦，
-#其他防止过拟合的方法比如说正则化需要API的支持吧，pytorch的API其实支持正则化项但是需要设置torch.optim.Adam内的参数，
-#我勒个去，我现在才想起来其实我之前的节点超参搜索的时候已经搜索过这个参数了，所以单节点模型训练的时候用了这个的，
-#所以好像真的暂时只能用现在的办法，其实现在的做法已经不错啦交叉验证+留出的验证集已经不错了。单模型的训练一定是使用除去某一折之后的所有数据咯。
-
-#以后可以采用的更好的细节：
-#（1）使用类似one-hot编码
-#（2）可以先删除离群点咯
-#（3）或许更多的超参搜索次数咯。

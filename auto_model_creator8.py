@@ -53,8 +53,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -863,7 +863,7 @@ def tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=100,
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -906,7 +906,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -949,7 +949,7 @@ space_nodes = {"title":["stacked_titanic"],
 #其实本身不需要best_nodes主要是为了快速测试
 #不然每次超参搜索的best_nodes效率太低了吧
 best_nodes = {"title":"stacked_titanic",
-              "path":"C:/Users/1/Desktop/Titanic_Prediction.csv",
+              "path":"C:/Users/win7/Desktop/Titanic_Prediction.csv",
               "mean":0,
               "std":0.1,
               "max_epochs":400,
@@ -2851,7 +2851,7 @@ print("time cost", (end_time - start_time))
 #如果上面的代码在最后的预测阶段出现问题，应该是best_nodes内部的path设置的问题咯
 #可以用下面的最原始的方法去解决，也可以在开始预测的时候设置一下best_nodes的path咯
 stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
-lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, "C:/Users/1/Desktop/ssss.csv", 2000)
+lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, "C:/Users/win7/Desktop/ssss.csv", 2000)
 """
 
 """
@@ -2891,10 +2891,10 @@ print("time cost", (end_time - start_time))
 #如果上面的代码在最后的预测阶段出现问题，应该是best_nodes内部的path设置的问题咯
 #可以用下面的最原始的方法去解决，也可以在开始预测的时候设置一下best_nodes的path咯
 stacked_train, stacked_test = load_stacked_dataset("stacked_titanic")
-lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, "C:/Users/1/Desktop/ssss.csv", 2000)
+lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, "C:/Users/win7/Desktop/ssss.csv", 2000)
 """
 
-
+"""
 #我在kaggle上面看了几个kernel了，感觉特征工程之类的并没有太多特殊的地方
 #而且我还遇到过没有用规则化处理就直接进行预测最后居然还得到了3%的结果。。
 #我仔细看了一下用的都是统计学习的方法而且没有使用诸如贝叶斯优化之类的技术也没有新的特征创建也没有stacking。。
@@ -2913,3 +2913,142 @@ lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, "C:/Users/1/De
 #但是找到的是个.m文件也就是matlab写出来的文件，感觉还是不用尝试这个了，直接试一下gcForest算了吧。。居然需要Jason定义格式
 #我靠看了一下github上面的和gcForest的代码（和南京大学实验室官网上面的一样哈），这个模型其实是用于图像处理滴，果然我还是用不了哈~~
 #下面的问题就剩下研究那篇kernel并实现它的思路，然后修改一下数据处理流程和最佳模型的选择过程咯，这波我必上top5%吧？
+#还有一个任务忘记说明了，那就是尝试一下在上回30000次的超参搜索的基础上进行一次模拟呢，看是否能够取得进展？？我觉得很悬吧
+#那么现在的第一个实验就是对比30000次和7000次超参搜索的区别如何咯？下面的实验结果表明30000次的搜索并没有特别的优势！！
+0.8295904887714664 #7000的5节点和7节点
+0.8283582089552238
+0.8150594451783355
+0.7611940298507462
+
+0.8322324966974901 #30000的5节点和7节点
+0.8283582089552238
+0.8229854689564069
+0.835820895522388
+
+0.8361955085865258 #7000的5节点和7节点
+0.8059701492537313
+0.8282694848084544
+0.7985074626865671
+
+0.8361955085865258 #30000的5节点和7节点
+0.8059701492537313
+0.8256274768824307
+0.8059701492537313
+
+0.8177014531043593 #7000的5节点和7节点
+0.8507462686567164
+0.8229854689564069
+0.8507462686567164
+
+0.8229854689564069 #30000的5节点和7节点
+0.7985074626865671
+0.821664464993395
+0.835820895522388
+
+0.8295904887714664 #7000的5节点和7节点
+0.7761194029850746
+0.8163804491413474
+0.8059701492537313
+
+0.8282694848084544 #30000的5节点和7节点
+0.7910447761194029
+0.8401585204755614
+0.8134328358208955
+
+0.8177014531043593 #7000的5节点和7节点
+0.8656716417910447
+0.8163804491413474
+0.8656716417910447
+
+0.8190224570673712 #30000的5节点和7节点
+0.8582089552238806
+0.8269484808454426
+0.8656716417910447
+0:05:46.275789
+0:08:11.426164
+0:06:22.540562
+0:08:23.461150
+0:05:52.514654
+0:07:55.374074
+0:05:57.565987
+0:08:47.199617
+0:06:21.070278
+0:08:59.520213
+0:06:49.348075
+0:09:56.742219
+0:05:42.945352
+0:07:45.442673
+0:06:51.764660
+0:09:11.695433
+0:05:44.663761
+0:08:37.155880
+0:06:30.736413
+0:08:59.267996
+
+train_acc = []
+valida_acc = []
+time_cost = []
+
+algo = partial(tpe.suggest, n_startup_jobs=10)
+ 
+for i in range(0, 5):
+    
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
+
+    #上面是7000次的实验结果咯
+    start_time = datetime.datetime.now()
+    files = open("titanic_intermediate_parameters_2018-11-13060058.pickle", "rb")
+    trials, space_nodes, best_nodes = pickle.load(files)
+    files.close()
+    best_nodes = parse_nodes(trials, space_nodes)
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+    #下面是进行超参搜索的lr咯
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    #下面是30000次的实验结果咯
+    start_time = datetime.datetime.now()
+    files = open("titanic_intermediate_parameters_2018-12-12142114.pickle", "rb")
+    trials, space_nodes, best_nodes = pickle.load(files)
+    files.close()
+    best_nodes = parse_nodes(trials, space_nodes)
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+    #下面是进行超参搜索的lr咯
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))    
+    
+for i in range(0, len(train_acc)):
+    print(train_acc[i])
+    print(valida_acc[i])
+
+for i in range(0, len(time_cost)):
+    print(time_cost[i])
+"""
