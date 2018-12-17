@@ -1,8 +1,11 @@
 #coding=utf-8
 #这个版本主要是在kaggle上面提交了数据之后，发现只能够处于17%左右的结果吧，所以又做了其他优化得到的版本
-#这个版本的优化在于1）改变了特征的处理（修改了年龄的处理方式，增加了one-hot编码处理性别、姓名、港口等）。现在这里发现了一个BUG？？
+#这个版本的优化在于1）改变了特征的处理（修改了年龄的处理方式，增加了one-hot编码处理性别、姓名、港口等）。
+#现在这里发现了一个BUG？？原来这里并不是BUG，主要是因为我之前对于python什么时候创建对象搞不清楚，试验了一下才搞清楚
 #2)删除了best_nodes["path"]，因为这个参数在我写入预测文件时候造成困扰，毕竟我是在两台机器上面运行程序。
-#3）然后估计应该会重新修改对于最佳模型的选择过程咯，目前看来感觉还是存在一些过拟合的风险咯。4）修改nn_model_train设置咯
+#算了，我觉得这个best_nodes["path"]暂时不用删除吧，直接在预测文件的时候修改输出地址吧，感觉这样的修改方式最简单咯
+#3）我在想超参搜索是不是有必要修改了，但是好像真的没有其他的办法去修改这个超参搜索的吧，可能需要改变模型的dropout咯
+#4）然后估计应该会重新修改对于最佳模型的选择过程咯，目前看来感觉还是存在一些过拟合的风险咯。5）修改nn_model_train设置咯
 #接下来是实现别人kernel的结果并实现优化咯，中间可能会涉及到重新对模型进行超参搜索吧，毕竟我已经修改了流程处理。
 #我看了一下kernel除了构造的新的特征有点意思以外，其他的东西我觉得都没有太多的值得学习的地方，所以就按照自己的方式修改吧。。
 #关于这个best_nodes["path"]暂时不删除吧，因为虽然没什么卵用处，但是在预测的时候修改一下写函数就可以解决这个问题。
@@ -58,8 +61,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -86,6 +89,7 @@ for dataset in combine:
     dataset.loc[dataset['FamilySize'] == 6, 'FamilySizePlus'] = 1
     dataset.loc[dataset['FamilySize'] == 7, 'FamilySizePlus'] = 1
 
+#现在这里的性别不能够被替换否则下面的
 for dataset in combine:
     dataset['Sex'] = dataset['Sex'].map({'female': 1, 'male': 0}).astype(int)
 
@@ -151,6 +155,22 @@ for dataset in combine:
     dataset.loc[(dataset.Cabin.notnull()), 'Cabin'] = "cabin"  
     dataset.loc[(dataset.Cabin.isnull()), 'Cabin'] = "no cabin" 
     
+#为了强行把Pclass进行One-Hot编码强行进行下面的转换。。
+#当执行到下面的for循环的时候可以查看下面的数据
+#下面的反馈显示data_train和combine[0]对应于同一块存储空间
+#>>> id(data_train)
+#2789318948624
+#>>> id(data_test)
+#2789319071560
+#>>> id(combine[0])
+#2789318948624
+#>>> id(combine[1])
+#2789319071560
+for dataset in combine:
+    #dataset['Pclass'] = dataset['Pclass'].map({1: "1st", 2: "2nd", 3: "3rd"})
+    dataset.loc[ dataset['Pclass'] == 1, 'Pclass'] = "1st"
+    dataset.loc[ dataset['Pclass'] == 2, 'Pclass'] = "2nd"
+    dataset.loc[ dataset['Pclass'] == 3, 'Pclass'] = "3rd"
 
 #尼玛给你说的这个是贡献船票，原来的英文里面根本就没有这种说法嘛
 df = data_train['Ticket'].value_counts()
@@ -201,18 +221,33 @@ for ticket in tickets:
         ticket = "share"
     else:
         #ticket = 0                  
-        ticket = "no share"               
+        ticket = "no share"
     result.append(ticket)
 results = pd.DataFrame(result)
 results.columns = ['Ticket_Count']
 data_test = pd.concat([data_test, results], axis=1) 
 
+"""
 #为了强行把Pclass进行One-Hot编码强行进行下面的转换。。
+#执行到下面的for循环内部的时候可以查看下面的数值。
+#可以发现上面的pd.concat导致data_train和data_test id改变
+#所以我就纳闷了，下面的for循环代码为什么没有修改到文件中的数据
+#原来是因为pd.concat创建了新的对象，下面的代码改的是原来的数据。。
+#OK,花了一个小时的时间才搞清楚问题。。现在可以把下面的代码注释掉了吧
+#>>> id(data_train)
+#2789320495400
+#>>> id(data_test)
+#2789210849408
+#>>> id(combine[0])
+#2789318948624
+#>>> id(combine[1])
+#2789319071560
 for dataset in combine:
     #dataset['Pclass'] = dataset['Pclass'].map({1: "1st", 2: "2nd", 3: "3rd"})
     dataset.loc[ dataset['Pclass'] == 1, 'Pclass'] = "1st"
     dataset.loc[ dataset['Pclass'] == 2, 'Pclass'] = "2nd"
     dataset.loc[ dataset['Pclass'] == 3, 'Pclass'] = "3rd"
+"""
 
 data_train_1 = data_train.copy()
 data_test_1  = data_test.copy()
@@ -224,17 +259,18 @@ Y_train = data_train_1['Survived']
 X_test = data_test_1[['Pclass', 'Sex', 'Age', 'Fare', 'Embarked', 'Cabin', 'Title', 'FamilySizePlus', 'Ticket_Count']]
 
 X_all = pd.concat([X_train, X_test], axis=0)
-print(X_all.columns)
+#print(X_all.columns)
 #下面是我补充的将性别、姓名、Embarked修改为了one-hot编码类型了
 #原来DictVectorizer类也可以实现OneHotEncoder()的效果，而且更简单一些
 dict_vector = DictVectorizer(sparse=False)
 X_all = dict_vector.fit_transform(X_all.to_dict(orient='record'))
 X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
 #print(X_all.columns)到这里已经是ndarray已经没有了columns咯
-print(dict_vector.feature_names_)
+#print(dict_vector.feature_names_)
 
-output = pd.DataFrame(data = X_all)            
-output.to_csv("C:/Users/win7/Desktop/dict.csv", columns=X_all.columns, index=False)
+#这个主要是为了测试写出来的文件是正确的。
+#output = pd.DataFrame(data = X_all)            
+#output.to_csv("C:/Users/1/Desktop/dict.csv", columns=X_all.columns, index=False)
             
 #我觉得训练集和测试集需要在一起进行特征缩放，所以注释掉了原来的X_train的特征缩放咯
 #用了五个月之后我发现我的特征缩放好像做错了？？所以试一下下面的特征缩放吧。。不过变量名好像可以不用修改吧
@@ -246,6 +282,11 @@ X_all_scaled = pd.DataFrame(StandardScaler().fit_transform(X_all), columns = X_a
 #https://blog.csdn.net/CherDW/article/details/56011531讲解了几种特征缩放的区别，scale和.StandardScaler其实差不多。。
 X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
+
+#这个主要是为了测试特征缩放之后的结果是正常的
+#下面特征缩放之后的结果看起来很壮观的样子23333。
+#output = pd.DataFrame(data = X_all_scaled)            
+#output.to_csv("C:/Users/1/Desktop/dict_scaled.csv", columns=X_all.columns, index=False)
 
 def cal_acc(Y_train_pred, Y_train):
 
@@ -344,6 +385,7 @@ def create_module(input_nodes, hidden_layers, hidden_nodes, output_nodes, percen
     if(hidden_layers==0):
         
         module_list.append(nn.Linear(input_nodes, output_nodes))
+        module_list.append(nn.Dropout(percentage))
         module_list.append(nn.ReLU())
         module_list.append(nn.Softmax())
         
@@ -370,6 +412,41 @@ def create_module(input_nodes, hidden_layers, hidden_nodes, output_nodes, percen
         model.add_module(str(i+1), temp_list[i])
     
     return model
+"""
+def create_module(input_nodes, hidden_layers, hidden_nodes, output_nodes, percentage=0.1):
+    
+    module_list = []
+    
+    if(hidden_layers==0):
+        
+        module_list.append(nn.Linear(input_nodes, output_nodes))
+        module_list.append(nn.ReLU())
+        module_list.append(nn.Softmax())
+        
+    else :
+        module_list.append(nn.Linear(input_nodes, hidden_nodes))
+        module_list.append(nn.ReLU())
+        
+        for i in range(0, hidden_layers):
+            module_list.append(nn.Linear(hidden_nodes, hidden_nodes))
+            module_list.append(nn.ReLU())
+             
+        module_list.append(nn.Linear(hidden_nodes, output_nodes))
+        module_list.append(nn.ReLU())
+        module_list.append(nn.Softmax())
+        
+    temp_list = []
+    for i in range(0, len(module_list)):
+        temp_list.append(module_list[i])
+        if((i%3==2) and (i!=len(module_list)-2) and (i!=len(module_list)-1)):
+            temp_list.append(nn.Dropout(percentage))
+            
+    model = nn.Sequential()
+    for i in range(0, len(temp_list)):
+        model.add_module(str(i+1), temp_list[i])
+    
+    return model
+"""
 
 def init_module(clf, weight_mode, bias):
     
@@ -438,7 +515,7 @@ def nn_f(params):
     print("output_nodes", params["output_nodes"])
     print("percentage", params["percentage"])
         
-    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], X_train_scaled, Y_train, columns=[3, 4, 5, 6, 7, 8])
+    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], X_train_scaled, Y_train, columns=[i in range(0, 19)])
     
     clf = NeuralNetClassifier(lr = params["lr"],
                               optimizer__weight_decay = params["optimizer__weight_decay"],
@@ -799,7 +876,7 @@ def nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_
             data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
             output = pd.DataFrame(data = data)
             
-            output.to_csv(best_nodes["path"], index=False)
+            output.to_csv("C:/Users/1/Desktop/Titanic_Prediction.csv", index=False)
             print("prediction file has been written.")
         print()
      
@@ -835,7 +912,7 @@ def lr_stacking_predict(stacked_train, Y_train, stacked_test, max_evals=50):
             data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
             output = pd.DataFrame(data = data)
             
-            output.to_csv(best_nodes["path"], index=False)
+            output.to_csv("C:/Users/1/Desktop/Titanic_Prediction.csv", index=False)
             print("prediction file has been written.")
         print()
      
@@ -863,7 +940,7 @@ def lr_stacking_cv_predict(stacked_train, Y_train, stacked_test, max_evals=2000)
     data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
     output = pd.DataFrame(data = data)
             
-    output.to_csv(best_nodes["path"], index=False)
+    output.to_csv("C:/Users/1/Desktop/Titanic_Prediction.csv", index=False)
     print("prediction file has been written.")
      
     print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
@@ -890,7 +967,7 @@ def lr_stacking_cv_predict_path(stacked_train, Y_train, stacked_test, path, max_
     data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
     output = pd.DataFrame(data = data)
             
-    output.to_csv(path, index=False)
+    output.to_csv("C:/Users/1/Desktop/Titanic_Prediction.csv", index=False)
     print("prediction file has been written.")
      
     print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
@@ -911,7 +988,7 @@ def tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=100,
     data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
     output = pd.DataFrame(data = data)
             
-    output.to_csv(best_nodes["path"], index=False)
+    output.to_csv("C:/Users/1/Desktop/Titanic_Prediction.csv", index=False)
     print("prediction file has been written.")
             
     print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
@@ -920,7 +997,7 @@ def tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=100,
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -963,7 +1040,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -1006,7 +1083,7 @@ space_nodes = {"title":["stacked_titanic"],
 #其实本身不需要best_nodes主要是为了快速测试
 #不然每次超参搜索的best_nodes效率太低了吧
 best_nodes = {"title":"stacked_titanic",
-              "path":"C:/Users/win7/Desktop/Titanic_Prediction.csv",
+              "path":"C:/Users/1/Desktop/Titanic_Prediction.csv",
               "mean":0,
               "std":0.1,
               "max_epochs":400,
