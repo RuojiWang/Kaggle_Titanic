@@ -25,6 +25,9 @@
 #（10）nn_stacking_predict应该是被弃用了，因为这个函数是为单模型（节点）开发的预测函数。
 #（11）lr_stacking_predict应该是被弃用了，因为这个函数没有超参搜索出最佳的逻辑回归值，计算2000次结果都是一样的。
 #（12）tpot_stacking_predict应该是被弃用了，因为第二层使用神经网络或者tpot结果都不尽如人意咯，第二层使用逻辑回归才是王道。
+#（13）get_oof回归问题可能需要改写。
+
+#我到今天才知道dataframe是一列一列的而ndarray是一行一行的？？不过之前的函数测试都是木有问题的哈，这就很好咯
 import os
 import sys
 import random
@@ -553,7 +556,8 @@ def nn_f(params):
                               device = params["device"],
                               optimizer = params["optimizer"]
                               )
-    
+    #这里似乎可以采用分层采样吧，原来这个就是分层随机采样，妈的吓我一跳还以为要重新修改。
+    #我现在在train_test_split中也采用了分层划分的数据集，一般使用分层的效果更好一点的。
     skf = StratifiedKFold(Y_noise_train, n_folds=5, shuffle=True, random_state=None)
     
     init_module(clf.module, params["weight_mode"], params["bias"])
@@ -751,6 +755,46 @@ def train_nn_model_validate(nodes, X_train_scaled, Y_train, max_evals=10):
     
     return best_model, best_acc
 
+#然后在这里增加一次噪声和验证咯，感觉我把程序弄的真的好复杂呀？
+#或许我下一阶段的实验就是查看是否nn_f不加入噪声只是第二阶段增加噪声效果是否更好？
+def train_nn_model_noise_validate(nodes, X_train_scaled, Y_train, max_evals=10):
+    
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.05, stratify=Y_train)
+
+    best_acc = 0.0
+    best_model = 0.0
+    for j in range(0, max_evals):
+        
+        clf = NeuralNetClassifier(lr = nodes["lr"],
+                                  optimizer__weight_decay = nodes["optimizer__weight_decay"],
+                                  criterion = nodes["criterion"],
+                                  batch_size = nodes["batch_size"],
+                                  optimizer__betas = nodes["optimizer__betas"],
+                                  module = create_nn_module(nodes["input_nodes"], nodes["hidden_layers"], 
+                                                         nodes["hidden_nodes"], nodes["output_nodes"], nodes["percentage"]),
+                                  max_epochs = nodes["max_epochs"],
+                                  callbacks=[skorch.callbacks.EarlyStopping(patience=nodes["patience"])],
+                                  device = nodes["device"],
+                                  optimizer = nodes["optimizer"]
+                                  )
+        init_module(clf.module, nodes["weight_mode"], nodes["bias"])
+        
+        #这里需要实现噪声的增加以防止模型过拟合
+        #下面的两行代码的写法会导致竖着写，应该需要按照没有被注释掉的方式写。
+        #X_split_train_df = pd.DataFrame(data=X_split_train, columns=[i for i in range(0, len(X_split_train[0]))])
+        #Y_split_train_df = pd.DataFrame(data=Y_split_train, columns=[0])
+        X_split_train_df = pd.DataFrame(X_split_train)
+        Y_split_train_df = pd.DataFrame(Y_split_train)
+        X_noise_train, Y_noise_train = noise_augment_data(nodes["mean"], nodes["std"], X_split_train_df, Y_split_train_df, columns=[i for i in range(1, 20)])
+        
+        clf.fit(X_noise_train.values.astype(np.float32), Y_noise_train.values.astype(np.longlong))
+            
+        metric = cal_nnclf_acc(clf, X_split_test, Y_split_test)
+        print_nnclf_acc(metric)
+        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)        
+    
+    return best_model, best_acc
+
 def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
     
     """K-fold stacking"""
@@ -804,6 +848,43 @@ def get_oof_validate(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5,
         #这里输出的是最佳模型的训练集和验证集上面的结果咯
         #很容易和上面的训练过程的最后一个输出重叠
         #这三个输出结果肯定是不一样的：
+        #第一个输出和第二个输出的区别在于普通模型和最佳模型在训练集上面的输出
+        #第二个输出和第三个输出的区别在于最佳模型在训练集和验证集上面的输出
+        acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
+        print_nnclf_acc(acc1)
+        train_acc.append(acc1)
+        acc2 = cal_nnclf_acc(best_model, X_split_valida, Y_split_valida)
+        print_nnclf_acc(acc2)
+        valida_acc.append(acc2)
+        
+        oof_train[valida_index] = best_model.predict(X_split_valida.astype(np.float32))
+        oof_test_all_fold[:, i] = best_model.predict(X_test_scaled.astype(np.float32))
+        
+    oof_test = np.mean(oof_test_all_fold, axis=1)
+    
+    return oof_train, oof_test, best_model
+
+def get_oof_noise_validate(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
+    
+    """K-fold stacking"""
+    num_train, num_test = X_train_scaled.shape[0], X_test_scaled.shape[0]
+    oof_train = np.zeros((num_train,)) 
+    oof_test = np.zeros((num_test,))
+    oof_test_all_fold = np.zeros((num_test, n_folds))
+    train_acc = []
+    valida_acc = []
+
+    KF = KFold(n_splits =n_folds, shuffle=True)
+    for i, (train_index, valida_index) in enumerate(KF.split(X_train_scaled)):
+        #划分数据集
+        X_split_train, Y_split_train = X_train_scaled[train_index], Y_train[train_index]
+        X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
+        
+        best_model, best_acc = train_nn_model_noise_validate(nodes, X_split_train, Y_split_train, max_evals)
+        
+        #这里输出的是最佳模型的训练集和验证集上面的结果咯
+        #很容易和上面的训练过程的最后一个输出重叠
+        #这三个输出结果肯定是不一样的：
         #第一个输出和第二个输出的区别在于最佳模型和普通模型在训练集上面的输出
         #第二个输出和第三个输出的区别在于最佳模型在训练集和验证集上面的输出
         acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
@@ -819,6 +900,7 @@ def get_oof_validate(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5,
     oof_test = np.mean(oof_test_all_fold, axis=1)
     
     return oof_train, oof_test, best_model
+
 
 def stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, max_evals):
     
@@ -856,19 +938,61 @@ def stacked_features_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled
     stacked_test = pd.DataFrame(stacked_test)
     return stacked_train, stacked_test
 
-#我个人觉得这样的训练方式好像导致过拟合咯，所以采用下面的方式进行训练。
-#每一轮进行get_oof_validate的时候都增加了噪声，让每个模型都有所不同咯。
-def stacked_features_noise_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, max_evals):
+"""
+def stacked_features_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, max_evals):
     
     input_train = [] 
     input_test = []
     nodes_num = len(nodes_list)
     
-    #在这里增加一个添加噪声的功能咯
-    X_noise_train, Y_noise_train = noise_augment_data(nodes_list[0]["mean"], nodes_list[0]["std"], X_train_scaled, Y_train, columns=[i for i in range(1, 20)])#columns=[])
-    
     for i in range(0, nodes_num):
+        oof_train, oof_test, best_model= get_oof_validate(nodes_list[i], X_train_scaled.values, Y_train.values, X_test_scaled.values, folds, max_evals)
+        input_train.append(oof_train)
+        input_test.append(oof_test)
+    
+    stacked_train = np.concatenate([f.reshape(-1, 1) for f in input_train], axis=1)
+    stacked_test = np.concatenate([f.reshape(-1, 1) for f in input_test], axis=1)
+    
+    stacked_train_df = pd.DataFrame(stacked_train)
+    stacked_test_df = pd.DataFrame(stacked_test)
+    return stacked_train_df, stacked_test_df, stacked_train, stacked_test
+"""
+
+#我个人觉得这样的训练方式好像导致过拟合咯，所以采用下面的方式进行训练。
+#每一轮进行get_oof_validate的时候都增加了噪声，让每个模型都有所不同咯。
+def stacked_features_noise_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, max_evals):
+    
+    input_train = [] 
+    input_test = []
+    nodes_num = len(nodes_list)
+        
+    for i in range(0, nodes_num):
+    
+        #在这里增加一个添加噪声的功能咯
+        X_noise_train, Y_noise_train = noise_augment_data(nodes_list[0]["mean"], nodes_list[0]["std"], X_train_scaled, Y_train, columns=[i for i in range(1, 20)])#columns=[])
+
         oof_train, oof_test, best_model= get_oof_validate(nodes_list[i], X_noise_train.values, Y_noise_train.values, X_test_scaled.values, folds, max_evals)
+        input_train.append(oof_train)
+        input_test.append(oof_test)
+    
+    stacked_train = np.concatenate([f.reshape(-1, 1) for f in input_train], axis=1)
+    stacked_test = np.concatenate([f.reshape(-1, 1) for f in input_test], axis=1)
+    
+    stacked_train = pd.DataFrame(stacked_train)
+    stacked_test = pd.DataFrame(stacked_test)
+    return stacked_train, stacked_test
+
+#下面是我想到的第二种增加模型噪声的方式以防止过拟合咯。
+#我个人觉得这样的训练方式好像导致过拟合咯，所以采用下面的方式进行训练。
+#每一轮进行get_oof_validate的时候都增加了噪声，让每个模型都有所不同咯。
+def stacked_features_noise_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, max_evals):
+    
+    input_train = [] 
+    input_test = []
+    nodes_num = len(nodes_list)
+        
+    for i in range(0, nodes_num):
+        oof_train, oof_test, best_model= get_oof_noise_validate(nodes_list[i], X_train_scaled.values, Y_train.values, X_test_scaled.values, folds, max_evals)
         input_train.append(oof_train)
         input_test.append(oof_test)
     
@@ -1143,7 +1267,7 @@ save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes]
 #我在想这里面应该是可以通过增加噪声的方式去防止过拟合的吧？
 #stacked_train, stacked_test = stacked_features_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 20)
-stacked_train, stacked_test = stacked_features_noise_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 20)
+stacked_train, stacked_test = stacked_features_noise_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 20)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 
 lr_stacking_rscv_predict(stacked_train, Y_train, stacked_test, 2000)
@@ -1151,10 +1275,20 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
+"""
+#刚才试验了一下直接使用新的特征其余都不改变得到的leaderboard并没有什么提升呢
+#难道是因为使用了7个相同节点的缘故，那么我就准备试一下使用5个相同节点和7个不同节点呢？
+#经过昨天的测试发现，新做的特征并没有取得预期的效果，只有7个相同节点准确率还好点
+#5个相同节点和7个不同节点的结果只有72.7%和73%左右的准确率，准确率方面确实是太低了吧。
+#我个人觉得新的特征从信息容量上面看应该更具有优势，但是泛化不行，应该是stacking过拟合了吧。。
+#如果不是stacking过拟合的话，那就只能够说明数据本身只能够预测到这个程度咯？应该不止这样吧？？
+
 #我现在就是很犹豫，加上了噪声之后的stacking到底能够达到什么程度呢？
 #从理论的角度上面我倒是对这个方法比较有信心吧，唯一就是噪声到底收益如何？
 #那。。还是只有做个试验试试咯。。如果能够稳压一头那就用新的办法吧。
 #但是我手上现在还没有经过超参搜索之后的最佳节点之类的数据吧，只有临时试一下咯。
+#如果上面的计算结果出现了以后，就知道这个版本的噪声添加是否起到效果了呀。
+#那么我现在的工作就是开发下一个版本的增加噪声的版本了吧，如果还是无法提升我真的要哭咯~~~
 train_acc = []
 valida_acc = []
 time_cost = []
@@ -1196,7 +1330,7 @@ for i in range(0, 5):
     #5个节点的添加噪声的版本
     start_time = datetime.datetime.now()
     nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features_noise_validate(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+    stacked_train, stacked_test = stacked_features_noise_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
     #下面是进行超参搜索的lr咯
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1240,7 +1374,7 @@ for i in range(0, 5):
     start_time = datetime.datetime.now()
     nodes_list = [best_nodes, best_nodes, best_nodes,
                   best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features_noise_validate(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+    stacked_train, stacked_test = stacked_features_noise_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
     #下面是进行超参搜索的lr咯
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1284,7 +1418,7 @@ for i in range(0, 5):
     start_time = datetime.datetime.now()
     nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features_noise_validate(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+    stacked_train, stacked_test = stacked_features_noise_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
     #下面是进行超参搜索的lr咯
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1328,7 +1462,7 @@ for i in range(0, 5):
     start_time = datetime.datetime.now()
     nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features_noise_validate(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+    stacked_train, stacked_test = stacked_features_noise_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
     #下面是进行超参搜索的lr咯
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1372,7 +1506,7 @@ for i in range(0, 5):
     start_time = datetime.datetime.now()
     nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features_noise_validate(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+    stacked_train, stacked_test = stacked_features_noise_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
     #下面是进行超参搜索的lr咯
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1396,3 +1530,73 @@ for i in range(0, len(train_acc)):
 
 for i in range(0, len(time_cost)):
     print(time_cost[i])
+"""
+
+"""
+X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
+
+start_time = datetime.datetime.now()
+files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+nodes_list = [best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features_noise_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
+#下面是进行超参搜索的lr咯
+clf = LogisticRegression()
+param_dist = {"penalty": ["l1", "l2"],
+              "C": np.linspace(0.001, 100000, 10000),
+              "fit_intercept": [True, False],
+              #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+              }
+random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+random_search.fit(stacked_train, Y_split_train)
+best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+lr_pred = random_search.best_estimator_.predict(stacked_test)
+test_acc = cal_acc(lr_pred, Y_split_test)
+print(best_acc)
+print(test_acc)
+"""
+
+"""
+#他妈的之前的大计算使用了GPU导致无法在这边进行，我真的心好累呀。
+#今天才发现了dataframe和ndarray之间的问题，主要是因为ndarray可以两种方式创建dataframe
+#吓得我连忙查看了一下之前的dataframe和ndarry之间的转换代码，还好没发现问题。。
+#其实，dataframe转化成array：df=df.values，array转化成dataframe：df = pd.DataFrame(df)
+#以上的这些转换代码没有问题，那么我之前按照这些代码写的代码就目问题，没必要花这么多时间检查的。。
+start_time = datetime.datetime.now()
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_params = fmin(nn_f, space, algo=algo, max_evals=1, trials=trials)
+
+best_nodes = parse_nodes(trials, space_nodes)
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes]
+
+#我在想这里面应该是可以通过增加噪声的方式去防止过拟合的吧？
+#stacked_train, stacked_test = stacked_features_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled, 2, 2)
+stacked_train_df, stacked_test_df, stacked_train, stacked_test = stacked_features_validate(nodes_list, X_train_scaled, Y_train, X_test_scaled, 2, 2)
+#stacked_train, stacked_test = stacked_features_noise_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 5, 5)
+#lr_stacking_rscv_predict(stacked_train, Y_train, stacked_test, 2000)
+
+lr1 = LogisticRegression()
+lr1.fit(stacked_train_df, Y_train)
+lr2 = LogisticRegression()
+lr2.fit(stacked_train, Y_train)
+
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+#现在开始准备调通代码就能够开始进行验证的实验咯。
+start_time = datetime.datetime.now()
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_params = fmin(nn_f, space, algo=algo, max_evals=1, trials=trials)
+
+best_nodes = parse_nodes(trials, space_nodes)
+nodes_list = [best_nodes, best_nodes]
+
+stacked_train, stacked_test = stacked_features_noise_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 2, 2)
+lr_stacking_rscv_predict(stacked_train, Y_train, stacked_test, 2000)
+
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
