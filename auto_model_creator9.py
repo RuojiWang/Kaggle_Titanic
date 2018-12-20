@@ -14,7 +14,7 @@
 #（0）到这个时候我才发现GPU训练神经网络的速度比CPU训练速度快很多耶。不对呀，好像也没有快很多吧
 #现在看来可能是和昨天CPU在运行别的程序有关吧导致计算比较慢，GPU似乎并没有比CPU带来十倍的优势吧？
 #（1）将保存文件的路径修改了。
-#（2）特征处理的流程需要修改。
+#（2）特征处理的流程需要修改。尤其是可能增加清除离群点的过程。
 #（3）record_best_model_acc的方式可能需要修改，或许我们需要换种方式获取最佳模型咯，不对好像暂时还不能修改这个东西。
 #（4）create_nn_module函数可能需要修改，因为每层都有dropout或者修改为其他结构如回归问题咯。
 #（5）noise_augment_data可能需要修改，因为Y_train或许也需要增加噪声的。
@@ -25,7 +25,7 @@
 #（10）nn_stacking_predict应该是被弃用了，因为这个函数是为单模型（节点）开发的预测函数。
 #（11）lr_stacking_predict应该是被弃用了，因为这个函数没有超参搜索出最佳的逻辑回归值，计算2000次结果都是一样的。
 #（12）tpot_stacking_predict应该是被弃用了，因为第二层使用神经网络或者tpot结果都不尽如人意咯，第二层使用逻辑回归才是王道。
-#（13）get_oof回归问题可能需要改写。
+#（13）get_oof回归问题可能需要改写。。
 
 #我到今天才知道dataframe是一列一列的而ndarray是一行一行的？？不过之前的函数测试都是木有问题的哈，这就很好咯
 import os
@@ -787,7 +787,10 @@ def train_nn_model_noise_validate(nodes, X_train_scaled, Y_train, max_evals=10):
         Y_split_train_df = pd.DataFrame(Y_split_train)
         X_noise_train, Y_noise_train = noise_augment_data(nodes["mean"], nodes["std"], X_split_train_df, Y_split_train_df, columns=[i for i in range(1, 20)])
         
-        clf.fit(X_noise_train.values.astype(np.float32), Y_noise_train.values.astype(np.longlong))
+        X_temp = X_noise_train.values
+        Y_temp = Y_noise_train.values
+        clf.fit(X_temp.astype(np.float32), Y_temp.astype(np.longlong))
+        #clf.fit(X_noise_train.values.astype(np.float32), Y_noise_train.values.astype(np.longlong))
             
         metric = cal_nnclf_acc(clf, X_split_test, Y_split_test)
         print_nnclf_acc(metric)
