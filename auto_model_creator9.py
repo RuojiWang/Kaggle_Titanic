@@ -17,15 +17,16 @@
 #（2）特征处理的流程需要修改。尤其是可能增加清除离群点的过程。
 #（3）record_best_model_acc的方式可能需要修改，或许我们需要换种方式获取最佳模型咯，不对好像暂时还不能修改这个东西。
 #（4）create_nn_module函数可能需要修改，因为每层都有dropout或者修改为其他结构如回归问题咯。
-#（5）noise_augment_data可能需要修改，因为Y_train或许也需要增加噪声的。
-#（6）nn_f可能需要修改，因为noise_augment_data的columns需要修改咯，还有评价准则可能需要优化？但是暂时不知如何优化
+#（5）noise_augment_dataframe_data可能需要修改，因为Y_train或许也需要增加噪声的。
+#（6）nn_f可能需要修改，因为noise_augment_dataframe_data的columns需要修改咯，还有评价准则可能需要优化？但是暂时不知如何优化
 #（7）nn_stacking_f应该是被弃用了，因为之前我尝试过第二层使用神经网络或者tpot结果都不尽如人意咯，第二层使用逻辑回归才是王道。
 #（8）parse_nodes、parse_trials、space、space_nodes需要根据每次的数据修改，best_nodes本身不需要主要是为了快速测试而存在。
 #（9）train_nn_model、train_nn_model_validate或许需要换种方式获取最佳模型咯。
 #（10）nn_stacking_predict应该是被弃用了，因为这个函数是为单模型（节点）开发的预测函数。
 #（11）lr_stacking_predict应该是被弃用了，因为这个函数没有超参搜索出最佳的逻辑回归值，计算2000次结果都是一样的。
 #（12）tpot_stacking_predict应该是被弃用了，因为第二层使用神经网络或者tpot结果都不尽如人意咯，第二层使用逻辑回归才是王道。
-#（13）get_oof回归问题可能需要改写。。
+#（13）get_oof回归问题可能需要改写
+#（14）train_nn_model、train_nn_model_validate、train_nn_model_noise_validate这三个函数可能需要修改device设置。
 
 #我到今天才知道dataframe是一列一列的而ndarray是一行一行的？？不过之前的函数测试都是木有问题的哈，这就很好咯
 import os
@@ -80,8 +81,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -289,7 +290,7 @@ X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
 
 #这个主要是为了测试写出来的文件是正确的。
 #output = pd.DataFrame(data = X_all)            
-#output.to_csv("C:/Users/1/Desktop/dict.csv", columns=X_all.columns, index=False)
+#output.to_csv("C:/Users/win7/Desktop/dict.csv", columns=X_all.columns, index=False)
             
 #我觉得训练集和测试集需要在一起进行特征缩放，所以注释掉了原来的X_train的特征缩放咯
 #用了五个月之后我发现我的特征缩放好像做错了？？所以试一下下面的特征缩放吧。。不过变量名好像可以不用修改吧
@@ -305,7 +306,7 @@ X_test_scaled = X_all_scaled[len(X_train):]
 #这个主要是为了测试特征缩放之后的结果是正常的
 #下面特征缩放之后的结果看起来很壮观的样子23333。
 output = pd.DataFrame(data = X_all_scaled)            
-output.to_csv("C:/Users/1/Desktop/dict_scaled.csv", columns=X_all.columns, index=False)
+output.to_csv("C:/Users/win7/Desktop/dict_scaled.csv", columns=X_all.columns, index=False)
 
 def cal_acc(Y_train_pred, Y_train):
 
@@ -504,7 +505,7 @@ def init_module(clf, weight_mode, bias):
             else:
                 torch.nn.init.constant_(params, bias)
         
-def noise_augment_data(mean, std, X_train, Y_train, columns):
+def noise_augment_dataframe_data(mean, std, X_train, Y_train, columns):
     
     X_noise_train = X_train.copy()
     X_noise_train.is_copy = False
@@ -514,6 +515,16 @@ def noise_augment_data(mean, std, X_train, Y_train, columns):
         for j in columns:
             X_noise_train.iloc[i,[j]] +=  random.gauss(mean, std)
 
+    return X_noise_train, Y_train
+
+def noise_augment_ndarray_data(mean, std, X_train, Y_train, columns):
+    
+    X_noise_train = X_train.copy()
+    row = X_train.shape[0]
+    for i in range(0, row):
+        for j in columns:
+            X_noise_train[i][j] +=  random.gauss(mean, std)
+    
     return X_noise_train, Y_train
 
 #我有时候再想这个超参是不是有的时候应该重复两次以避免漏掉最佳的超参？？
@@ -542,7 +553,7 @@ def nn_f(params):
     print("output_nodes", params["output_nodes"])
     print("percentage", params["percentage"])
         
-    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], X_train_scaled, Y_train, columns=[i for i in range(1, 20)])#columns=[])
+    X_noise_train, Y_noise_train = noise_augment_dataframe_data(params["mean"], params["std"], X_train_scaled, Y_train, columns=[i for i in range(1, 20)])#columns=[])
     
     clf = NeuralNetClassifier(lr = params["lr"],
                               optimizer__weight_decay = params["optimizer__weight_decay"],
@@ -590,8 +601,8 @@ def nn_stacking_f(params):
     
     #这边的columns可以加入所有的选择部分
     #但是先试一下不加和全家之间的区别呢？
-    #X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[i for i in range(0, stacked_train.columns.size)])
-    X_noise_train, Y_noise_train = noise_augment_data(params["mean"], params["std"], stacked_train, Y_train, columns=[])
+    #X_noise_train, Y_noise_train = noise_augment_dataframe_data(params["mean"], params["std"], stacked_train, Y_train, columns=[i for i in range(0, stacked_train.columns.size)])
+    X_noise_train, Y_noise_train = noise_augment_dataframe_data(params["mean"], params["std"], stacked_train, Y_train, columns=[])
     
     clf = NeuralNetClassifier(lr = params["lr"],
                               optimizer__weight_decay = params["optimizer__weight_decay"],
@@ -781,16 +792,65 @@ def train_nn_model_noise_validate(nodes, X_train_scaled, Y_train, max_evals=10):
         
         #这里需要实现噪声的增加以防止模型过拟合
         #下面的两行代码的写法会导致竖着写，应该需要按照没有被注释掉的方式写。
+        #下面是来行的输出显示两种写法好像是等价的，我的天浪费了这么多时间研究这个。。最后居然是一样的
+        #我刚才实验了一下，nn_f中也涉及到了dataframe和ndarray之间的转换，但是没有出现shape的改变
+        #所以..这是什么鬼？？现在的问题就是找出这样转换之后到底多了什么东西呢？？？可能只有用存入文件的办法验证了吧
         #X_split_train_df = pd.DataFrame(data=X_split_train, columns=[i for i in range(0, len(X_split_train[0]))])
         #Y_split_train_df = pd.DataFrame(data=Y_split_train, columns=[0])
-        X_split_train_df = pd.DataFrame(X_split_train)
-        Y_split_train_df = pd.DataFrame(Y_split_train)
-        X_noise_train, Y_noise_train = noise_augment_data(nodes["mean"], nodes["std"], X_split_train_df, Y_split_train_df, columns=[i for i in range(1, 20)])
+        #X_split_train_df = pd.DataFrame(data=X_split_train)
+        #Y_split_train_df = pd.DataFrame(data=Y_split_train)
+        #X_split_train_df = pd.DataFrame(X_split_train)
+        #Y_split_train_df = pd.DataFrame(Y_split_train)
+        #X_noise_train, Y_noise_train = noise_augment_dataframe_data(nodes["mean"], nodes["std"], X_split_train_df, Y_split_train_df, columns=[i for i in range(0, 0)])
         
-        X_temp = X_noise_train.values
-        Y_temp = Y_noise_train.values
-        clf.fit(X_temp.astype(np.float32), Y_temp.astype(np.longlong))
+        #X_temp = X_noise_train.values
+        #Y_temp = Y_noise_train.values
+        #Y_list = [x for j in Y_temp for x in j]
+        #Y_temp = np.ndarray(Y_list)
+        
+        #X_temp = X_split_train_df.values
+        #Y_temp = Y_split_train_df.values
+        #.reshape(1, -1)是变为一列，.reshape(-1, 1)是变为一行
+        #Y_temp_reshape = Y_temp.reshape(1, -1)
+        ##通过print对象的shape可以发现，X_split_train_df = pd.DataFrame(data=X_split_train)
+        ##和X_split_train_df = pd.DataFrame(X_split_train)达到的效果好像真的是一样的吧？
+        ##问题的关键在于为什么X_temp = X_split_train_df.values出现了shape不一致的情况？？ 
+        ##但是输出到文件里面的时候明明是一样的呀，那么shape多出来的部分到底是什么东西？？
+        ##哎，出现这个问题根本是因为我没搞懂shape的用法，Y_split_train.shape是(574,)
+        ##但是Y_split_train_df.shape和Y_temp_reshape.shape是(574, 1)
+        ##可以在控制台输出可以看到，前者是包含574个元素一个列表，后者是574个包含一个元素的列表。
+        #print(X_split_train.shape)
+        #print(Y_split_train.shape)
+        #print(X_split_train_df.shape)
+        #print(Y_split_train_df.shape) 
+        #print(X_temp.shape)
+        #print(Y_temp.shape)
+        #print(Y_temp_reshape.shape)
+        #output = pd.DataFrame(data = X_split_train)
+        #output.to_csv("C:/Users/win7/Desktop/X_split_train_shape.csv", index=False)
+        #output = pd.DataFrame(data = X_split_train_df)            
+        #output.to_csv("C:/Users/win7/Desktop/X_split_train_df_shape.csv", index=False)
+        #output = pd.DataFrame(data = X_temp)            
+        #output.to_csv("C:/Users/win7/Desktop/X_temp_shape.csv", index=False)
+        #output = pd.DataFrame(data = Y_split_train)
+        #output.to_csv("C:/Users/win7/Desktop/Y_split_train_shape.csv", index=False)
+        #output = pd.DataFrame(data = Y_split_train_df)
+        #output.to_csv("C:/Users/win7/Desktop/Y_split_train_df_shape.csv", index=False)
+        #output = pd.DataFrame(data = Y_temp)
+        #output.to_csv("C:/Users/win7/Desktop/Y_temp_shape.csv", index=False)
+        #output = pd.DataFrame(data = Y_temp_reshape)
+        #output.to_csv("C:/Users/win7/Desktop/Y_temp_reshape.csv", index=False)
+
+        #clf.fit(X_temp.astype(np.float32), Y_temp_reshape.astype(np.longlong))
+        #clf.fit(X_split_train.astype(np.float32), Y_split_train.astype(np.longlong))        
         #clf.fit(X_noise_train.values.astype(np.float32), Y_noise_train.values.astype(np.longlong))
+        
+        #最后花了这么多时间发现下面的写法完全不行，所以还是用更简单的办法吧
+        X_split_train, X_split_test, Y_split_train, Y_split_test
+        X_split_train_noise = X_split_train.copy()
+        
+        
+        clf.fit(X_temp.astype(np.float32), Y_temp.astype(np.longlong))
             
         metric = cal_nnclf_acc(clf, X_split_test, Y_split_test)
         print_nnclf_acc(metric)
@@ -972,7 +1032,7 @@ def stacked_features_noise_validate1(nodes_list, X_train_scaled, Y_train, X_test
     for i in range(0, nodes_num):
     
         #在这里增加一个添加噪声的功能咯
-        X_noise_train, Y_noise_train = noise_augment_data(nodes_list[0]["mean"], nodes_list[0]["std"], X_train_scaled, Y_train, columns=[i for i in range(1, 20)])#columns=[])
+        X_noise_train, Y_noise_train = noise_augment_dataframe_data(nodes_list[0]["mean"], nodes_list[0]["std"], X_train_scaled, Y_train, columns=[i for i in range(1, 20)])#columns=[])
 
         oof_train, oof_test, best_model= get_oof_validate(nodes_list[i], X_noise_train.values, Y_noise_train.values, X_test_scaled.values, folds, max_evals)
         input_train.append(oof_train)
@@ -1054,7 +1114,7 @@ def nn_stacking_predict(best_nodes, nodes_list, stacked_train, Y_train, stacked_
             data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
             output = pd.DataFrame(data = data)
             
-            output.to_csv("C:/Users/1/Desktop/Titanic_Prediction.csv", index=False)
+            output.to_csv("C:/Users/win7/Desktop/Titanic_Prediction.csv", index=False)
             print("prediction file has been written.")
         print()
      
@@ -1090,7 +1150,7 @@ def lr_stacking_predict(stacked_train, Y_train, stacked_test, max_evals=50):
             data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
             output = pd.DataFrame(data = data)
             
-            output.to_csv("C:/Users/1/Desktop/Titanic_Prediction.csv", index=False)
+            output.to_csv("C:/Users/win7/Desktop/Titanic_Prediction.csv", index=False)
             print("prediction file has been written.")
         print()
      
@@ -1118,7 +1178,7 @@ def lr_stacking_rscv_predict(stacked_train, Y_train, stacked_test, max_evals=200
     data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
     output = pd.DataFrame(data = data)
             
-    output.to_csv("C:/Users/1/Desktop/Titanic_Prediction.csv", index=False)
+    output.to_csv("C:/Users/win7/Desktop/Titanic_Prediction.csv", index=False)
     print("prediction file has been written.")
      
     print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
@@ -1139,7 +1199,7 @@ def tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=100,
     data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
     output = pd.DataFrame(data = data)
             
-    output.to_csv("C:/Users/1/Desktop/Titanic_Prediction.csv", index=False)
+    output.to_csv("C:/Users/win7/Desktop/Titanic_Prediction.csv", index=False)
     print("prediction file has been written.")
             
     print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
@@ -1148,7 +1208,7 @@ def tpot_stacking_predict(stacked_train, Y_train, stacked_test, generations=100,
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -1191,7 +1251,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -1234,7 +1294,7 @@ space_nodes = {"title":["stacked_titanic"],
 #其实本身不需要best_nodes主要是为了快速测试
 #不然每次超参搜索的best_nodes效率太低了吧
 best_nodes = {"title":"stacked_titanic",
-              "path":"C:/Users/1/Desktop/Titanic_Prediction.csv",
+              "path":"C:/Users/win7/Desktop/Titanic_Prediction.csv",
               "mean":0,
               "std":0.1,
               "max_epochs":400,
@@ -1535,7 +1595,14 @@ for i in range(0, len(time_cost)):
     print(time_cost[i])
 """
 
-"""
+#这部分的问题主要在于上次计算的时候设置的是GPU，家里的机器CPU计算确实不行不知道咋回事
+#这么说以后可能就只有用CPU进行训练咯？但是也不是的吧，可以把训练模型的函数代码改为CPU其余还是GPU
+#这部分具体怎么修改要看后面的几种增加泛化性能的实验的结果咯。
+#下面的这几行代码主要是为了测试nn_f中dataframe和ndarray之间转换是否改变了shape，事实证明并没有改变呀。
+#trials = Trials()
+#algo = partial(tpe.suggest, n_startup_jobs=10)
+#best_params = fmin(nn_f, space, algo=algo, max_evals=1, trials=trials)
+
 X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
 
 start_time = datetime.datetime.now()
@@ -1558,7 +1625,6 @@ lr_pred = random_search.best_estimator_.predict(stacked_test)
 test_acc = cal_acc(lr_pred, Y_split_test)
 print(best_acc)
 print(test_acc)
-"""
 
 """
 #他妈的之前的大计算使用了GPU导致无法在这边进行，我真的心好累呀。
@@ -1588,18 +1654,3 @@ lr2.fit(stacked_train, Y_train)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
-
-#现在开始准备调通代码就能够开始进行验证的实验咯。
-start_time = datetime.datetime.now()
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=1, trials=trials)
-
-best_nodes = parse_nodes(trials, space_nodes)
-nodes_list = [best_nodes, best_nodes]
-
-stacked_train, stacked_test = stacked_features_noise_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 2, 2)
-lr_stacking_rscv_predict(stacked_train, Y_train, stacked_test, 2000)
-
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
