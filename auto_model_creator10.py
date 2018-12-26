@@ -20,7 +20,7 @@
 #（11）lr_stacking_predict应该是被弃用了，因为这个函数没有超参搜索出最佳的逻辑回归值，计算2000次结果都是一样的。
 #（12）tpot_stacking_predict应该是被弃用了，因为第二层使用神经网络或者tpot结果都不尽如人意咯，第二层使用逻辑回归才是王道。
 #（13）get_oof回归问题可能需要改写
-#（14）train_nn_model、train_nn_model_validate1、train_nn_model_noise_validate这三个函数可能需要修改device设置和噪声相关设置。
+#（14）train_nn_model、train_nn_model_validate1、train_nn_model_noise_validate2这三个函数可能需要修改device设置和噪声相关设置。
 
 #我到今天才知道dataframe是一列一列的而ndarray是一行一行的？？不过之前的函数测试都是木有问题的哈，这就很好咯
 import os
@@ -781,18 +781,57 @@ def train_nn_model_validate2(nodes, X_train_scaled, Y_train, max_evals=10):
                                   )
         init_module(clf.module, nodes["weight_mode"], nodes["bias"])
         
-        skf = StratifiedKFold(Y_train, n_folds=5, shuffle=True, random_state=None)
+        #这边的折数由5折修改为10折吧，这样子的话应该更加能够表示出稳定性吧
+        skf = StratifiedKFold(Y_train, n_folds=10, shuffle=True, random_state=None)
         metric = cross_val_score(clf, X_train_scaled.astype(np.float32), Y_train.astype(np.longlong), cv=skf, scoring="accuracy").mean()
+        print_nnclf_acc(metric)
+        
+        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
+        #这里测试一下如此修改能够达到目的呢，这样的方式应该比之前靠谱多了吧，经过测试
+        #我觉得cross_val_score确实更可以表示泛化能力，验证设置为10比5总体而言更准确
+        #clf.fit(X_train_scaled.astype(np.float32), Y_train.astype(np.longlong))
+        #score = cal_nnclf_acc(clf, X_train_scaled.astype(np.float32), Y_train.astype(np.longlong))
+        #print(metric)
+        #print(score)
+    
+    best_model.fit(X_train_scaled.astype(np.float32), Y_train.astype(np.longlong))
+    return best_model, best_acc
 
+def train_nn_model_noise_validate1(nodes, X_train_scaled, Y_train, max_evals=10):
+    
+    #我觉得0.12的设置有点多了，还有很多数据没用到呢，感觉这样子设置应该会好一些的吧？
+    #X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.12, stratify=Y_train)
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.05, stratify=Y_train)
+    #由于神经网络模型初始化、dropout等的问题导致网络不够稳定
+    #解决这个问题的办法就是多重复计算几次，选择其中靠谱的模型
+    best_acc = 0.0
+    best_model = 0.0
+    for j in range(0, max_evals):
+        
+        clf = NeuralNetClassifier(lr = nodes["lr"],
+                                  optimizer__weight_decay = nodes["optimizer__weight_decay"],
+                                  criterion = nodes["criterion"],
+                                  batch_size = nodes["batch_size"],
+                                  optimizer__betas = nodes["optimizer__betas"],
+                                  module = create_nn_module(nodes["input_nodes"], nodes["hidden_layers"], 
+                                                         nodes["hidden_nodes"], nodes["output_nodes"], nodes["percentage"]),
+                                  max_epochs = nodes["max_epochs"],
+                                  callbacks=[skorch.callbacks.EarlyStopping(patience=nodes["patience"])],
+                                  device = nodes["device"],
+                                  optimizer = nodes["optimizer"]
+                                  )
+        init_module(clf.module, nodes["weight_mode"], nodes["bias"])
+        clf.fit(X_split_train.astype(np.float32), Y_split_train.astype(np.longlong))
+            
+        metric = cal_nnclf_acc(clf, X_split_test, Y_split_test)
         print_nnclf_acc(metric)
         best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)        
     
-    best_model.fit(X_split_train.astype(np.float32), Y_split_train.astype(np.longlong))
     return best_model, best_acc
 
 #然后在这里增加一次噪声和验证咯，感觉我把程序弄的真的好复杂呀？
 #或许我下一阶段的实验就是查看是否nn_f不加入噪声只是第二阶段增加噪声效果是否更好？
-def train_nn_model_noise_validate(nodes, X_train_scaled, Y_train, max_evals=10):
+def train_nn_model_noise_validate2(nodes, X_train_scaled, Y_train, max_evals=10):
     
     X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.1, stratify=Y_train)
 
@@ -986,7 +1025,7 @@ def get_oof_validate2(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5
     
     return oof_train, oof_test, best_model
 
-def get_oof_noise_validate(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
+def get_oof_noise_validate1(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
     
     """K-fold stacking"""
     num_train, num_test = X_train_scaled.shape[0], X_test_scaled.shape[0]
@@ -1002,7 +1041,44 @@ def get_oof_noise_validate(nodes, X_train_scaled, Y_train, X_test_scaled, n_fold
         X_split_train, Y_split_train = X_train_scaled[train_index], Y_train[train_index]
         X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
         
-        best_model, best_acc = train_nn_model_noise_validate(nodes, X_split_train, Y_split_train, max_evals)
+        best_model, best_acc = train_nn_model_noise_validate1(nodes, X_split_train, Y_split_train, max_evals)
+        
+        #这里输出的是最佳模型的训练集和验证集上面的结果咯
+        #很容易和上面的训练过程的最后一个输出重叠
+        #这三个输出结果肯定是不一样的：
+        #第一个输出和第二个输出的区别在于普通模型和最佳模型在训练集上面的输出
+        #第二个输出和第三个输出的区别在于最佳模型在训练集和验证集上面的输出
+        acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
+        print_nnclf_acc(acc1)
+        train_acc.append(acc1)
+        acc2 = cal_nnclf_acc(best_model, X_split_valida, Y_split_valida)
+        print_nnclf_acc(acc2)
+        valida_acc.append(acc2)
+        
+        oof_train[valida_index] = best_model.predict(X_split_valida.astype(np.float32))
+        oof_test_all_fold[:, i] = best_model.predict(X_test_scaled.astype(np.float32))
+        
+    oof_test = np.mean(oof_test_all_fold, axis=1)
+    
+    return oof_train, oof_test, best_model
+
+def get_oof_noise_validate2(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
+    
+    """K-fold stacking"""
+    num_train, num_test = X_train_scaled.shape[0], X_test_scaled.shape[0]
+    oof_train = np.zeros((num_train,)) 
+    oof_test = np.zeros((num_test,))
+    oof_test_all_fold = np.zeros((num_test, n_folds))
+    train_acc = []
+    valida_acc = []
+
+    KF = KFold(n_splits =n_folds, shuffle=True)
+    for i, (train_index, valida_index) in enumerate(KF.split(X_train_scaled)):
+        #划分数据集
+        X_split_train, Y_split_train = X_train_scaled[train_index], Y_train[train_index]
+        X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
+        
+        best_model, best_acc = train_nn_model_noise_validate2(nodes, X_split_train, Y_split_train, max_evals)
         
         #这里输出的是最佳模型的训练集和验证集上面的结果咯
         #很容易和上面的训练过程的最后一个输出重叠
@@ -1022,7 +1098,6 @@ def get_oof_noise_validate(nodes, X_train_scaled, Y_train, X_test_scaled, n_fold
     oof_test = np.mean(oof_test_all_fold, axis=1)
     
     return oof_train, oof_test, best_model
-
 
 def stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, max_evals):
     
@@ -1112,7 +1187,7 @@ def stacked_features_noise_validate2(nodes_list, X_train_scaled, Y_train, X_test
     nodes_num = len(nodes_list)
         
     for i in range(0, nodes_num):
-        oof_train, oof_test, best_model= get_oof_noise_validate(nodes_list[i], X_train_scaled.values, Y_train.values, X_test_scaled.values, folds, max_evals)
+        oof_train, oof_test, best_model= get_oof_noise_validate2(nodes_list[i], X_train_scaled.values, Y_train.values, X_test_scaled.values, folds, max_evals)
         input_train.append(oof_train)
         input_test.append(oof_test)
     
@@ -1372,6 +1447,7 @@ best_nodes = {"title":"stacked_titanic",
               "optimizer":torch.optim.Adam
               }
 
+"""
 #最后换了一个方式增强数据集终于完成了现在的代码，现在代码才算调通准备开始测试吧
 X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
 
@@ -1380,7 +1456,7 @@ files = open("titanic_intermediate_parameters_2018-12-23222347.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
 files.close()
 nodes_list = [best_nodes, best_nodes]
-stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 2, 2)
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 2, 5)
 #下面是进行超参搜索的lr咯
 clf = LogisticRegression()
 param_dist = {"penalty": ["l1", "l2"],
@@ -1395,3 +1471,247 @@ lr_pred = random_search.best_estimator_.predict(stacked_test)
 test_acc = cal_acc(lr_pred, Y_split_test)
 print(best_acc)
 print(test_acc)
+"""
+
+"""
+#下面开始对几种方式进行试验吧
+train_acc = []
+valida_acc = []
+time_cost = []
+
+start_time = datetime.datetime.now()
+files = open("titanic_intermediate_parameters_2018-12-23222347.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+ 
+for i in range(0, 3):
+    
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
+
+    #5个节点的不添加噪声的版本
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_noise_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    #7个节点的不添加噪声的版本
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, 
+                  best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, 
+                  best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_noise_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    #9个节点的不添加噪声的版本
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, 
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_noise_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    #11个节点的不添加噪声的版本
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, 
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_noise_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    #13个节点的不添加噪声的版本
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, 
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_noise_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+for i in range(0, len(train_acc)):
+    print(train_acc[i])
+    print(valida_acc[i])
+
+for i in range(0, len(time_cost)):
+    print(time_cost[i])
+"""
+
+#我试一下这个版本的提交结果如何呢
+#现在主要需要测试的问题应该是
+#节点的数目、同节点还是不同节点的选择吧。
+start_time = datetime.datetime.now()
+files = open("titanic_intermediate_parameters_2018-12-23222347.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+
+#nodes_list = parse_trials(trials, space_nodes, 9)
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 20)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+
+lr_stacking_rscv_predict(stacked_train, Y_train, stacked_test, 2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
