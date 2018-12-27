@@ -3,6 +3,9 @@
 #之前提出的两种优化方式效果都没有最原始的方式效果好
 #我现在只能够前17%，但是我必进前10%的吧所以只有继续进行优化咯。
 #呜呜呜，求求你进入到前10%吧，这样子我才可以安心的进行下一个实验呀
+#最近两个版本（这个版本和上个版本）的实验发现出现了重大的BUG
+#因为titanic_intermediate_parameters_2018-12-23222347.pickle只进行了三次超参搜索？？
+#怪不得我说增加了输入的信息，还采用了交叉验证居然略微弱于之前的实验结果？？那我有底能够成功了吧
 
 #修改内容集被整理如下：
 #（0）到这个时候我才发现GPU训练神经网络的速度比CPU训练速度快很多耶。不对呀，好像也没有快很多吧
@@ -15,12 +18,12 @@
 #（6）nn_f可能需要修改，因为noise_augment_dataframe_data的columns需要修改咯，还有评价准则可能需要优化？但是暂时不知如何优化
 #（7）nn_stacking_f应该是被弃用了，因为之前我尝试过第二层使用神经网络或者tpot结果都不尽如人意咯，第二层使用逻辑回归才是王道。
 #（8）parse_nodes、parse_trials、space、space_nodes需要根据每次的数据修改，best_nodes本身不需要主要是为了快速测试而存在。
-#（9）train_nn_model、train_nn_model_validate1或许需要换种方式获取最佳模型咯。
+#（9）train_nn_model、train_nn_model_validate1或许需要换种方式获取最佳模型咯。现在已经找到最佳方式选择模型咯
 #（10）nn_stacking_predict应该是被弃用了，因为这个函数是为单模型（节点）开发的预测函数。
 #（11）lr_stacking_predict应该是被弃用了，因为这个函数没有超参搜索出最佳的逻辑回归值，计算2000次结果都是一样的。
 #（12）tpot_stacking_predict应该是被弃用了，因为第二层使用神经网络或者tpot结果都不尽如人意咯，第二层使用逻辑回归才是王道。
 #（13）get_oof回归问题可能需要改写
-#（14）train_nn_model、train_nn_model_validate1、train_nn_model_noise_validate2这三个函数可能需要修改device设置和噪声相关设置。
+#（14）train_nn_model、train_nn_model_validate1、train_nn_model_noise_validate2这三系列函数可能需要修改device设置和噪声相关设置。
 
 #我到今天才知道dataframe是一列一列的而ndarray是一行一行的？？不过之前的函数测试都是木有问题的哈，这就很好咯
 import os
@@ -1475,6 +1478,7 @@ print(test_acc)
 
 """
 #下面开始对几种方式进行试验吧
+#mmp 昨天的这个实验做错了，我真的飞天大草了吧
 train_acc = []
 valida_acc = []
 time_cost = []
@@ -1484,7 +1488,7 @@ files = open("titanic_intermediate_parameters_2018-12-23222347.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
 files.close()
  
-for i in range(0, 3):
+for i in range(0, 5):
     
     X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
 
@@ -1510,7 +1514,7 @@ for i in range(0, 3):
 
     start_time = datetime.datetime.now()
     nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features_noise_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
                   "C": np.linspace(0.001, 100000, 10000),
@@ -1551,7 +1555,7 @@ for i in range(0, 3):
     start_time = datetime.datetime.now()
     nodes_list = [best_nodes, best_nodes, best_nodes, 
                   best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features_noise_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
                   "C": np.linspace(0.001, 100000, 10000),
@@ -1592,7 +1596,7 @@ for i in range(0, 3):
     start_time = datetime.datetime.now()
     nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, 
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features_noise_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
                   "C": np.linspace(0.001, 100000, 10000),
@@ -1633,7 +1637,7 @@ for i in range(0, 3):
     start_time = datetime.datetime.now()
     nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, 
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features_noise_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
                   "C": np.linspace(0.001, 100000, 10000),
@@ -1674,7 +1678,7 @@ for i in range(0, 3):
     start_time = datetime.datetime.now()
     nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, 
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    stacked_train, stacked_test = stacked_features_noise_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
                   "C": np.linspace(0.001, 100000, 10000),
@@ -1699,19 +1703,374 @@ for i in range(0, len(time_cost)):
     print(time_cost[i])
 """
 
-#我试一下这个版本的提交结果如何呢
-#现在主要需要测试的问题应该是
-#节点的数目、同节点还是不同节点的选择吧。
+#现在试一下不同的节点以及不同节点数得到的结果呢？然后最后再试一次单节点提交结果吧
+#最近的资本寒冬还有中年危机找女朋友找工作以及财富自由等事情让我觉得很累喘不过气来。
+#然后一会准备提交一个单节点的看看实验效果到底如何吧？？？我现在感觉不知道在哪里优化了。。
+#哎，我发现了一个重大的BUG，之前一直使用的parameters_2018-12-23222347.pickle只有三个数据。。
+#所以现在除了对比实验几乎都可以重新做一次咯，我真的突然觉得好绝望，怎么会发生这种事情啊？？？
+"""
+#这个是不同节点的stacking的结果吧。
+#最后在leaderboarder上面的效果是0.79425%约等于我之前最好的结果了吧
+#但是我始终还在想能不能更加进一步的提升效果，可能单模型比stacking更好？= =！
 start_time = datetime.datetime.now()
 files = open("titanic_intermediate_parameters_2018-12-23222347.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
 files.close()
 
-#nodes_list = parse_trials(trials, space_nodes, 9)
-nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+nodes_list = parse_trials(trials, space_nodes, 5)
+#nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 20)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 
 lr_stacking_rscv_predict(stacked_train, Y_train, stacked_test, 2000)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+"""
+
+"""
+#下面是单节点的效果咯，卧槽leaderboard才0.76076，我的最后的希望可能是不同节点咯
+start_time = datetime.datetime.now()
+files = open("titanic_intermediate_parameters_2018-12-23222347.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+#nodes_list = parse_trials(trials, space_nodes, 5)
+nodes_list = [best_nodes]
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 20)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+lr_stacking_rscv_predict(stacked_train, Y_train, stacked_test, 2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+#下面是5个不同节点的效果咯
+start_time = datetime.datetime.now()
+files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+nodes_list = parse_trials(trials, space_nodes, 5)
+#nodes_list = [best_nodes]
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 20)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+lr_stacking_rscv_predict(stacked_train, Y_train, stacked_test, 2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+
+"""
+train_acc = []
+valida_acc = []
+time_cost = []
+
+start_time = datetime.datetime.now()
+files = open("titanic_intermediate_parameters_2018-12-23222347.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+ 
+for i in range(0, 5):
+    
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
+
+    #5个节点的不添加噪声的版本
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    start_time = datetime.datetime.now()
+    nodes_list = parse_trials(trials, space_nodes, 5)
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    #7个节点的不添加噪声的版本
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, 
+                  best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, 
+                  best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()
+    nodes_list = parse_trials(trials, space_nodes, 7)
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    #9个节点的不添加噪声的版本
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, 
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()
+    nodes_list = parse_trials(trials, space_nodes, 9)
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    #11个节点的不添加噪声的版本
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, 
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()
+    nodes_list = parse_trials(trials, space_nodes, 11)
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    #13个节点的不添加噪声的版本
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes,
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+
+    start_time = datetime.datetime.now()
+    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, 
+                  best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+    start_time = datetime.datetime.now()
+    nodes_list = parse_trials(trials, space_nodes, 13)
+    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
+    clf = LogisticRegression()
+    param_dist = {"penalty": ["l1", "l2"],
+                  "C": np.linspace(0.001, 100000, 10000),
+                  "fit_intercept": [True, False],
+                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
+                  }
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
+    random_search.fit(stacked_train, Y_split_train)
+    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
+    lr_pred = random_search.best_estimator_.predict(stacked_test)
+    test_acc = cal_acc(lr_pred, Y_split_test)
+    train_acc.append(best_acc)
+    valida_acc.append(test_acc)
+    end_time = datetime.datetime.now()
+    time_cost.append((end_time - start_time))
+    
+for i in range(0, len(train_acc)):
+    print(train_acc[i])
+    print(valida_acc[i])
+
+for i in range(0, len(time_cost)):
+    print(time_cost[i])
+"""
