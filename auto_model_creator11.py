@@ -5,6 +5,8 @@
 #为了解决重新大规模超参搜索的弊端，我只有将模型训练过程中的device设置去掉了，才能进行对比实验
 #而且在训练模型的时候保留device的设置也是非常不合理的吧，我觉得还是应该去掉，就像之前的保存路径一样。
 #我想到一个更好的办法，可以不用去掉device属性还应该加回来path,不然每次替换多处非常的不方便吧。
+#我觉得我的这个设计还蛮好的，可以很简单的完成不同场景的切换（单位、家里、cpu、gpu）
+#尤其是家里面的电脑，一段程序用cpu计算另一段程序用gpu计算应该算是充分利用了计算机的资源吧。家里的电脑gpu计算明显快得多啊。
 #除此以外我还修改了lr_stacking_rscv_predict等函数的接口以免依赖全局变量。然后可以开始重做所有的提交实验和小部分的对比实验了吧。
 
 #修改内容集被整理如下：
@@ -67,6 +69,10 @@ from xgboost import XGBClassifier
 from mlxtend.classifier import StackingCVClassifier
 
 from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model.logistic import LogisticRegressionCV
+from nltk.classify.svm import SvmClassifier
+from sklearn.ensemble.weight_boosting import AdaBoostClassifier
+from sklearn.neural_network.multilayer_perceptron import MLPClassifier
 #下面的这个kfold是实现k折交叉的功能，返回每次的indice，可以设置为shuffle但默认未设
 #然后这个StratifiedKFold是返回k折交叉的迭代器，每次通过迭代器返回结果，可以设置为shuffle
 #两者的区别在于前者返回indice或者索引列表后者直接返回迭代器，虽然我这一份代码两种方式都有但是让他们并存吧
@@ -77,8 +83,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -286,7 +292,7 @@ X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
 
 #这个主要是为了测试写出来的文件是正确的。
 #output = pd.DataFrame(data = X_all)            
-#output.to_csv("C:/Users/1/Desktop/dict.csv", columns=X_all.columns, index=False)
+#output.to_csv("C:/Users/win7/Desktop/dict.csv", columns=X_all.columns, index=False)
             
 #我觉得训练集和测试集需要在一起进行特征缩放，所以注释掉了原来的X_train的特征缩放咯
 #用了五个月之后我发现我的特征缩放好像做错了？？所以试一下下面的特征缩放吧。。不过变量名好像可以不用修改吧
@@ -302,7 +308,7 @@ X_test_scaled = X_all_scaled[len(X_train):]
 #这个主要是为了测试特征缩放之后的结果是正常的
 #下面特征缩放之后的结果看起来很壮观的样子23333。
 #output = pd.DataFrame(data = X_all_scaled)            
-#output.to_csv("C:/Users/1/Desktop/dict_scaled.csv", columns=X_all.columns, index=False)
+#output.to_csv("C:/Users/win7/Desktop/dict_scaled.csv", columns=X_all.columns, index=False)
 
 def cal_acc(Y_train_pred, Y_train):
 
@@ -894,19 +900,19 @@ def train_nn_model_noise_validate2(nodes, X_train_scaled, Y_train, max_evals=10)
         #print(Y_temp.shape)
         #print(Y_temp_reshape.shape)
         #output = pd.DataFrame(data = X_split_train)
-        #output.to_csv("C:/Users/1/Desktop/X_split_train_shape.csv", index=False)
+        #output.to_csv("C:/Users/win7/Desktop/X_split_train_shape.csv", index=False)
         #output = pd.DataFrame(data = X_split_train_df)            
-        #output.to_csv("C:/Users/1/Desktop/X_split_train_df_shape.csv", index=False)
+        #output.to_csv("C:/Users/win7/Desktop/X_split_train_df_shape.csv", index=False)
         #output = pd.DataFrame(data = X_temp)            
-        #output.to_csv("C:/Users/1/Desktop/X_temp_shape.csv", index=False)
+        #output.to_csv("C:/Users/win7/Desktop/X_temp_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_split_train)
-        #output.to_csv("C:/Users/1/Desktop/Y_split_train_shape.csv", index=False)
+        #output.to_csv("C:/Users/win7/Desktop/Y_split_train_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_split_train_df)
-        #output.to_csv("C:/Users/1/Desktop/Y_split_train_df_shape.csv", index=False)
+        #output.to_csv("C:/Users/win7/Desktop/Y_split_train_df_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_temp)
-        #output.to_csv("C:/Users/1/Desktop/Y_temp_shape.csv", index=False)
+        #output.to_csv("C:/Users/win7/Desktop/Y_temp_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_temp_reshape)
-        #output.to_csv("C:/Users/1/Desktop/Y_temp_reshape.csv", index=False)
+        #output.to_csv("C:/Users/win7/Desktop/Y_temp_reshape.csv", index=False)
 
         #clf.fit(X_temp.astype(np.float32), Y_temp_reshape.astype(np.longlong))
         #clf.fit(X_split_train.astype(np.float32), Y_split_train.astype(np.longlong))        
@@ -1344,7 +1350,7 @@ def tpot_stacking_predict(best_nodes, data_test, stacked_train, Y_train, stacked
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -1387,7 +1393,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -1430,7 +1436,7 @@ space_nodes = {"title":["stacked_titanic"],
 #其实本身不需要best_nodes主要是为了快速测试
 #不然每次超参搜索的best_nodes效率太低了吧
 best_nodes = {"title":"stacked_titanic",
-              "path":"C:/Users/1/Desktop/Titanic_Prediction.csv",
+              "path":"C:/Users/win7/Desktop/Titanic_Prediction.csv",
               "mean":0,
               "std":0.1,
               "max_epochs":400,
@@ -1450,18 +1456,18 @@ best_nodes = {"title":"stacked_titanic",
               "device":"cpu",
               "optimizer":torch.optim.Adam
               }
-
 """
 #测试一下我现在修改的path和device的部分，OK现在通过测试了。
+#OK能够在家里面的这台机器上面运行咯。现在准备开始新一轮的测试吧。
 start_time = datetime.datetime.now()
 files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
 files.close()
-#nodes_list = parse_trials(trials, space_nodes, 2)
-nodes_list = [best_nodes, best_nodes]
+nodes_list = parse_trials(trials, space_nodes, 2)
+#nodes_list = [best_nodes, best_nodes]
 for item in nodes_list:
-    item["device"] = "cpu"
-    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+    item["device"] = "cuda"
+    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 2, 2)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
@@ -1469,6 +1475,7 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
+"""
 #OK做一次对比实验吧，我本来想先提交实验结果的，但是肯定要做十个小时吧，所以先开始对比实验吧
 train_acc = []
 valida_acc = []
@@ -1488,7 +1495,7 @@ for i in range(0, 4):
     nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1510,7 +1517,7 @@ for i in range(0, 4):
     nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1532,7 +1539,7 @@ for i in range(0, 4):
     nodes_list = parse_trials(trials, space_nodes, 5)
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1556,7 +1563,7 @@ for i in range(0, 4):
                   best_nodes, best_nodes, best_nodes, best_nodes]
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1579,7 +1586,7 @@ for i in range(0, 4):
                   best_nodes, best_nodes, best_nodes, best_nodes]
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1601,7 +1608,7 @@ for i in range(0, 4):
     nodes_list = parse_trials(trials, space_nodes, 7)
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1625,7 +1632,7 @@ for i in range(0, 4):
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1648,7 +1655,7 @@ for i in range(0, 4):
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1670,7 +1677,7 @@ for i in range(0, 4):
     nodes_list = parse_trials(trials, space_nodes, 9)
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1694,7 +1701,7 @@ for i in range(0, 4):
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1717,7 +1724,7 @@ for i in range(0, 4):
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1739,7 +1746,7 @@ for i in range(0, 4):
     nodes_list = parse_trials(trials, space_nodes, 11)
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1763,7 +1770,7 @@ for i in range(0, 4):
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1786,7 +1793,7 @@ for i in range(0, 4):
                   best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1808,7 +1815,7 @@ for i in range(0, 4):
     nodes_list = parse_trials(trials, space_nodes, 13)
     for item in nodes_list:
         item["device"] = "cpu"
-        item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
     stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 10, 20)
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
@@ -1832,3 +1839,54 @@ for i in range(0, len(train_acc)):
 
 for i in range(0, len(time_cost)):
     print(time_cost[i])
+"""
+
+"""
+#五个相同节点的计算结果咯
+#我的五个相同节点的计算结果才0.78947，这也太惨了吧。
+#简单的修改一下变为五个不同节点的计算结果咯。
+#如果五个不同节点的版本的结果不好的话，可能我唯一的办法就是自助法了吧
+#其实还有一种办法就是使用xgboost等方式对模型进行训练吧。或者以后nn_f不要加入噪声咯
+#以后神经网络的模型如何在家里的机器计算的话，一律都使用gpou
+start_time = datetime.datetime.now()
+files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+nodes_list = parse_trials(trials, space_nodes, 5)
+#nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+for item in nodes_list:
+    item["device"] = "cpu"
+    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 25)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+"""
+#我准备尝试一下使用传统的机器学习的集成手段和模型是否能够更好的结果
+#其实这下面应该进行单模型的优化的，但是我为了看看大概的效果就省略了吧
+#哇塞居然前者是0.76076后者是0.77511，我还期待自己会被这些方法碾压呢。
+lr = LogisticRegressionCV()
+xgb = XGBClassifier()
+mlp = MLPClassifier()
+adb = AdaBoostClassifier()
+rf = RandomForestClassifier()
+sclf1 = StackingCVClassifier(classifiers=[xgb, rf, adb] ,meta_classifier=lr)
+sclf1.fit(X_train_scaled.values, Y_train.values)
+print(sclf1.score(X_train_scaled.values, Y_train.values))
+Y_pred1 = sclf1.predict(X_test_scaled.values)
+data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred1}
+output = pd.DataFrame(data = data)
+output.to_csv("C:/Users/win7/Desktop/Titanic_Prediction1.csv", index=False)
+sclf2 = StackingCVClassifier(classifiers=[rf, xgb, mlp, adb] ,meta_classifier=lr)
+sclf2.fit(X_train_scaled.values, Y_train.values)
+print(sclf2.score(X_train_scaled.values, Y_train.values))
+Y_pred2 = sclf2.predict(X_test_scaled.values)
+data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred2}
+output = pd.DataFrame(data = data)
+output.to_csv("C:/Users/win7/Desktop/Titanic_Prediction2.csv", index=False)
+"""
+
+#那么自助法应该就是我最后一次使用

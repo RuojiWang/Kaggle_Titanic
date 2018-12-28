@@ -1708,10 +1708,14 @@ for i in range(0, len(time_cost)):
 #然后一会准备提交一个单节点的看看实验效果到底如何吧？？？我现在感觉不知道在哪里优化了。。
 #哎，我发现了一个重大的BUG，之前一直使用的parameters_2018-12-23222347.pickle只有三个数据。。
 #所以现在除了对比实验几乎都可以重新做一次咯，我真的突然觉得好绝望，怎么会发生这种事情啊？？？
+#不过我现在已经完成了这个代码部分的修改了而且已经通过测试了，下面重做之前的所有非对比实验吧。应该可以突破吧。
+#昨天下午发现这个问题的时候感觉很绝望但是现在很庆幸，不然我可能到现在都还不知道这个东西到底要怎么样子去完成。
 """
 #这个是不同节点的stacking的结果吧。
 #最后在leaderboarder上面的效果是0.79425%约等于我之前最好的结果了吧
 #但是我始终还在想能不能更加进一步的提升效果，可能单模型比stacking更好？= =！
+#后来发现这个是在3次超参搜索的基础上进行计算的尚且可以得到这么高成绩
+#如果我在3000次超参搜索的基础上进行计算肯定可以取得更好的结果的吧。
 start_time = datetime.datetime.now()
 files = open("titanic_intermediate_parameters_2018-12-23222347.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
@@ -1729,6 +1733,8 @@ print("time cost", (end_time - start_time))
 
 """
 #下面是单节点的效果咯，卧槽leaderboard才0.76076，我的最后的希望可能是不同节点咯
+#后来发现这个是在3次超参搜索的基础上进行计算的尚且可以得到这么高成绩
+#如果我在3000次超参搜索的基础上进行计算肯定可以取得更好的结果的吧。
 start_time = datetime.datetime.now()
 files = open("titanic_intermediate_parameters_2018-12-23222347.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
