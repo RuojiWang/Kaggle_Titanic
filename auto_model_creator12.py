@@ -922,6 +922,79 @@ def train_nn_model_noise_validate2(nodes, X_train_scaled, Y_train, max_evals=10)
     
     return best_model, best_acc
 
+def train_nn_model_noise_validate3(nodes, X_train_scaled, Y_train, max_evals=10):
+    
+    best_acc = 0.0
+    best_model = 0.0
+    
+    #这一轮就使用这一份加噪声的数据就可以了吧？没有必要在下面的for循环中也添加吧？
+    #我好像真的只有用这种方式增加stacking模型之间的差异了吧？以提升泛化性能咯。
+    X_noise_train, Y_noise_train = noise_augment_ndarray_data(nodes["mean"], nodes["std"], X_train_scaled, Y_train, columns=[i for i in range(0, 19)])
+
+    for j in range(0, max_evals):
+        
+        #不对吧我在想是不是在这里面添加噪声更好一些呢，毕竟上面的噪声添加方式可能造成模型过渡拟合增加噪声之后的数据？？
+        #我不知道是不是在这里面增加噪声得到的效果会更好一些呢，我觉得很郁闷问题到底出现在哪里呀？
+        
+        clf = NeuralNetClassifier(lr = nodes["lr"],
+                                  optimizer__weight_decay = nodes["optimizer__weight_decay"],
+                                  criterion = nodes["criterion"],
+                                  batch_size = nodes["batch_size"],
+                                  optimizer__betas = nodes["optimizer__betas"],
+                                  module = create_nn_module(nodes["input_nodes"], nodes["hidden_layers"], 
+                                                         nodes["hidden_nodes"], nodes["output_nodes"], nodes["percentage"]),
+                                  max_epochs = nodes["max_epochs"],
+                                  callbacks=[skorch.callbacks.EarlyStopping(patience=nodes["patience"])],
+                                  device = nodes["device"],
+                                  optimizer = nodes["optimizer"]
+                                  )
+        init_module(clf.module, nodes["weight_mode"], nodes["bias"])
+                
+        #这边的折数由5折修改为10折吧，这样子的话应该更加能够表示出稳定性吧
+        skf = StratifiedKFold(Y_noise_train, n_folds=10, shuffle=True, random_state=None)
+        metric = cross_val_score(clf, X_noise_train.astype(np.float32), Y_noise_train.astype(np.longlong), cv=skf, scoring="accuracy").mean()
+        print_nnclf_acc(metric)
+        
+        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
+    
+    best_model.fit(X_train_scaled.astype(np.float32), Y_train.astype(np.longlong))
+    return best_model, best_acc
+
+def train_nn_model_noise_validate4(nodes, X_train_scaled, Y_train, max_evals=10):
+    
+    best_acc = 0.0
+    best_model = 0.0
+    
+    for j in range(0, max_evals):
+        #不对吧我在想是不是在这里面添加噪声更好一些呢，毕竟上面的噪声添加方式可能造成模型过渡拟合增加噪声之后的数据？？
+        #我不知道是不是在这里面增加噪声得到的效果会更好一些呢，我觉得很郁闷问题到底出现在哪里呀？
+        X_noise_train, Y_noise_train = noise_augment_ndarray_data(nodes["mean"], nodes["std"], X_train_scaled, Y_train, columns=[i for i in range(0, 19)])
+
+        
+        clf = NeuralNetClassifier(lr = nodes["lr"],
+                                  optimizer__weight_decay = nodes["optimizer__weight_decay"],
+                                  criterion = nodes["criterion"],
+                                  batch_size = nodes["batch_size"],
+                                  optimizer__betas = nodes["optimizer__betas"],
+                                  module = create_nn_module(nodes["input_nodes"], nodes["hidden_layers"], 
+                                                         nodes["hidden_nodes"], nodes["output_nodes"], nodes["percentage"]),
+                                  max_epochs = nodes["max_epochs"],
+                                  callbacks=[skorch.callbacks.EarlyStopping(patience=nodes["patience"])],
+                                  device = nodes["device"],
+                                  optimizer = nodes["optimizer"]
+                                  )
+        init_module(clf.module, nodes["weight_mode"], nodes["bias"])
+                
+        #这边的折数由5折修改为10折吧，这样子的话应该更加能够表示出稳定性吧
+        skf = StratifiedKFold(Y_noise_train, n_folds=10, shuffle=True, random_state=None)
+        metric = cross_val_score(clf, X_noise_train.astype(np.float32), Y_noise_train.astype(np.longlong), cv=skf, scoring="accuracy").mean()
+        print_nnclf_acc(metric)
+        
+        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
+    
+    best_model.fit(X_train_scaled.astype(np.float32), Y_train.astype(np.longlong))
+    return best_model, best_acc
+
 def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
     
     """K-fold stacking"""
@@ -1086,8 +1159,77 @@ def get_oof_noise_validate2(nodes, X_train_scaled, Y_train, X_test_scaled, n_fol
         #这里输出的是最佳模型的训练集和验证集上面的结果咯
         #很容易和上面的训练过程的最后一个输出重叠
         #这三个输出结果肯定是不一样的：
-        #第一个输出和第二个输出的区别在于最佳模型和普通模型在训练集上面的输出
+        #第一个输出和第二个输出的区别在于普通模型和最佳模型在训练集上面的输出
         #第二个输出和第三个输出的区别在于最佳模型在训练集和验证集上面的输出
+        acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
+        print_nnclf_acc(acc1)
+        train_acc.append(acc1)
+        acc2 = cal_nnclf_acc(best_model, X_split_valida, Y_split_valida)
+        print_nnclf_acc(acc2)
+        valida_acc.append(acc2)
+        
+        oof_train[valida_index] = best_model.predict(X_split_valida.astype(np.float32))
+        oof_test_all_fold[:, i] = best_model.predict(X_test_scaled.astype(np.float32))
+        
+    oof_test = np.mean(oof_test_all_fold, axis=1)
+    
+    return oof_train, oof_test, best_model
+
+def get_oof_noise_validate3(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
+    
+    """K-fold stacking"""
+    num_train, num_test = X_train_scaled.shape[0], X_test_scaled.shape[0]
+    oof_train = np.zeros((num_train,)) 
+    oof_test = np.zeros((num_test,))
+    oof_test_all_fold = np.zeros((num_test, n_folds))
+    train_acc = []
+    valida_acc = []
+
+    KF = KFold(n_splits =n_folds, shuffle=True)
+    for i, (train_index, valida_index) in enumerate(KF.split(X_train_scaled)):
+        #划分数据集
+        X_split_train, Y_split_train = X_train_scaled[train_index], Y_train[train_index]
+        X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
+        
+        best_model, best_acc = train_nn_model_noise_validate3(nodes, X_split_train, Y_split_train, max_evals)
+        
+        #这里输出的是最佳模型的训练集和验证集上面的结果咯
+        #很容易和上面的训练过程的最后一个输出重叠
+        #这三个输出结果肯定是不一样的：
+        #第一个输出和第二个输出的区别在于普通模型和最佳模型在训练集上面的输出
+        #第二个输出和第三个输出的区别在于最佳模型在训练集和验证集上面的输出
+        acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
+        print_nnclf_acc(acc1)
+        train_acc.append(acc1)
+        acc2 = cal_nnclf_acc(best_model, X_split_valida, Y_split_valida)
+        print_nnclf_acc(acc2)
+        valida_acc.append(acc2)
+        
+        oof_train[valida_index] = best_model.predict(X_split_valida.astype(np.float32))
+        oof_test_all_fold[:, i] = best_model.predict(X_test_scaled.astype(np.float32))
+        
+    oof_test = np.mean(oof_test_all_fold, axis=1)
+    
+    return oof_train, oof_test, best_model
+
+def get_oof_noise_validate4(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
+    
+    """K-fold stacking"""
+    num_train, num_test = X_train_scaled.shape[0], X_test_scaled.shape[0]
+    oof_train = np.zeros((num_train,)) 
+    oof_test = np.zeros((num_test,))
+    oof_test_all_fold = np.zeros((num_test, n_folds))
+    train_acc = []
+    valida_acc = []
+
+    KF = KFold(n_splits =n_folds, shuffle=True)
+    for i, (train_index, valida_index) in enumerate(KF.split(X_train_scaled)):
+        #划分数据集
+        X_split_train, Y_split_train = X_train_scaled[train_index], Y_train[train_index]
+        X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
+        
+        best_model, best_acc = train_nn_model_noise_validate4(nodes, X_split_train, Y_split_train, max_evals)
+        
         acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
         print_nnclf_acc(acc1)
         train_acc.append(acc1)
@@ -1156,9 +1298,6 @@ def stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scale
     stacked_test = pd.DataFrame(stacked_test)
     return stacked_train, stacked_test
 
-def stacked_features_validate3(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, max_evals):
-    
-
 #我个人觉得这样的训练方式好像导致过拟合咯，所以采用下面的方式进行训练。
 #每一轮进行get_oof_validate1的时候都增加了噪声，让每个模型都有所不同咯。
 def stacked_features_noise_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, max_evals):
@@ -1194,6 +1333,42 @@ def stacked_features_noise_validate2(nodes_list, X_train_scaled, Y_train, X_test
         
     for i in range(0, nodes_num):
         oof_train, oof_test, best_model= get_oof_noise_validate2(nodes_list[i], X_train_scaled.values, Y_train.values, X_test_scaled.values, folds, max_evals)
+        input_train.append(oof_train)
+        input_test.append(oof_test)
+    
+    stacked_train = np.concatenate([f.reshape(-1, 1) for f in input_train], axis=1)
+    stacked_test = np.concatenate([f.reshape(-1, 1) for f in input_test], axis=1)
+    
+    stacked_train = pd.DataFrame(stacked_train)
+    stacked_test = pd.DataFrame(stacked_test)
+    return stacked_train, stacked_test
+
+def stacked_features_noise_validate3(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, max_evals):
+    
+    input_train = [] 
+    input_test = []
+    nodes_num = len(nodes_list)
+        
+    for i in range(0, nodes_num):
+        oof_train, oof_test, best_model= get_oof_noise_validate3(nodes_list[i], X_train_scaled.values, Y_train.values, X_test_scaled.values, folds, max_evals)
+        input_train.append(oof_train)
+        input_test.append(oof_test)
+    
+    stacked_train = np.concatenate([f.reshape(-1, 1) for f in input_train], axis=1)
+    stacked_test = np.concatenate([f.reshape(-1, 1) for f in input_test], axis=1)
+    
+    stacked_train = pd.DataFrame(stacked_train)
+    stacked_test = pd.DataFrame(stacked_test)
+    return stacked_train, stacked_test
+
+def stacked_features_noise_validate4(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, max_evals):
+    
+    input_train = [] 
+    input_test = []
+    nodes_num = len(nodes_list)
+        
+    for i in range(0, nodes_num):
+        oof_train, oof_test, best_model= get_oof_noise_validate4(nodes_list[i], X_train_scaled.values, Y_train.values, X_test_scaled.values, folds, max_evals)
         input_train.append(oof_train)
         input_test.append(oof_test)
     
@@ -1453,4 +1628,41 @@ best_nodes = {"title":"stacked_titanic",
               "optimizer":torch.optim.Adam
               }
 
-#那么自助法应该就是我最后一次使用
+#那么自助法应该就是我最后一次在修改代码了吧
+#我之前觉得可能stacking的每个分类器用自助法
+#但是这样应该不太可能行吧，感觉明显不太靠谱
+#所以我最后将噪声和交叉验证进行结合咯，希望有用吧。。
+#我理解问题在于单模型的时候就过拟合了，所以必须加噪声。。
+#这个版本追平了我之前的最好记录，但是呢也才仅仅0.79904正确率而已。
+#我现在好像真的找不到修改的方向了吧，试一下五个不同节点呢，我觉得应该差不多的吧
+"""
+start_time = datetime.datetime.now()
+files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+#nodes_list = parse_trials(trials, space_nodes, 3)
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+for item in nodes_list:
+    item["device"] = "cuda"
+    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
+stacked_train, stacked_test = stacked_features_noise_validate3(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 20)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+start_time = datetime.datetime.now()
+files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+nodes_list = parse_trials(trials, space_nodes, 5)
+#nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+for item in nodes_list:
+    item["device"] = "cuda"
+    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
+stacked_train, stacked_test = stacked_features_noise_validate3(nodes_list, X_train_scaled, Y_train, X_test_scaled, 10, 20)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
