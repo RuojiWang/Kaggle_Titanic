@@ -1748,6 +1748,7 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
+"""
 #下面是5个不同节点的效果咯
 start_time = datetime.datetime.now()
 files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
@@ -1760,6 +1761,7 @@ save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(stacked_train, Y_train, stacked_test, 2000)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+"""
 
 """
 train_acc = []
