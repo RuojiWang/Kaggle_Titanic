@@ -2034,6 +2034,8 @@ print("time cost", (end_time - start_time))
 #mmp,公司的网络现在开始屏蔽了很多网站我都上不去github和kaggle咯，今天老子花了很多时间最后发现唯一的房还是就是用热点上去
 #15节点700次的计算在leaderboarder上面只有0.79425的正确率，我感觉开始有点怀疑人生了
 #只有尝试最后一个版本咯，那就是单节点然后进行3000次的计算得到最后的结果，或者尝试删除离群点。
+#其实我觉得leaderboard上面0.82和0.799没啥太大区别，就是前者比后者多正确了五个而已，所以删除离群点可能很有用吧。
+#我对这个3000次测试的版本也不是特别的有信心，反倒是觉得可能删除离群点作用应该更大一些的吧。
 start_time = datetime.datetime.now()
 files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
