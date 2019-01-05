@@ -1,6 +1,12 @@
 #coding=utf-8
 #这个版本的目的在于使用自助法来训练单模型进而使stacking的神经网络差异足够大
-#如果这个版本还不行的话，那我就是真的无能为力啦。。真的让我觉得心累呢。。。
+#最后仅仅是添加了一些噪声而已，并没有使用自助法仅仅是通过添加噪声的方式去加大了模型之间的差异
+#但是加了噪声的版本也就是追平了之前的记录而已呀，然后我试了单模型多次搜索并交叉验证但是结果只能说还行。
+#我之前还想使用删除异常点的办法做最后一次实验，但是觉得删除异常点和增加噪声应该差不多的吧
+#所以最后的实验是stacking加上增加噪声，但是多增加几次对于增加过噪声之后的数据的搜索吧。
+#或者试一下单节点加上噪声泛化效果如何呢？我觉得单节点怎么增加噪声都比不上多节点增加噪声吧。。
+#最后整理一下思路，单节点肯定不上stacking，然后我目前的问题是单模型如何优化，以及如何增加模型的多样性
+#单模型增强的话之前尝试了更高的折数的交叉验证提升比较有限，现在只有用噪声咯，这大概就是最后一次试验了吧。
 
 #修改内容集被整理如下：
 #（0）到这个时候我才发现GPU训练神经网络的速度比CPU训练速度快很多耶。不对呀，好像也没有快很多吧
@@ -20,6 +26,11 @@
 #（12）tpot_stacking_predict应该是被弃用了，因为第二层使用神经网络或者tpot结果都不尽如人意咯，第二层使用逻辑回归才是王道。
 #（13）get_oof回归问题可能需要改写
 #（14）train_nn_model、train_nn_model_validate1、train_nn_model_noise_validate2这三系列函数可能需要修改device设置和噪声相关设置。
+#模型的整体提升划分为四块：从数据上提升性能、从算法上提升性能、从算法调优上提升性能、从模型融合上提升性能（性能提升的力度按上表的顺序从上到下依次递减。）
+#具体内容可参加https://www.baidu.com/link?url=zdq_sTzndnIZrJL71ZFaLlHnfSblGnNXPzeilgVTaKG2RJEHTWHZHTzVkkipM0El&wd=&eqid=aa03b37b0004b870000000025c2f02e6
+#（15）可能以后就是增加正则化项吧，能够一定程度的减小网络的复杂度类似奥卡姆剃刀原则。自己随机生成大量的数据吧。将数据缩放到激活函数的阈值内
+#原来神经网络模型的训练一直就比较慢，以至于有的时候不一定要采用交叉验证的方式来训练，可能直接用部分未训练数据作为验证集。。
+#然后对于模型过拟合或者欠拟合的判断贯穿整个机器学习的过程当中，原来stacking其实是最后一种用于提升模型泛化性能的方式咯。我的面试可以围绕这些开始吧。
 
 #我到今天才知道dataframe是一列一列的而ndarray是一行一行的？？不过之前的函数测试都是木有问题的哈，这就很好咯
 import os
@@ -2029,6 +2040,7 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
+"""
 #现在准备构建一个单模型的分类器吧，我觉得是不是只要随机初始足够的多应该可以获得更好的结果吧？
 #我感觉可能就是这么回事儿吧，但是我现在没办法访问github和kaggle家里面台式机也出现问题了，我真的觉得心很累
 #mmp,公司的网络现在开始屏蔽了很多网站我都上不去github和kaggle咯，今天老子花了很多时间最后发现唯一的房还是就是用热点上去
@@ -2036,6 +2048,7 @@ print("time cost", (end_time - start_time))
 #只有尝试最后一个版本咯，那就是单节点然后进行3000次的计算得到最后的结果，或者尝试删除离群点。
 #其实我觉得leaderboard上面0.82和0.799没啥太大区别，就是前者比后者多正确了五个而已，所以删除离群点可能很有用吧。
 #我对这个3000次测试的版本也不是特别的有信心，反倒是觉得可能删除离群点作用应该更大一些的吧。
+#哇塞这个3000次的计算版本果然还是不太行呀只有0.78947的正确率，所以最后试试离群点删除吧，真的不打算在做咯。
 start_time = datetime.datetime.now()
 files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
@@ -2048,5 +2061,24 @@ best_nodes["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
 #    item["device"] = "cpu"
 #    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
 nn_predict(best_nodes, X_train_scaled.values, Y_train.values, X_test_scaled.values, 15, 3000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+#哇塞，使用噪声在leaderborad上面才只有0.76的准确率，可能还是噪声误导了学习器
+#看来增加噪声并不等效于排除离群点，之后要做的事情就是按照之前的文档重新写一遍程序咯。
+#我最后的实验应该是准备尝试新的思路整理一下数据咯。
+start_time = datetime.datetime.now()
+files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+#nodes_list = parse_trials(trials, space_nodes, 3)
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+for item in nodes_list:
+    item["device"] = "cpu"
+    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+stacked_train, stacked_test = stacked_features_noise_validate3(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
