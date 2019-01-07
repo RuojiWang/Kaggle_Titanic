@@ -84,8 +84,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -293,7 +293,7 @@ X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
 
 #这个主要是为了测试写出来的文件是正确的。
 #output = pd.DataFrame(data = X_all)            
-#output.to_csv("C:/Users/win7/Desktop/dict.csv", columns=X_all.columns, index=False) 
+#output.to_csv("C:/Users/1/Desktop/dict.csv", columns=X_all.columns, index=False) 
 
 #我觉得训练集和测试集需要在一起进行特征缩放，所以注释掉了原来的X_train的特征缩放咯
 #用了五个月之后我发现我的特征缩放好像做错了？？所以试一下下面的特征缩放吧。。不过变量名好像可以不用修改吧
@@ -304,10 +304,11 @@ X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
 X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = X_all.columns)
 #X_train_scaled = pd.DataFrame(preprocessing.scale(X_train), columns = X_train.columns)
 #https://blog.csdn.net/CherDW/article/details/56011531讲解了几种特征缩放的区别，scale和.StandardScaler其实差不多。。
+#上面的特征缩放并不是多余，毕竟添加噪声之前需要先进行特征缩放咯。
+#下面的两行代码也不是多余的，不然可能把X_test中的数据进行重采样。
 X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
 
-#我本来想在处理异常点之后清理
 #然后接下来就是准备随机生成向量了吧，咳咳，准确的说是重采样之后进行噪声添加
 #我花了很多的时间查找随机向量生成的问题，主要我很担心自己添加高斯噪声导致的效果不好
 #我之所以这么担心是因为上次的stack_features_noise_validate3的实验效果很差
@@ -330,21 +331,14 @@ row = X_oversample_train.shape[0]
 col = X_oversample_train.shape[1]
 X_oversample_train.is_copy = False
 gauss_noise = np.random.normal(loc=0.0, scale=0.05, size=(row, col))
-gauss_noise_df = pd.DataFrame(gauss_noise, columns=X_oversample_train.columns)
-X_temp = X_oversample_train + gauss_noise_df
-X_oversample_train = X_temp
+#下面的这行代码如果不加上index=X_oversample_train.index.values这句就会出现NAN
+gauss_noise_df = pd.DataFrame(gauss_noise, columns=X_oversample_train.columns, index=X_oversample_train.index.values)
+#X_train_scaled、Y_train、X_oversample_train这些的id和具体的行的值都已经改变了。
+X_oversample_train = X_oversample_train + gauss_noise_df
+X_train_scaled = pd.concat([X_train_scaled, X_oversample_train], axis=0)
+Y_train = pd.concat([Y_train, Y_oversample_train], axis=0) 
 
-X_temp = pd.concat([X_train_scaled, X_oversample_train], axis=0)
-X_train_scaled = X_temp
-Y_temp = pd.concat([Y_train, Y_oversample_train], axis=0) 
-Y_train = Y_temp
-
-#那么现在原来的数据特征已经被修改了，需要重新进行特征缩放会比较好的吧
-X_all = pd.concat([X_train_scaled, X_test_scaled], axis=0)
-X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = X_all.columns)
-X_train_scaled = X_all_scaled[:len(X_train_scaled)]
-X_test_scaled = X_all_scaled[len(X_train_scaled):]
-
+#由于通过重采样和增加噪声的方式修改数据，可以通过清楚离群点删除噪声过大的数据咯。
 #https://stackoverflow.com/questions/31631053/remove-outliers-from-dataset
 #然后我查了一下所有的清除异常点的方式，然后我觉得上面链接的方式应该是最合适的实现删除离群点的方式咯
 #https://blog.csdn.net/hustqb/article/details/75216241 左边这个可以作为上面代码的参考和补充
@@ -353,19 +347,29 @@ X_test_scaled = X_all_scaled[len(X_train_scaled):]
 #我觉得sklearn封装的异常检测算法应该是比我自己查到的方法诸如比删除比均值高多少的方法应该靠谱一些吧。。
 #我现在在想的问题是应该先进行特征缩放再进行异常点删除呢还是颠倒着来？我估计差别不大的毕竟后面还有超参搜索呢。
 #后面还有超参搜索这些都不说了嘛，关键是IsolationForest这些都没有进行过超参搜索的嘛，所以这样就很好了。
-n_samples = len(X_train_scaled)  #样本的数目
-outliers_fraction = 0.1  #异常样本比例
+#去除离群点之前需要将X_train_scaled和Y_train数据合并，否则无法删除与X_train_scaled对应的Y_train的数据
+X_Y_train_scaled = pd.concat([X_train_scaled, Y_train], axis=1)
+n_samples = len(X_Y_train_scaled)  #样本的数目
+outliers_fraction = 0.05  #异常样本比例还是设置为0.05吧符合之前的高斯噪声参数
 n_inliers = int((1. - outliers_fraction) * n_samples)
 n_outliers = int(outliers_fraction * n_samples)
 clf = IsolationForest(max_samples=n_samples,  contamination=outliers_fraction)
-clf.fit(X_train_scaled)
-X_no_outliers = X_train_scaled[clf.predict(X_train_scaled)==1]
-X_train_scaled =  X_no_outliers
+clf.fit(X_Y_train_scaled)
+no_outliers = X_Y_train_scaled[clf.predict(X_Y_train_scaled)==1]
+Y_train = no_outliers.pop(columns_name[-1]) #将删除的最后一列也就是Survived赋值给Y_oversample_train
+X_train_scaled = no_outliers
+
+#那么现在原来的数据特征已经被修改了，需要重新进行特征缩放会比较好的吧
+X_all = pd.concat([X_train_scaled, X_test_scaled], axis=0)
+X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = X_all.columns)
+X_train_scaled = X_all_scaled[:len(X_train_scaled)]
+X_test_scaled = X_all_scaled[len(X_train_scaled):]
+
 
 #这个主要是为了测试特征缩放之后的结果是正常的
 #下面特征缩放之后的结果看起来很壮观的样子23333。
 #output = pd.DataFrame(data = X_all_scaled)            
-#output.to_csv("C:/Users/win7/Desktop/dict_scaled.csv", columns=X_all.columns, index=False)
+#output.to_csv("C:/Users/1/Desktop/dict_scaled.csv", columns=X_all.columns, index=False)
 
 def cal_acc(Y_train_pred, Y_train):
 
@@ -959,19 +963,19 @@ def train_nn_model_noise_validate2(nodes, X_train_scaled, Y_train, max_evals=10)
         #print(Y_temp.shape)
         #print(Y_temp_reshape.shape)
         #output = pd.DataFrame(data = X_split_train)
-        #output.to_csv("C:/Users/win7/Desktop/X_split_train_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/X_split_train_shape.csv", index=False)
         #output = pd.DataFrame(data = X_split_train_df)            
-        #output.to_csv("C:/Users/win7/Desktop/X_split_train_df_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/X_split_train_df_shape.csv", index=False)
         #output = pd.DataFrame(data = X_temp)            
-        #output.to_csv("C:/Users/win7/Desktop/X_temp_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/X_temp_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_split_train)
-        #output.to_csv("C:/Users/win7/Desktop/Y_split_train_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/Y_split_train_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_split_train_df)
-        #output.to_csv("C:/Users/win7/Desktop/Y_split_train_df_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/Y_split_train_df_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_temp)
-        #output.to_csv("C:/Users/win7/Desktop/Y_temp_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/Y_temp_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_temp_reshape)
-        #output.to_csv("C:/Users/win7/Desktop/Y_temp_reshape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/Y_temp_reshape.csv", index=False)
 
         #clf.fit(X_temp.astype(np.float32), Y_temp_reshape.astype(np.longlong))
         #clf.fit(X_split_train.astype(np.float32), Y_split_train.astype(np.longlong))        
@@ -1632,7 +1636,7 @@ def tpot_stacking_predict(best_nodes, data_test, stacked_train, Y_train, stacked
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.10]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -1675,7 +1679,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.10],
                "max_epochs":[400],
@@ -1718,7 +1722,7 @@ space_nodes = {"title":["stacked_titanic"],
 #其实本身不需要best_nodes主要是为了快速测试
 #不然每次超参搜索的best_nodes效率太低了吧
 best_nodes = {"title":"stacked_titanic",
-              "path":"C:/Users/win7/Desktop/Titanic_Prediction.csv",
+              "path":"C:/Users/1/Desktop/Titanic_Prediction.csv",
               "mean":0,
               "std":0.1,
               "max_epochs":400,
@@ -1739,383 +1743,23 @@ best_nodes = {"title":"stacked_titanic",
               "optimizer":torch.optim.Adam
               }
 
-#那么自助法应该就是我最后一次在修改代码了吧
-#我之前觉得可能stacking的每个分类器用自助法
-#但是这样应该不太可能行吧，感觉明显不太靠谱
-#所以我最后将噪声和交叉验证进行结合咯，希望有用吧。。
-#我理解问题在于单模型的时候就过拟合了，所以必须加噪声。。
-#这个版本追平了我之前的最好记录，但是呢也才仅仅0.79904正确率而已。
-#我现在好像真的找不到修改的方向了吧，试一下五个不同节点呢，我觉得应该差不多的吧
-"""
 start_time = datetime.datetime.now()
-files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
-trials, space_nodes, best_nodes = pickle.load(files)
-files.close()
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_params = fmin(nn_f, space, algo=algo, max_evals=5, trials=trials)
+
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+
 #nodes_list = parse_trials(trials, space_nodes, 3)
-nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-for item in nodes_list:
-    item["device"] = "cuda"
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-stacked_train, stacked_test = stacked_features_noise_validate3(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 20)
-save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
-lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-"""
-#mmp 是折数太低了还是啥请款呀，居然在leaderboard上面只有0.74162的分数= =！
-#好像真的每次不同节点的结果都是比不上相同节点的结果呢，这是为什么呢
-start_time = datetime.datetime.now()
-files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
-trials, space_nodes, best_nodes = pickle.load(files)
-files.close()
-nodes_list = parse_trials(trials, space_nodes, 5)
 #nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-for item in nodes_list:
-    item["device"] = "cuda"
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-stacked_train, stacked_test = stacked_features_noise_validate3(nodes_list, X_train_scaled, Y_train, X_test_scaled, 10, 20)
-save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
-lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-"""
-#现在我准备做最后一个实验咯，就是集中不同的方式进行比较咯
-train_acc = []
-valida_acc = []
-time_cost = []
-
-start_time = datetime.datetime.now()
-files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
-trials, space_nodes, best_nodes = pickle.load(files)
-files.close()
- 
-for i in range(0, 3):
-    
-    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
-
-    #1个节点的不添加噪声的版本
-    start_time = datetime.datetime.now()
-    nodes_list = [best_nodes]
-    for item in nodes_list:
-        item["device"] = "cuda"
-        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-    stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    clf = LogisticRegression()
-    param_dist = {"penalty": ["l1", "l2"],
-                  "C": np.linspace(0.001, 100000, 10000),
-                  "fit_intercept": [True, False],
-                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
-                  }
-    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
-    random_search.fit(stacked_train, Y_split_train)
-    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
-    lr_pred = random_search.best_estimator_.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    end_time = datetime.datetime.now()
-    time_cost.append((end_time - start_time))
-
-    start_time = datetime.datetime.now()
-    nodes_list = [best_nodes]
-    for item in nodes_list:
-        item["device"] = "cuda"
-        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    clf = LogisticRegression()
-    param_dist = {"penalty": ["l1", "l2"],
-                  "C": np.linspace(0.001, 100000, 10000),
-                  "fit_intercept": [True, False],
-                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
-                  }
-    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
-    random_search.fit(stacked_train, Y_split_train)
-    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
-    lr_pred = random_search.best_estimator_.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    end_time = datetime.datetime.now()
-    time_cost.append((end_time - start_time))
-    
-    start_time = datetime.datetime.now()
-    nodes_list = [best_nodes]
-    for item in nodes_list:
-        item["device"] = "cuda"
-        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-    stacked_train, stacked_test = stacked_features_noise_validate3(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    clf = LogisticRegression()
-    param_dist = {"penalty": ["l1", "l2"],
-                  "C": np.linspace(0.001, 100000, 10000),
-                  "fit_intercept": [True, False],
-                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
-                  }
-    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
-    random_search.fit(stacked_train, Y_split_train)
-    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
-    lr_pred = random_search.best_estimator_.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    end_time = datetime.datetime.now()
-    time_cost.append((end_time - start_time))
-    
-    start_time = datetime.datetime.now()
-    nodes_list = [best_nodes]
-    for item in nodes_list:
-        item["device"] = "cuda"
-        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-    stacked_train, stacked_test = stacked_features_noise_validate4(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    clf = LogisticRegression()
-    param_dist = {"penalty": ["l1", "l2"],
-                  "C": np.linspace(0.001, 100000, 10000),
-                  "fit_intercept": [True, False],
-                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
-                  }
-    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
-    random_search.fit(stacked_train, Y_split_train)
-    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
-    lr_pred = random_search.best_estimator_.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    end_time = datetime.datetime.now()
-    time_cost.append((end_time - start_time))
-    
-    #3个节点的不添加噪声的版本
-    start_time = datetime.datetime.now()
-    nodes_list = [best_nodes, best_nodes, best_nodes]
-    for item in nodes_list:
-        item["device"] = "cuda"
-        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-    stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    clf = LogisticRegression()
-    param_dist = {"penalty": ["l1", "l2"],
-                  "C": np.linspace(0.001, 100000, 10000),
-                  "fit_intercept": [True, False],
-                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
-                  }
-    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
-    random_search.fit(stacked_train, Y_split_train)
-    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
-    lr_pred = random_search.best_estimator_.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    end_time = datetime.datetime.now()
-    time_cost.append((end_time - start_time))
-
-    start_time = datetime.datetime.now()
-    nodes_list = [best_nodes, best_nodes, best_nodes]
-    for item in nodes_list:
-        item["device"] = "cuda"
-        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    clf = LogisticRegression()
-    param_dist = {"penalty": ["l1", "l2"],
-                  "C": np.linspace(0.001, 100000, 10000),
-                  "fit_intercept": [True, False],
-                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
-                  }
-    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
-    random_search.fit(stacked_train, Y_split_train)
-    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
-    lr_pred = random_search.best_estimator_.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    end_time = datetime.datetime.now()
-    time_cost.append((end_time - start_time))
-    
-    start_time = datetime.datetime.now()
-    nodes_list = [best_nodes, best_nodes, best_nodes]
-    for item in nodes_list:
-        item["device"] = "cuda"
-        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-    stacked_train, stacked_test = stacked_features_noise_validate3(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    clf = LogisticRegression()
-    param_dist = {"penalty": ["l1", "l2"],
-                  "C": np.linspace(0.001, 100000, 10000),
-                  "fit_intercept": [True, False],
-                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
-                  }
-    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
-    random_search.fit(stacked_train, Y_split_train)
-    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
-    lr_pred = random_search.best_estimator_.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    end_time = datetime.datetime.now()
-    time_cost.append((end_time - start_time))
-    
-    start_time = datetime.datetime.now()
-    nodes_list = [best_nodes, best_nodes, best_nodes]
-    for item in nodes_list:
-        item["device"] = "cuda"
-        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-    stacked_train, stacked_test = stacked_features_noise_validate4(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    clf = LogisticRegression()
-    param_dist = {"penalty": ["l1", "l2"],
-                  "C": np.linspace(0.001, 100000, 10000),
-                  "fit_intercept": [True, False],
-                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
-                  }
-    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
-    random_search.fit(stacked_train, Y_split_train)
-    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
-    lr_pred = random_search.best_estimator_.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    end_time = datetime.datetime.now()
-    time_cost.append((end_time - start_time))
-    
-    #5个节点的不添加噪声的版本
-    start_time = datetime.datetime.now()
-    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    for item in nodes_list:
-        item["device"] = "cuda"
-        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-    stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    clf = LogisticRegression()
-    param_dist = {"penalty": ["l1", "l2"],
-                  "C": np.linspace(0.001, 100000, 10000),
-                  "fit_intercept": [True, False],
-                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
-                  }
-    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
-    random_search.fit(stacked_train, Y_split_train)
-    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
-    lr_pred = random_search.best_estimator_.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    end_time = datetime.datetime.now()
-    time_cost.append((end_time - start_time))
-
-    start_time = datetime.datetime.now()
-    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    for item in nodes_list:
-        item["device"] = "cuda"
-        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-    stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    clf = LogisticRegression()
-    param_dist = {"penalty": ["l1", "l2"],
-                  "C": np.linspace(0.001, 100000, 10000),
-                  "fit_intercept": [True, False],
-                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
-                  }
-    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
-    random_search.fit(stacked_train, Y_split_train)
-    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
-    lr_pred = random_search.best_estimator_.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    end_time = datetime.datetime.now()
-    time_cost.append((end_time - start_time))
-    
-    start_time = datetime.datetime.now()
-    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    for item in nodes_list:
-        item["device"] = "cuda"
-        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-    stacked_train, stacked_test = stacked_features_noise_validate3(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    clf = LogisticRegression()
-    param_dist = {"penalty": ["l1", "l2"],
-                  "C": np.linspace(0.001, 100000, 10000),
-                  "fit_intercept": [True, False],
-                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
-                  }
-    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
-    random_search.fit(stacked_train, Y_split_train)
-    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
-    lr_pred = random_search.best_estimator_.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    end_time = datetime.datetime.now()
-    time_cost.append((end_time - start_time))
-    
-    start_time = datetime.datetime.now()
-    nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-    for item in nodes_list:
-        item["device"] = "cuda"
-        item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-    stacked_train, stacked_test = stacked_features_noise_validate4(nodes_list, X_split_train, Y_split_train, X_split_test, 5, 20)
-    clf = LogisticRegression()
-    param_dist = {"penalty": ["l1", "l2"],
-                  "C": np.linspace(0.001, 100000, 10000),
-                  "fit_intercept": [True, False],
-                  #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
-                  }
-    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=2000)
-    random_search.fit(stacked_train, Y_split_train)
-    best_acc = random_search.best_estimator_.score(stacked_train, Y_split_train)
-    lr_pred = random_search.best_estimator_.predict(stacked_test)
-    test_acc = cal_acc(lr_pred, Y_split_test)
-    train_acc.append(best_acc)
-    valida_acc.append(test_acc)
-    end_time = datetime.datetime.now()
-    time_cost.append((end_time - start_time))
-
-for i in range(0, len(train_acc)):
-    print(train_acc[i])
-    print(valida_acc[i])
-
-for i in range(0, len(time_cost)):
-    print(time_cost[i])
-"""
-
-"""
-#我在想是否我不需要stacking呀，我理解同节点模型stacking之间差异不大呀
-#而且不同节点之间stacking效果反而下降了。。我是真的去了咯。。。应该是单模型和
-#是不是我不使用stacking直接使用单神经网络模型+交叉验证就能够得到不错的分数呢？
-#我现在觉得问题应该出现在单模型身上，单模型不够强造成的现在这样子的结果咯
-#所以以后我觉得应该不需要在nn_f中添加噪声了吧。我的计算条件有限stacking暂时改用两三个节点就好。
-#或者以后要么直接玩单模型，我现在使用了2个节点每次计算50次最后得到的结果在leaderboard上只有0.78947的正确率扎心了
-start_time = datetime.datetime.now()
-files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
-trials, space_nodes, best_nodes = pickle.load(files)
-files.close()
-nodes_list = parse_trials(trials, space_nodes, 2)
-#nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+nodes_list = [best_nodes, best_nodes]
 for item in nodes_list:
     item["device"] = "cpu"
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 10, 50)
+    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+#stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 2, 2)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
-"""
-
-"""
-#现在准备构建一个单模型的分类器吧，我觉得是不是只要随机初始足够的多应该可以获得更好的结果吧？
-#我感觉可能就是这么回事儿吧，但是我现在没办法访问github和kaggle家里面台式机也出现问题了，我真的觉得心很累
-#mmp,公司的网络现在开始屏蔽了很多网站我都上不去github和kaggle咯，今天老子花了很多时间最后发现唯一的房还是就是用热点上去
-#15节点700次的计算在leaderboarder上面只有0.79425的正确率，我感觉开始有点怀疑人生了
-#只有尝试最后一个版本咯，那就是单节点然后进行3000次的计算得到最后的结果，或者尝试删除离群点。
-#其实我觉得leaderboard上面0.82和0.799没啥太大区别，就是前者比后者多正确了五个而已，所以删除离群点可能很有用吧。
-#我对这个3000次测试的版本也不是特别的有信心，反倒是觉得可能删除离群点作用应该更大一些的吧。
-#哇塞这个3000次的计算版本果然还是不太行呀只有0.78947的正确率，所以最后试试离群点删除吧，真的不打算在做咯。
-start_time = datetime.datetime.now()
-files = open("titanic_intermediate_parameters_2018-12-18194719.pickle", "rb")
-trials, space_nodes, best_nodes = pickle.load(files)
-files.close()
-best_nodes["device"] = "cpu"
-best_nodes["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-#nodes_list = parse_trials(trials, space_nodes, 2)
-#nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-#for item in nodes_list:
-#    item["device"] = "cpu"
-#    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-nn_predict(best_nodes, X_train_scaled.values, Y_train.values, X_test_scaled.values, 15, 3000)
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
