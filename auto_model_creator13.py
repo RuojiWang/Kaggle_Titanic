@@ -7,8 +7,8 @@
 #我大概会一直修改这个实验直到我取得一个比较满意的结果吧。。。
 
 #修改内容集被整理如下：
-#（0）到这个时候我才发现GPU训练神经网络的速度比CPU训练速度快很多耶。不对呀，好像也没有快很多吧
-#现在看来可能是和昨天CPU在运行别的程序有关吧导致计算比较慢，GPU似乎并没有比CPU带来十倍的优势吧？
+#（0）到这个时候我才发现GPU训练神经网络的速度比cpu训练速度快很多耶。不对呀，好像也没有快很多吧
+#现在看来可能是和昨天cpu在运行别的程序有关吧导致计算比较慢，GPU似乎并没有比cpu带来十倍的优势吧？
 #所以我觉得可能是我买的台式机被人给坑了吧，不过好在还有GPU可用。就是每次运行之前需要设置device和path咯。
 #（1）将保存文件的路径修改了。
 #（2）特征处理的流程需要修改。尤其是可能增加清除离群点的过程。
@@ -618,7 +618,7 @@ def nn_f(params):
     print("output_nodes", params["output_nodes"])
     print("percentage", params["percentage"])
         
-    X_noise_train, Y_noise_train = noise_augment_dataframe_data(params["mean"], params["std"], X_train_scaled, Y_train, columns=[])#columns=[i for i in range(1, 20)])#
+    #X_noise_train, Y_noise_train = noise_augment_dataframe_data(params["mean"], params["std"], X_train_scaled, Y_train, columns=[])#columns=[i for i in range(1, 20)])#
     
     clf = NeuralNetClassifier(lr = params["lr"],
                               optimizer__weight_decay = params["optimizer__weight_decay"],
@@ -634,11 +634,11 @@ def nn_f(params):
                               )
     #这里似乎可以采用分层采样吧，原来这个就是分层随机采样，妈的吓我一跳还以为要重新修改。
     #我现在在train_test_split中也采用了分层划分的数据集，一般使用分层的效果更好一点的。
-    skf = StratifiedKFold(Y_noise_train, n_folds=5, shuffle=True, random_state=None)
+    skf = StratifiedKFold(Y_train, n_folds=5, shuffle=True, random_state=None)
     
     init_module(clf.module, params["weight_mode"], params["bias"])
     
-    metric = cross_val_score(clf, X_noise_train.values.astype(np.float32), Y_noise_train.values.astype(np.longlong), cv=skf, scoring="accuracy").mean()
+    metric = cross_val_score(clf, X_train_scaled.values.astype(np.float32), Y_train.values.astype(np.longlong), cv=skf, scoring="accuracy").mean()
     
     print(metric)
     print()    
@@ -803,7 +803,7 @@ def train_nn_model_validate1(nodes, X_train_scaled, Y_train, max_evals=10):
     
     #我觉得0.12的设置有点多了，还有很多数据没用到呢，感觉这样子设置应该会好一些的吧？
     #X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.12, stratify=Y_train)
-    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.05, stratify=Y_train)
+    X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.15, stratify=Y_train)
     #由于神经网络模型初始化、dropout等的问题导致网络不够稳定
     #解决这个问题的办法就是多重复计算几次，选择其中靠谱的模型
     best_acc = 0.0
@@ -855,7 +855,8 @@ def train_nn_model_validate2(nodes, X_train_scaled, Y_train, max_evals=10):
         init_module(clf.module, nodes["weight_mode"], nodes["bias"])
         
         #这边的折数由5折修改为10折吧，这样子的话应该更加能够表示出稳定性吧
-        skf = StratifiedKFold(Y_train, n_folds=10, shuffle=True, random_state=None)
+        #但是修改为10折的话计算量确实过大了，我觉得修改为5折就是挺好的选择
+        skf = StratifiedKFold(Y_train, n_folds=5, shuffle=True, random_state=None)
         metric = cross_val_score(clf, X_train_scaled.astype(np.float32), Y_train.astype(np.longlong), cv=skf, scoring="accuracy").mean()
         print_nnclf_acc(metric)
         
@@ -1638,7 +1639,7 @@ def tpot_stacking_predict(best_nodes, data_test, stacked_train, Y_train, stacked
 space = {"title":hp.choice("title", ["stacked_titanic"]),
          "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
-         "std":hp.choice("std", [0.10]),
+         "std":hp.choice("std", [0.05]),
          "max_epochs":hp.choice("max_epochs",[400]),
          "patience":hp.choice("patience", [4,5,6,7,8,9,10]),
          "lr":hp.choice("lr", [0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.00006, 0.00007, 0.00008, 0.00009, 0.00010,
@@ -1660,7 +1661,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          "optimizer__weight_decay":hp.choice("optimizer__weight_decay",[0.000, 0.00000001, 0.000001, 0.0001, 0.01]),  
          "criterion":hp.choice("criterion", [torch.nn.NLLLoss, torch.nn.CrossEntropyLoss]),
 
-         "batch_size":hp.choice("batch_size", [64, 128, 256, 512, 1024]),
+         "batch_size":hp.choice("batch_size", [64, 128, 256, 512, 1024, 2048, 4096]),
          "optimizer__betas":hp.choice("optimizer__betas",
                                       [[0.88, 0.9991], [0.88, 0.9993], [0.88, 0.9995], [0.88, 0.9997], [0.88, 0.9999],
                                        [0.90, 0.9991], [0.90, 0.9993], [0.90, 0.9995], [0.90, 0.9997], [0.90, 0.9999],
@@ -1681,7 +1682,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
 space_nodes = {"title":["stacked_titanic"],
                "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
-               "std":[0.10],
+               "std":[0.05],
                "max_epochs":[400],
                "patience":[4,5,6,7,8,9,10],
                "lr":[0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.00006, 0.00007, 0.00008, 0.00009, 0.00010,
@@ -1700,9 +1701,9 @@ space_nodes = {"title":["stacked_titanic"],
                      0.00131, 0.00132, 0.00133, 0.00134, 0.00135, 0.00136, 0.00137, 0.00138, 0.00139, 0.00140,
                      0.00141, 0.00142, 0.00143, 0.00144, 0.00145, 0.00146, 0.00147, 0.00148, 0.00149, 0.00150,
                      0.00151, 0.00152, 0.00153, 0.00154, 0.00155, 0.00156, 0.00157, 0.00158, 0.00159, 0.00160],
-               "optimizer__weight_decay":[0.000],
+               "optimizer__weight_decay":[0.000, 0.00000001, 0.000001, 0.0001, 0.01],
                "criterion":[torch.nn.NLLLoss, torch.nn.CrossEntropyLoss],
-               "batch_size":[64, 128, 256, 512, 1024],
+               "batch_size":[64, 128, 256, 512, 1024, 2048, 4096],
                "optimizer__betas":[[0.88, 0.9991], [0.88, 0.9993], [0.88, 0.9995], [0.88, 0.9997], [0.88, 0.9999],
                                    [0.90, 0.9991], [0.90, 0.9993], [0.90, 0.9995], [0.90, 0.9997], [0.90, 0.9999],
                                    [0.92, 0.9991], [0.92, 0.9993], [0.92, 0.9995], [0.92, 0.9997], [0.92, 0.9999]],
@@ -1724,7 +1725,7 @@ space_nodes = {"title":["stacked_titanic"],
 best_nodes = {"title":"stacked_titanic",
               "path":"C:/Users/1/Desktop/Titanic_Prediction.csv",
               "mean":0,
-              "std":0.1,
+              "std":0.05,
               "max_epochs":400,
               "patience":5,
               "lr":0.00010,
@@ -1743,6 +1744,9 @@ best_nodes = {"title":"stacked_titanic",
               "optimizer":torch.optim.Adam
               }
 
+"""
+#这点参数居然运行了一个小时这也太炫酷了吧。。
+#神经网路的stacking消耗时间还需要进一步进行优化咯。。
 start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
@@ -1759,6 +1763,66 @@ for item in nodes_list:
     item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
 #stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 2, 2)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+"""
+#神经网路的stacking消耗时间还需要进一步进行优化咯。。
+#我觉得比较靠谱的优化方式就是使用stacked_features_validate1吧，不然计算资源的开销实在太恐怖了
+#我仔细想了一下我觉得stacked_features_validate2应该会更稳定一些的，想办法减少了_validate2的计算量
+#如果这个实验的效果还不好的话，我觉得可能要尝试的优化方式是：
+#我本来想优化nn_f中的过程因为神经网络的初始化对于模型最后的训练效果影响很大
+#而且神经网络是随机初始化而且涉及到了dropout似乎没有办法非常准确的判断超参的影响
+#所以超参搜索还是需要进行的只是定位为大致的选择出一个比较合理的结构。
+#其实nn_f还是可以略微进行优化的，就是一次性创建多个同结构的网络，并对每一个网络交叉验证计算平均值。
+#这样的做法增加了计算量，但是对于模型超参的选择应该是更加客观一些的吧。
+#我觉得最简单的做法就是扩充数据集，生成已有向量的变形向量了吧，这次如果不行那么再扩充十倍简单有效的办法。。
+#在家里面的gpu上面计算了一天居然连700次的超参搜索都没做完，我觉得超参搜索的定位就是找到一个大致合适的结构
+#次数方面我觉得以后还可再减少，而且不用在对nn_f进行各种更加复杂的方式对结构进行评估了吧。
+#然后为了缓解计算时间过长的问题还可以可以启用stacked_features_validate1关键是第二个超参的设置可能30到50吧
+start_time = datetime.datetime.now()
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_params = fmin(nn_f, space, algo=algo, max_evals=700, trials=trials)
+
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+nodes_list = [best_nodes, best_nodes, best_nodes]
+for item in nodes_list:
+    item["device"] = "cpu"
+    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
+#tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+#然后为了缓解计算时间过长的问题还可以可以启用stacked_features_validate1关键是第二个超参的设置可能30到50吧
+#这个实验的目的就是一个快速能够计算完的版本，相当于是说快速计算一个demo然后进行提交看一下之前的优化是否有效果。。
+#我勒个去，为什么单位的机器cpu超参搜索这么迅速，我家里面的机器cpu和gpu计算都挺慢的，难道是硬件的差距。
+#卧槽尼玛的1050ti就是智商检验卡我好想上当了耶，只能说我家里电脑的cpu比单位电脑的cpu弱，而且gpu也挺弱的扎心了。。
+#上回应该算不上上当只是预算就那么多只能够买这种机器咯，gpu计算还是有好处的电脑可以执行其他任务完全不卡
+#我个人觉得家里面的cpu总体而言还是比单位的cpu计算性能更高的，就是家里面的有时候有点卡可能需要重启一下机器吧。
+#我一直在纠结是否需要重新购买一张显卡，这样吧如果家里面的cpu性能评分高于单位里面的cpu那就不买，否则可以花2000多买二手
+start_time = datetime.datetime.now()
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_params = fmin(nn_f, space, algo=algo, max_evals=200, trials=trials)
+
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+for item in nodes_list:
+    item["device"] = "cpu"
+    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+#stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
+#这个的第二个参数设置为50到底会不会导致过拟合呀，我还是设置为28吧这样应该更稳定一些的吧。
+stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 28)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
 end_time = datetime.datetime.now()
