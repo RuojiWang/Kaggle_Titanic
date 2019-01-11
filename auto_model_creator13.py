@@ -1802,6 +1802,7 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
+"""
 #然后为了缓解计算时间过长的问题还可以可以启用stacked_features_validate1关键是第二个超参的设置可能30到50吧
 #这个实验的目的就是一个快速能够计算完的版本，相当于是说快速计算一个demo然后进行提交看一下之前的优化是否有效果。。
 #我勒个去，为什么单位的机器cpu超参搜索这么迅速，我家里面的机器cpu和gpu计算都挺慢的，难道是硬件的差距。
@@ -1811,11 +1812,54 @@ print("time cost", (end_time - start_time))
 #我一直在纠结是否需要重新购买一张显卡，这样吧如果家里面的cpu性能评分高于单位里面的cpu那就不买，否则可以花2000多买二手
 #其实说真的我还是有点纠结这个gpu的购买问题，因为一般而言可买可不买的直接不用买就好了，但是我还是想提升训练速度= =！
 #我一开始觉得买二手gpu是没有必要的，但是现在开始觉得以后做图像方面的没有gpu简直没有办法做，一个是显存的问题另一个是计算速度的问题。
-#所以最后纠结了半天以后还是决定购买了1080ti的二手显卡和600瓦的电源，还好总共预算4000左右我觉得还是能够接受啦，比较期待~~
+#所以最后纠结了半天以后还是决定购买了1080ti的二手显卡和600瓦的电源，还好总共预算4500左右我觉得还是能够接受啦，比较期待~~
 start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 best_params = fmin(nn_f, space, algo=algo, max_evals=200, trials=trials)
+
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+for item in nodes_list:
+    item["device"] = "cpu"
+    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+#stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
+#这个的第二个参数设置为50到底会不会导致过拟合呀，我还是设置为28吧这样应该更稳定一些的吧。
+stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 28)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+"""
+#这两个版本选出的模型结构好像差不太多的样子咯
+#{'title': 'stacked_titanic', 'path': 'C:/Users/1/Desktop/Titanic_Prediction.csv', 'mean': 0, 
+#'std': 0.05, 'batch_size': 256, 'criterion': <class 'torch.nn.modules.loss.NLLLoss'>, 
+#'max_epochs': 400, 'lr': 0.00026, 'optimizer__betas': [0.92, 0.9997], 'optimizer__weight_decay': 0.0001, 
+#'weight_mode': 1, 'bias': 0, 'patience': 8, 'device': 'cpu', 'optimizer': <class 'torch.optim.adam.Adam'>, 
+#'input_nodes': 20, 'hidden_layers': 2, 'hidden_nodes': 115, 'output_nodes': 2, 'percentage': 0.1}
+#{'title': 'stacked_titanic', 'path': 'C:/Users/win7/Desktop/Titanic_Prediction.csv', 'mean': 0, 
+#'std': 0.05, 'batch_size': 128, 'criterion': <class 'torch.nn.modules.loss.NLLLoss'>, 
+#'max_epochs': 400, 'lr': 0.00145, 'optimizer__betas': [0.88, 0.9999], 'optimizer__weight_decay': 0.0001, 
+#'weight_mode': 1, 'bias': 0, 'patience': 9, 'device': 'cuda', 'optimizer': <class 'torch.optim.adam.Adam'>,
+#'input_nodes': 20, 'hidden_layers': 5, 'hidden_nodes': 110, 'output_nodes': 2, 'percentage': 0.05}
+files1 = open("titanic_intermediate_parameters_2019-1-9164554.pickle", "rb")
+trials1, space_nodes1, best_nodes1 = pickle.load(files1)
+files1.close()
+files2 = open("titanic_intermediate_parameters_2019-1-9233341.pickle", "rb")
+trials2, space_nodes2, best_nodes2 = pickle.load(files2)
+files2.close()
+print(best_nodes1)
+print(best_nodes2)
+"""
+#mmp我上一段程序执行过程中自己退出了，感觉鲁大师有巨大的作案嫌疑，现在只有重新做一次咯
+#真的没想到这个版本的实验代码都运行了这么久的嘛，看来真的gpu是必须使用的。这个版本的感觉可能会计算整个周末了吧
+start_time = datetime.datetime.now()
+files = open("titanic_intermediate_parameters_2019-1-9164554.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
 
 best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
