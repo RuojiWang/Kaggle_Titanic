@@ -1783,6 +1783,7 @@ print("time cost", (end_time - start_time))
 #在家里面的gpu上面计算了一天居然连700次的超参搜索都没做完，我觉得超参搜索的定位就是找到一个大致合适的结构
 #次数方面我觉得以后还可再减少，而且不用在对nn_f进行各种更加复杂的方式对结构进行评估了吧。
 #然后为了缓解计算时间过长的问题还可以可以启用stacked_features_validate1关键是第二个超参的设置可能30到50吧
+#我的天这个版本的正确率居然只有0.75598的正确率。。问题到底出在哪里呢难道是因为删除了离群点吗。。重采样应该也有问题吧
 start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
@@ -1854,6 +1855,7 @@ files2.close()
 print(best_nodes1)
 print(best_nodes2)
 """
+
 #mmp我上一段程序执行过程中自己退出了，感觉鲁大师有巨大的作案嫌疑，现在只有重新做一次咯
 #真的没想到这个版本的实验代码都运行了这么久的嘛，看来真的gpu是必须使用的。这个版本的感觉可能会计算整个周末了吧
 start_time = datetime.datetime.now()
