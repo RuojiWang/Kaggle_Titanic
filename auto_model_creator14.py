@@ -311,6 +311,7 @@ X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
 
 """
+#下面的代码就是重采样了之后加上噪音，然后将特征缩放到（0,1）之间。重采样直接复制所有数据加上噪声。
 #然后接下来就是准备随机生成向量了吧，咳咳，准确的说是重采样之后进行噪声添加
 #我花了很多的时间查找随机向量生成的问题，主要我很担心自己添加高斯噪声导致的效果不好
 #我之所以这么担心是因为上次的stack_features_noise_validate3的实验效果很差
@@ -340,6 +341,9 @@ X_oversample_train = X_oversample_train + gauss_noise_df
 X_train_scaled = pd.concat([X_train_scaled, X_oversample_train], axis=0)
 Y_train = pd.concat([Y_train, Y_oversample_train], axis=0) 
 """
+
+"""
+#下面的代码就是重采样了之后加上噪音，然后将特征缩放到（0,1）之间。重采样直接复制所有数据加上噪声。
 #下面的代码的功能或者说作用同上面的代码，我觉得上面和下面的实现方式应该差不多的
 #但是我想换一种方式实现因为想到直接将上述数据复制多份应该会更加稳定的吧
 X_Y_train_scaled = pd.concat([X_train_scaled, Y_train], axis=1)
@@ -363,13 +367,17 @@ X_train_scaled = pd.concat([X_train_scaled, X_oversample_train], axis=0)
 Y_train = pd.concat([Y_train, Y_oversample_train], axis=0) 
 #本来这里是删除异常点的但是我觉得异常点删除好像影响到了我leaderboard上面的成绩
 #我现在打算的是放弃删除异常点的部分其余内容全部保留，然后在新的gpu上面运行看效果
+"""
 
+"""
+#上面的两种重采样的方式都是将数据映射到（0,1）之间，或许这就是为什么两种效果都不好？
+#注释掉这三块代码的目的就在于验证验证是不是因为特征缩放的缘故导致的网络效果不好？？？
 #那么现在原来的数据特征已经被修改了，需要重新进行特征缩放会比较好的吧
 X_all = pd.concat([X_train_scaled, X_test_scaled], axis=0)
 X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = X_all.columns)
 X_train_scaled = X_all_scaled[:len(X_train_scaled)]
 X_test_scaled = X_all_scaled[len(X_train_scaled):]
-
+"""
 
 #这个主要是为了测试特征缩放之后的结果是正常的
 #下面特征缩放之后的结果看起来很壮观的样子23333。
@@ -1750,119 +1758,25 @@ best_nodes = {"title":"stacked_titanic",
               }
 
 """
-#这点参数居然运行了一个小时这也太炫酷了吧。。
-#神经网路的stacking消耗时间还需要进一步进行优化咯。。
+#世界实在是太残忍了吧，我的这个实验居然没有任何的突破这也太惨了吧
+#今天晚上的时间感觉也比较有限，那么我就计算一个单模型吧。
+#我觉得差不多做到这个程度就可以了吧，没时间给我浪费了，开始下个实验吧。
+#我觉得以后可以先试一下单模型，如果单模型还OK的情况在使用stacking可以节约时间滴
+#说真的使用cpu对同样的模型超参计算效果确实是时快时慢很奇怪啊，但是还是比cuda少用40%时间吧
+#以后最多计算一个小时就要看到结果，这就是我换gpu的初衷吧，而且多考察改进在单模型上面的效果以节约时间
+#这个版本才只有75%左右的leaderboard上面的结果，我现在不确定是不是因为加入了噪声的缘故还是特征缩放的问题？
 start_time = datetime.datetime.now()
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=5, trials=trials)
+files = open("titanic_intermediate_parameters_2019-1-9233341.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
 
-best_nodes = parse_nodes(trials, space_nodes)
-save_inter_params(trials, space_nodes, best_nodes, "titanic")
-
-#nodes_list = parse_trials(trials, space_nodes, 3)
-#nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-nodes_list = [best_nodes, best_nodes]
-for item in nodes_list:
-    item["device"] = "cpu"
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-#stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
-stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 2, 2)
-save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
-lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
+best_nodes["device"] = "cuda"
+nn_predict(best_nodes, X_train_scaled.values, Y_train.values, X_test_scaled.values, 5, 100)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
-"""
-#神经网路的stacking消耗时间还需要进一步进行优化咯。。
-#我觉得比较靠谱的优化方式就是使用stacked_features_validate1吧，不然计算资源的开销实在太恐怖了
-#我仔细想了一下我觉得stacked_features_validate2应该会更稳定一些的，想办法减少了_validate2的计算量
-#如果这个实验的效果还不好的话，我觉得可能要尝试的优化方式是：
-#我本来想优化nn_f中的过程因为神经网络的初始化对于模型最后的训练效果影响很大
-#而且神经网络是随机初始化而且涉及到了dropout似乎没有办法非常准确的判断超参的影响
-#所以超参搜索还是需要进行的只是定位为大致的选择出一个比较合理的结构。
-#其实nn_f还是可以略微进行优化的，就是一次性创建多个同结构的网络，并对每一个网络交叉验证计算平均值。
-#这样的做法增加了计算量，但是对于模型超参的选择应该是更加客观一些的吧。
-#我觉得最简单的做法就是扩充数据集，生成已有向量的变形向量了吧，这次如果不行那么再扩充十倍简单有效的办法。。
-#在家里面的gpu上面计算了一天居然连700次的超参搜索都没做完，我觉得超参搜索的定位就是找到一个大致合适的结构
-#次数方面我觉得以后还可再减少，而且不用在对nn_f进行各种更加复杂的方式对结构进行评估了吧。
-#然后为了缓解计算时间过长的问题还可以可以启用stacked_features_validate1关键是第二个超参的设置可能30到50吧
-#我的天这个版本的正确率居然只有0.75598的正确率。。问题到底出在哪里呢难道是因为删除了离群点吗。。重采样应该也有问题吧
-start_time = datetime.datetime.now()
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=700, trials=trials)
-
-best_nodes = parse_nodes(trials, space_nodes)
-save_inter_params(trials, space_nodes, best_nodes, "titanic")
-nodes_list = [best_nodes, best_nodes, best_nodes]
-for item in nodes_list:
-    item["device"] = "cpu"
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
-#tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
-save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
-lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-"""
-#然后为了缓解计算时间过长的问题还可以可以启用stacked_features_validate1关键是第二个超参的设置可能30到50吧
-#这个实验的目的就是一个快速能够计算完的版本，相当于是说快速计算一个demo然后进行提交看一下之前的优化是否有效果。。
-#我勒个去，为什么单位的机器cpu超参搜索这么迅速，我家里面的机器cpu和gpu计算都挺慢的，难道是硬件的差距。
-#卧槽尼玛的1050ti就是智商检验卡我好想上当了耶，只能说我家里电脑的cpu比单位电脑的cpu弱，而且gpu也挺弱的扎心了。。
-#上回应该算不上上当只是预算就那么多只能够买这种机器咯，gpu计算还是有好处的电脑可以执行其他任务完全不卡
-#我个人觉得家里面的cpu总体而言还是比单位的cpu计算性能更高的，就是家里面的有时候有点卡可能需要重启一下机器吧。
-#我一直在纠结是否需要重新购买一张显卡，这样吧如果家里面的cpu性能评分高于单位里面的cpu那就不买，否则可以花2000多买二手
-#其实说真的我还是有点纠结这个gpu的购买问题，因为一般而言可买可不买的直接不用买就好了，但是我还是想提升训练速度= =！
-#我一开始觉得买二手gpu是没有必要的，但是现在开始觉得以后做图像方面的没有gpu简直没有办法做，一个是显存的问题另一个是计算速度的问题。
-#所以最后纠结了半天以后还是决定购买了1080ti的二手显卡和600瓦的电源，还好总共预算4500左右我觉得还是能够接受啦，比较期待~~
-start_time = datetime.datetime.now()
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=200, trials=trials)
-
-best_nodes = parse_nodes(trials, space_nodes)
-save_inter_params(trials, space_nodes, best_nodes, "titanic")
-nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-for item in nodes_list:
-    item["device"] = "cpu"
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-#stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
-#这个的第二个参数设置为50到底会不会导致过拟合呀，我还是设置为28吧这样应该更稳定一些的吧。
-stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 28)
-save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
-lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-"""
-#这两个版本选出的模型结构好像差不太多的样子咯
-#{'title': 'stacked_titanic', 'path': 'C:/Users/win7/Desktop/Titanic_Prediction.csv', 'mean': 0, 
-#'std': 0.05, 'batch_size': 256, 'criterion': <class 'torch.nn.modules.loss.NLLLoss'>, 
-#'max_epochs': 400, 'lr': 0.00026, 'optimizer__betas': [0.92, 0.9997], 'optimizer__weight_decay': 0.0001, 
-#'weight_mode': 1, 'bias': 0, 'patience': 8, 'device': 'cpu', 'optimizer': <class 'torch.optim.adam.Adam'>, 
-#'input_nodes': 20, 'hidden_layers': 2, 'hidden_nodes': 115, 'output_nodes': 2, 'percentage': 0.1}
-#{'title': 'stacked_titanic', 'path': 'C:/Users/win7/Desktop/Titanic_Prediction.csv', 'mean': 0, 
-#'std': 0.05, 'batch_size': 128, 'criterion': <class 'torch.nn.modules.loss.NLLLoss'>, 
-#'max_epochs': 400, 'lr': 0.00145, 'optimizer__betas': [0.88, 0.9999], 'optimizer__weight_decay': 0.0001, 
-#'weight_mode': 1, 'bias': 0, 'patience': 9, 'device': 'cuda', 'optimizer': <class 'torch.optim.adam.Adam'>,
-#'input_nodes': 20, 'hidden_layers': 5, 'hidden_nodes': 110, 'output_nodes': 2, 'percentage': 0.05}
-files1 = open("titanic_intermediate_parameters_2019-1-9164554.pickle", "rb")
-trials1, space_nodes1, best_nodes1 = pickle.load(files1)
-files1.close()
-files2 = open("titanic_intermediate_parameters_2019-1-9233341.pickle", "rb")
-trials2, space_nodes2, best_nodes2 = pickle.load(files2)
-files2.close()
-print(best_nodes1)
-print(best_nodes2)
-"""
-
-#mmp我上一段程序执行过程中自己退出了，感觉鲁大师有巨大的作案嫌疑，现在只有重新做一次咯
-#真的没想到这个版本的实验代码都运行了这么久的嘛，看来真的gpu是必须使用的。这个版本的感觉可能会计算整个周末了吧
+#这个版本的实验室去掉了重采样+噪声的部分，目的是测试relu的特征缩放应该到（-1,1）还是（0,1）
 start_time = datetime.datetime.now()
 files = open("titanic_intermediate_parameters_2019-1-9164554.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
@@ -1870,13 +1784,12 @@ files.close()
 
 best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
-nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+nodes_list = [best_nodes, best_nodes, best_nodes]
 for item in nodes_list:
-    item["device"] = "cpu"
+    item["device"] = "cuda"
     item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-#stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
-#这个的第二个参数设置为50到底会不会导致过拟合呀，我还是设置为28吧这样应该更稳定一些的吧。
-stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 50, 28)
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
+#tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
 end_time = datetime.datetime.now()
