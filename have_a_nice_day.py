@@ -43,6 +43,7 @@ from sklearn.preprocessing import StandardScaler, OneHotEncoder, MinMaxScaler
 import torch.nn.init
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression 
@@ -885,6 +886,50 @@ def train_nn_model_validate2(nodes, X_train_scaled, Y_train, max_evals=10):
     best_model.fit(X_train_scaled.astype(np.float32), Y_train.astype(np.longlong))
     return best_model, best_acc
 
+#这里面采用cross_val_score的方式应该更能够体现出泛化的性能吧。
+#这样的交叉验证才是最高效率的利用数据的方式吧。
+def train_nn_model_validate2_cuda(nodes, X_train_scaled, Y_train, max_evals=10):
+    
+    #解决这个问题主要还是要靠cross_val_score这样才能够显示泛化性能吧。
+    best_acc = 0.0
+    best_model = 0.0
+    for j in range(0, max_evals):
+        
+        clf = NeuralNetClassifier(lr = nodes["lr"],
+                                  optimizer__weight_decay = nodes["optimizer__weight_decay"],
+                                  criterion = nodes["criterion"],
+                                  batch_size = nodes["batch_size"],
+                                  optimizer__betas = nodes["optimizer__betas"],
+                                  module = create_nn_module(nodes["input_nodes"], nodes["hidden_layers"], 
+                                                         nodes["hidden_nodes"], nodes["output_nodes"], nodes["percentage"]),
+                                  max_epochs = nodes["max_epochs"],
+                                  callbacks=[skorch.callbacks.EarlyStopping(patience=nodes["patience"])],
+                                  device = nodes["device"],
+                                  optimizer = nodes["optimizer"]
+                                  )
+        init_module(clf.module, nodes["weight_mode"], nodes["bias"])
+        
+        X_train_scaled1 = Variable(torch.Tensor(X_train_scaled.astype(np.float32)), requires_grad=True).cuda()
+        Y_train1 = Variable(torch.Tensor(Y_train.astype(np.longlong)), requires_grad=False).unsqueeze_(-1).cuda()
+        
+        #下面的这行出现了这个错误IndexError: too many indices for array
+        #这个错误其实和我上次增加噪声时候遇到的错误其实是一样的就是shape发生改变了
+        #调用Y_train1.shape和X_train_scaled1.shape和Y_train.shape和X_train_scaled.shape可以知道有什么不同
+        #下面的这几行代码就是为了解决上面反馈的错误滴，还有一个问题只能对Y进行reshape不能对X进行否则报错
+        #c,r = X_train_scaled1.shape
+        #X_train_scaled1 = X_train_scaled1.reshape(c,)
+        c,r = Y_train1.shape
+        Y_train1 = Y_train1.reshape(c,)
+        skf = StratifiedKFold(Y_train1, n_folds=5, shuffle=True, random_state=None)
+        #metric = cross_val_score(clf, X_train_scaled.astype(np.float32), Y_train.astype(np.longlong), cv=skf, scoring="accuracy").mean()
+        metric = cross_val_score(clf, X_train_scaled1, Y_train1, cv=skf, scoring="accuracy").mean()
+        print_nnclf_acc(metric)
+        
+        best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
+    
+    best_model.fit(X_train_scaled, Y_train)
+    return best_model, best_acc
+
 def train_nn_model_noise_validate1(nodes, X_train_scaled, Y_train, max_evals=10):
     
     #我觉得0.12的设置有点多了，还有很多数据没用到呢，感觉这样子设置应该会好一些的吧？
@@ -941,60 +986,7 @@ def train_nn_model_noise_validate2(nodes, X_train_scaled, Y_train, max_evals=10)
                                   )
         init_module(clf.module, nodes["weight_mode"], nodes["bias"])
         
-        #这里需要实现噪声的增加以防止模型过拟合
-        #下面的两行代码的写法会导致竖着写，应该需要按照没有被注释掉的方式写。
-        #下面是来行的输出显示两种写法好像是等价的，我的天浪费了这么多时间研究这个。。最后居然是一样的
-        #我刚才实验了一下，nn_f中也涉及到了dataframe和ndarray之间的转换，但是没有出现shape的改变
-        #所以..这是什么鬼？？现在的问题就是找出这样转换之后到底多了什么东西呢？？？可能只有用存入文件的办法验证了吧
-        #X_split_train_df = pd.DataFrame(data=X_split_train, columns=[i for i in range(0, len(X_split_train[0]))])
-        #Y_split_train_df = pd.DataFrame(data=Y_split_train, columns=[0])
-        #X_split_train_df = pd.DataFrame(data=X_split_train)
-        #Y_split_train_df = pd.DataFrame(data=Y_split_train)
-        #X_split_train_df = pd.DataFrame(X_split_train)
-        #Y_split_train_df = pd.DataFrame(Y_split_train)
-        #X_noise_train, Y_noise_train = noise_augment_dataframe_data(nodes["mean"], nodes["std"], X_split_train_df, Y_split_train_df, columns=[i for i in range(0, 0)])
-        
-        #X_temp = X_noise_train.values
-        #Y_temp = Y_noise_train.values
-        #Y_list = [x for j in Y_temp for x in j]
-        #Y_temp = np.ndarray(Y_list)
-        
-        #X_temp = X_split_train_df.values
-        #Y_temp = Y_split_train_df.values
-        #.reshape(1, -1)是变为一列，.reshape(-1, 1)是变为一行
-        #Y_temp_reshape = Y_temp.reshape(1, -1)
-        ##通过print对象的shape可以发现，X_split_train_df = pd.DataFrame(data=X_split_train)
-        ##和X_split_train_df = pd.DataFrame(X_split_train)达到的效果好像真的是一样的吧？
-        ##问题的关键在于为什么X_temp = X_split_train_df.values出现了shape不一致的情况？？ 
-        ##但是输出到文件里面的时候明明是一样的呀，那么shape多出来的部分到底是什么东西？？
-        ##哎，出现这个问题根本是因为我没搞懂shape的用法，Y_split_train.shape是(574,)
-        ##但是Y_split_train_df.shape和Y_temp_reshape.shape是(574, 1)
-        ##可以在控制台输出可以看到，前者是包含574个元素一个列表，后者是574个包含一个元素的列表。
-        #print(X_split_train.shape)
-        #print(Y_split_train.shape)
-        #print(X_split_train_df.shape)
-        #print(Y_split_train_df.shape) 
-        #print(X_temp.shape)
-        #print(Y_temp.shape)
-        #print(Y_temp_reshape.shape)
-        #output = pd.DataFrame(data = X_split_train)
-        #output.to_csv("C:/Users/win7/Desktop/X_split_train_shape.csv", index=False)
-        #output = pd.DataFrame(data = X_split_train_df)            
-        #output.to_csv("C:/Users/win7/Desktop/X_split_train_df_shape.csv", index=False)
-        #output = pd.DataFrame(data = X_temp)            
-        #output.to_csv("C:/Users/win7/Desktop/X_temp_shape.csv", index=False)
-        #output = pd.DataFrame(data = Y_split_train)
-        #output.to_csv("C:/Users/win7/Desktop/Y_split_train_shape.csv", index=False)
-        #output = pd.DataFrame(data = Y_split_train_df)
-        #output.to_csv("C:/Users/win7/Desktop/Y_split_train_df_shape.csv", index=False)
-        #output = pd.DataFrame(data = Y_temp)
-        #output.to_csv("C:/Users/win7/Desktop/Y_temp_shape.csv", index=False)
-        #output = pd.DataFrame(data = Y_temp_reshape)
-        #output.to_csv("C:/Users/win7/Desktop/Y_temp_reshape.csv", index=False)
 
-        #clf.fit(X_temp.astype(np.float32), Y_temp_reshape.astype(np.longlong))
-        #clf.fit(X_split_train.astype(np.float32), Y_split_train.astype(np.longlong))        
-        #clf.fit(X_noise_train.values.astype(np.float32), Y_noise_train.values.astype(np.longlong))
         
         #最后花了这么多时间发现下面的写法完全不行，所以还是用更简单的办法吧
         X_noise_train, Y_noise_train = noise_augment_ndarray_data(nodes["mean"], nodes["std"], X_split_train, Y_split_train, columns=[i for i in range(1, 19)])
@@ -1165,7 +1157,7 @@ def get_oof_validate2(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5
         X_split_train, Y_split_train = X_train_scaled[train_index], Y_train[train_index]
         X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
         
-        best_model, best_acc = train_nn_model_validate2(nodes, X_split_train, Y_split_train, max_evals)
+        best_model, best_acc = train_nn_model_validate2_cuda(nodes, X_split_train, Y_split_train, max_evals)
         
         #这里输出的是最佳模型的训练集和验证集上面的结果咯
         #很容易和上面的训练过程的最后一个输出重叠
@@ -1812,11 +1804,11 @@ files.close()
 
 best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
-nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes]
+nodes_list = [best_nodes, best_nodes, best_nodes]
 for item in nodes_list:
-    item["device"] = "cpu"
+    item["device"] = "cuda"
     item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 150)
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
 #tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
