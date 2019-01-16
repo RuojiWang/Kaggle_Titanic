@@ -1805,6 +1805,7 @@ print("time cost", (end_time - start_time))
 #我怀疑生成重采样之后加上噪声的做法是正确的，但是不应该进行第二次特征缩放，接下来按照这个思路试一下吧。
 #我现在按照第二种方式进行重采样而且没有进行第二次特征缩放，在cpu上面的速度居然执行的这么快的么？
 #数据量乘以十倍但是对于模型的训练时间似乎没有影响？所以模型训练的性能瓶颈其实不在cpu上面的吧？
+#怎么可能对于模型的训练时间没有影响，只是单个epoch的时间差不多而已，总时间其实还是增加很多的
 start_time = datetime.datetime.now()
 files = open("titanic_intermediate_parameters_2019-1-9164554.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
