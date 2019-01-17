@@ -1,4 +1,5 @@
 #coding=utf-8
+#这个版本和上个版本相比主要的提升在于使用了gpu进行了加速，也不枉费我花了钱去购买gpu了吧,也就是说在gpu的加持之下进行下面的实验咯。正确使用了gpu但是完全没有减少执行时间
 #这个版本的目的在于从以下四方面提升性能：从数据上提升性能、从算法上提升性能、从算法调优上提升性能、从模型融合上提升性能（性能提升的力度按上表的顺序从上到下依次递减。）
 #具体内容可参加https://www.baidu.com/link?url=zdq_sTzndnIZrJL71ZFaLlHnfSblGnNXPzeilgVTaKG2RJEHTWHZHTzVkkipM0El&wd=&eqid=aa03b37b0004b870000000025c2f02e6
 #更具体一点地说：可能以后就是增加正则化项吧，能够一定程度的减小网络的复杂度类似奥卡姆剃刀原则。自己随机生成大量的数据吧。将数据缩放到激活函数的阈值内
@@ -87,8 +88,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -296,7 +297,7 @@ X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
 
 #这个主要是为了测试写出来的文件是正确的。
 #output = pd.DataFrame(data = X_all)            
-#output.to_csv("C:/Users/1/Desktop/dict.csv", columns=X_all.columns, index=False) 
+#output.to_csv("C:/Users/win7/Desktop/dict.csv", columns=X_all.columns, index=False) 
 
 #我觉得训练集和测试集需要在一起进行特征缩放，所以注释掉了原来的X_train的特征缩放咯
 #用了五个月之后我发现我的特征缩放好像做错了？？所以试一下下面的特征缩放吧。。不过变量名好像可以不用修改吧
@@ -385,7 +386,7 @@ X_test_scaled = X_all_scaled[len(X_train_scaled):]
 #这个主要是为了测试特征缩放之后的结果是正常的
 #下面特征缩放之后的结果看起来很壮观的样子23333。
 #output = pd.DataFrame(data = X_all_scaled)            
-#output.to_csv("C:/Users/1/Desktop/dict_scaled.csv", columns=X_all.columns, index=False)
+#output.to_csv("C:/Users/win7/Desktop/dict_scaled.csv", columns=X_all.columns, index=False)
 
 def cal_acc(Y_train_pred, Y_train):
 
@@ -933,7 +934,7 @@ def train_nn_model_validate2_cuda(nodes, X_train_scaled, Y_train, max_evals=10):
         """
         
         #现在输入的都是ndarray类型的数据咯，然后返回的是计算之后的平均数值
-        metric = cross_validate_score(clf, X_train_scaled, Y_train, 10, "accuracy", True)
+        metric = cross_validate_score(clf, X_train_scaled, Y_train, 10, "accuracy", False)
         best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
     
     best_model.fit(X_train_scaled, Y_train)
@@ -1332,7 +1333,7 @@ def get_oof_noise_validate4(nodes, X_train_scaled, Y_train, X_test_scaled, n_fol
 
 #这个函数没有必要一定要叫做cross_val_score吧（和sklearn函数重名有误导风险）
 #完全可以跟我之前自己写的函数命名风格一样呀那就叫做cross_validate_score吧
-def cross_validate_score(clf, X_train_scaled, Y_train, folds=10, scoring="accuracy", cuda):
+def cross_validate_score(clf, X_train_scaled, Y_train, folds=10, scoring="accuracy", cuda=False):
     
     #不使用cuda的时候呢
     if (cuda==False):
@@ -1351,10 +1352,10 @@ def cross_validate_score(clf, X_train_scaled, Y_train, folds=10, scoring="accura
             Y_split_valida = Y_train[valida_index]
 
             #将dataframe或者ndarray数据转化为tensor并存到显存当中去
-            X_split_train = Variable(torch.Tensor(X_split_train), requires_grad=True).cuda()
-            Y_split_train = Variable(torch.Tensor(Y_split_train), requires_grad=False).unsqueeze_(-1).cuda()
-            X_split_valida = Variable(torch.Tensor(X_split_valida), requires_grad=False).cuda()
-            Y_split_valida = Variable(torch.Tensor(Y_split_valida), requires_grad=False).unsqueeze_(-1).cuda()
+            X_split_train = Variable(torch.Tensor(X_split_train), requires_grad=True).float().cuda()
+            Y_split_train = Variable(torch.Tensor(Y_split_train), requires_grad=False).unsqueeze_(-1).long().cuda()
+            X_split_valida = Variable(torch.Tensor(X_split_valida), requires_grad=False).float().cuda()
+            Y_split_valida = Variable(torch.Tensor(Y_split_valida), requires_grad=False).unsqueeze_(-1).long().cuda()
         
             #这边的某个地方可能会用到reshape吧否则
             col,row = Y_split_train.shape
@@ -1368,7 +1369,7 @@ def cross_validate_score(clf, X_train_scaled, Y_train, folds=10, scoring="accura
             #处理，是将其中的参数放到显存上去（因为实际使用的时候也是通过这些参数做运算）。
             #对于模型调用.cuda()其实是把他计算所用到的参数放到gpu上面了而已，我怀疑
             #之前gpu计算效率低下是因为读取数据的缘故，现在改成这样应该是可以的吧。
-            clf_train.fit(X_split_train.astype(np.float32), Y_split_train.astype(np.longlong))
+            clf_train.fit(X_split_train, Y_split_train)
             acc = cal_nnclf_acc(clf_train, X_split_valida, Y_split_valida)
             score.append(acc)
             score = np.mean(score)
@@ -1697,7 +1698,7 @@ def tpot_stacking_predict(best_nodes, data_test, stacked_train, Y_train, stacked
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.05]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -1740,7 +1741,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.05],
                "max_epochs":[400],
@@ -1783,7 +1784,7 @@ space_nodes = {"title":["stacked_titanic"],
 #其实本身不需要best_nodes主要是为了快速测试
 #不然每次超参搜索的best_nodes效率太低了吧
 best_nodes = {"title":"stacked_titanic",
-              "path":"C:/Users/1/Desktop/Titanic_Prediction.csv",
+              "path":"C:/Users/win7/Desktop/Titanic_Prediction.csv",
               "mean":0,
               "std":0.05,
               "max_epochs":400,
@@ -1803,51 +1804,8 @@ best_nodes = {"title":"stacked_titanic",
               "device":"cpu",
               "optimizer":torch.optim.Adam
               }
-
 """
-#世界实在是太残忍了吧，我的这个实验居然没有任何的突破这也太惨了吧
-#今天晚上的时间感觉也比较有限，那么我就计算一个单模型吧。
-#我觉得差不多做到这个程度就可以了吧，没时间给我浪费了，开始下个实验吧。
-#我觉得以后可以先试一下单模型，如果单模型还OK的情况在使用stacking可以节约时间滴
-#说真的使用cpu对同样的模型超参计算效果确实是时快时慢很奇怪啊，但是还是比cuda少用40%时间吧
-#以后最多计算一个小时就要看到结果，这就是我换gpu的初衷吧，而且多考察改进在单模型上面的效果以节约时间
-#这个版本才只有75%左右的leaderboard上面的结果，我现在不确定是不是因为加入了噪声的缘故还是特征缩放的问题？
-start_time = datetime.datetime.now()
-files = open("titanic_intermediate_parameters_2019-1-9233341.pickle", "rb")
-trials, space_nodes, best_nodes = pickle.load(files)
-files.close()
-
-best_nodes["device"] = "cuda"
-nn_predict(best_nodes, X_train_scaled.values, Y_train.values, X_test_scaled.values, 5, 100)
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
-"""
-#这个版本的实验室去掉了重采样+噪声的部分，目的是测试relu的特征缩放应该到（-1,1）还是（0,1）
-#如果这个版本的结果还可以的话，那就是重采样的版本过拟合了，我勒个去为什么会过拟合呀？？？i need a team
-#OK，没有增加重采样噪声的版本得到的正确率是78.4%说明特征缩放的范围应该木问题吧。而且超参搜索（对于数据集）也是影响不大。。
-#titanic_intermediate_parameters_2019-1-9233341.pickle和titanic_intermediate_parameters_2019-1-9164554.pickle都是78.4%正确率
-#难道是说重采样加上噪声之后不应该重新进行特征缩放的意思吗？那我按照这个思路试一下呢？？
-start_time = datetime.datetime.now()
-files = open("titanic_intermediate_parameters_2019-1-9164554.pickle", "rb")
-trials, space_nodes, best_nodes = pickle.load(files)
-files.close()
-
-best_nodes = parse_nodes(trials, space_nodes)
-save_inter_params(trials, space_nodes, best_nodes, "titanic")
-nodes_list = [best_nodes, best_nodes, best_nodes]
-for item in nodes_list:
-    item["device"] = "cuda"
-    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
-stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
-#tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
-save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
-lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
-end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
-"""
-
+print(torch.__version__)
 #我怀疑生成重采样之后加上噪声的做法是正确的，但是不应该进行第二次特征缩放，接下来按照这个思路试一下吧。
 #我现在按照第二种方式进行重采样而且没有进行第二次特征缩放，在cpu上面的速度居然执行的这么快的么？
 #数据量乘以十倍但是对于模型的训练时间似乎没有影响？所以模型训练的性能瓶颈其实不在cpu上面的吧？
@@ -1860,11 +1818,127 @@ best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes, best_nodes]
 for item in nodes_list:
-    item["device"] = "cpu"
-    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+    item["device"] = "cuda"
+    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
 #tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+"""
+
+#下面的两个实验已经证明了我写的cuda加速是没有意义的，skorch写的才是正解
+#然后真的只有在面临超大规模的数据的时候gpu才会有优势不然还是cpu比较快的= =！
+#等我的笔记本上面的实验做完差不多就准备完善最后的文档了吧，开始下个任务吧。
+"""
+import torch
+import datetime
+print(torch.__version__)
+
+dtype = torch.double
+#device = torch.device("cpu")
+#device = torch.device("cuda:0")
+device = torch.device("cuda")
+
+# N is batch size; D_in is input dimension;
+# H is hidden dimension; D_out is output dimension.
+N, D_in, H, D_out = 64, 1000, 100, 10
+
+# Create random input and output data
+x = torch.randn(N, D_in, device=device, dtype=dtype)
+y = torch.randn(N, D_out, device=device, dtype=dtype)
+
+# Randomly initialize weights
+w1 = torch.randn(D_in, H, device=device, dtype=dtype)
+w2 = torch.randn(H, D_out, device=device, dtype=dtype)
+
+
+start = datetime.datetime.now()
+learning_rate = 1e-6
+for t in range(5000):
+    # Forward pass: compute predicted y
+    h = x.mm(w1)
+    h_relu = h.clamp(min=0)
+    y_pred = h_relu.mm(w2)
+
+    # Compute and print loss
+    loss = (y_pred - y).pow(2).sum().item()
+    #print(t, loss)
+
+    # Backprop to compute gradients of w1 and w2 with respect to loss
+    grad_y_pred = 2.0 * (y_pred - y)
+    grad_w2 = h_relu.t().mm(grad_y_pred)
+    grad_h_relu = grad_y_pred.mm(w2.t())
+    grad_h = grad_h_relu.clone()
+    grad_h[h < 0] = 0
+    grad_w1 = x.t().mm(grad_h)
+
+    # Update weights using gradient descent
+    w1 -= learning_rate * grad_w1
+    w2 -= learning_rate * grad_w2
+    
+end = datetime.datetime.now()
+
+print(end-start)
+"""
+
+"""
+import torch
+import time
+from torch import nn
+import torch.nn.init
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.autograd import Variable
+
+x = torch.randn(100000, 64)
+
+class CNN(nn.Module):
+    def __init__(self ,NumBins=32):
+        self.InNodes=int(NumBins)*2
+        self.MediumNode=self.InNodes*2
+        super(CNN, self).__init__()
+        self.Lin1 = nn.Linear(self.InNodes , self.MediumNode)
+        self.Lin2 = nn.Linear(self.MediumNode,  self.MediumNode)
+        self.Lin5 = nn.Linear(self.MediumNode, 2)
+    def forward(self, input):
+        Zoutput = self.Lin1(input)
+        Zoutput=F.relu(Zoutput)
+        Zoutput = self.Lin2(Zoutput)
+        Zoutput=F.relu(Zoutput)
+        Zoutput = self.Lin5(Zoutput)
+        return Zoutput
+    
+model = CNN()
+
+cpu_times = []
+
+for epoch in range(100):
+    t0 = time.perf_counter()
+    output = model(x)
+    t1 = time.perf_counter()
+    cpu_times.append(t1 - t0)
+
+device = 'cuda'
+model = model.to(device)
+x = x.to(device)
+torch.cuda.synchronize()
+
+gpu_times = []
+for epoch in range(100):
+    torch.cuda.synchronize()
+    t0 = time.perf_counter()
+    output = model(x)
+    torch.cuda.synchronize()
+    t1 = time.perf_counter()
+    gpu_times.append(t1 - t0)
+
+print('CPU {}, GPU {}'.format(
+    torch.tensor(cpu_times).mean(),
+    torch.tensor(gpu_times).mean()))
+#x = torch.randn(1000, 64)得到的实验结果
+#CPU 0.0010853823041543365, GPU 0.002690044231712818
+#x = torch.randn(100000, 64)得到的实验结果
+#CPU 0.09762294590473175, GPU 0.004943340551108122
+"""

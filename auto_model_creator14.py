@@ -1815,7 +1815,7 @@ best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes]
 for item in nodes_list:
-    item["device"] = "cpu"
+    item["device"] = "cuda"
     item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 150)
 #tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
