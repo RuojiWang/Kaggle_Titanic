@@ -1766,6 +1766,8 @@ best_nodes = {"title":"stacked_titanic",
 #说真的使用cpu对同样的模型超参计算效果确实是时快时慢很奇怪啊，但是还是比cuda少用40%时间吧
 #以后最多计算一个小时就要看到结果，这就是我换gpu的初衷吧，而且多考察改进在单模型上面的效果以节约时间
 #这个版本才只有75%左右的leaderboard上面的结果，我现在不确定是不是因为加入了噪声的缘故还是特征缩放的问题？
+#加上噪声之后不再次进行特征缩放和删除异常点也只能够得到76.5%左右的准确率，所以问题可能出在数据上面吧。。
+#我现在对于这个问题的理解是，过拟合应该还是不存在，主要是90%的数据是不真实的数据（我自己合成的变形向量），所以很差所以结果不好。。
 start_time = datetime.datetime.now()
 files = open("titanic_intermediate_parameters_2019-1-9233341.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
@@ -1802,10 +1804,12 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
+"""
 #我怀疑生成重采样之后加上噪声的做法是正确的，但是不应该进行第二次特征缩放，接下来按照这个思路试一下吧。
 #我现在按照第二种方式进行重采样而且没有进行第二次特征缩放，在cpu上面的速度居然执行的这么快的么？
 #数据量乘以十倍但是对于模型的训练时间似乎没有影响？所以模型训练的性能瓶颈其实不在cpu上面的吧？
 #怎么可能对于模型的训练时间没有影响，只是单个epoch的时间差不多而已，总时间其实还是增加很多的
+#这个150次计算的版本根本没有办法计算完毕的，因为计算时间实在是太长了吧。
 start_time = datetime.datetime.now()
 files = open("titanic_intermediate_parameters_2019-1-9164554.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
@@ -1823,3 +1827,4 @@ save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+"""
