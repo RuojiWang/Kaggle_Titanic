@@ -342,6 +342,7 @@ X_train_scaled = pd.concat([X_train_scaled, X_oversample_train], axis=0)
 Y_train = pd.concat([Y_train, Y_oversample_train], axis=0) 
 """
 
+"""
 #下面的代码就是重采样了之后加上噪音，重采样直接复制所有数据加上噪声。
 #下面的代码的功能或者说作用同上面的代码，我觉得上面和下面的实现方式应该差不多的
 #但是我想换一种方式实现因为想到直接将上述数据复制多份应该会更加稳定的吧
@@ -366,6 +367,7 @@ X_train_scaled = pd.concat([X_train_scaled, X_oversample_train], axis=0)
 Y_train = pd.concat([Y_train, Y_oversample_train], axis=0) 
 #本来这里是删除异常点的但是我觉得异常点删除好像影响到了我leaderboard上面的成绩
 #我现在打算的是放弃删除异常点的部分其余内容全部保留，然后在新的gpu上面运行看效果
+"""
 
 """
 #上面的两种重采样的方式然后将数据映射到（0,1）之间，或许就是因为次特征缩放造成的效果不好？
@@ -379,6 +381,26 @@ X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = X_all
 X_train_scaled = X_all_scaled[:len(X_train_scaled)]
 X_test_scaled = X_all_scaled[len(X_train_scaled):]
 """
+
+#下面的实验只是删除了原数据中的0.05的数据（我默认他们是离群点咯）然后重新特征缩放用于计算
+X_Y_train_scaled = pd.concat([X_train_scaled, Y_train], axis=1)
+n_samples = len(X_Y_train_scaled)  #样本的数目
+outliers_fraction = 0.05  #异常样本比例还是设置为0.05吧符合之前的高斯噪声参数
+n_inliers = int((1. - outliers_fraction) * n_samples)
+n_outliers = int(outliers_fraction * n_samples)
+clf = IsolationForest(max_samples=n_samples,  contamination=outliers_fraction)
+clf.fit(X_Y_train_scaled)
+no_outliers = X_Y_train_scaled[clf.predict(X_Y_train_scaled)==1]
+columns_name = list(X_Y_train_scaled.columns.values)
+Y_train = no_outliers.pop(columns_name[-1]) #将删除的最后一列也就是Survived赋值给Y_oversample_train
+X_train_scaled = no_outliers
+
+#那么现在原来的数据特征已经被修改了，需要重新进行特征缩放会比较好的吧
+X_all = pd.concat([X_train_scaled, X_test_scaled], axis=0)
+X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = X_all.columns)
+X_train_scaled = X_all_scaled[:len(X_train_scaled)]
+X_test_scaled = X_all_scaled[len(X_train_scaled):]
+
 
 #这个主要是为了测试特征缩放之后的结果是正常的
 #下面特征缩放之后的结果看起来很壮观的样子23333。
@@ -1828,3 +1850,24 @@ lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
+
+#这次真的是最后一个实验了吧，不再增加数据集只是删除0.05的数据试一下呢
+#尼玛的删除了这些数据之后效果还没有不删除的好，leadborad上面是0.77990
+#不对呀，这个实验之后我会去查询一下kaggle上面的数据增强的部分，速战速决吧
+start_time = datetime.datetime.now()
+files = open("titanic_intermediate_parameters_2019-1-9164554.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+nodes_list = [best_nodes, best_nodes, best_nodes,  best_nodes, best_nodes]
+for item in nodes_list:
+    item["device"] = "cuda"
+    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 49)
+#tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
