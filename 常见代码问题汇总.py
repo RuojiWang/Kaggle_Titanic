@@ -84,5 +84,6 @@
                 但是之所以没有一直使用conda指令主要缘故在于其指令不太简洁直观，pip指令直接就是pip install 包名，只能够试一下
         conda install 包名，但是大部分时候这个指令是不能够成功执行滴。所以我的解决方案就是：使用pip安装，出问题的时候在conda安装。。
     
-          
+    13.如果pytorch进行训练时第一个epoch非常的慢可能的原因在于pytorch的版本过于老旧
+        conda install pytorch torchvision cuda80 -c soumith 解决方案就是左边这条语句咯。
 """

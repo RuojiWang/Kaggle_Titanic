@@ -5,6 +5,8 @@
 #原来神经网络模型的训练一直就比较慢，以至于有的时候不一定要采用交叉验证的方式来训练，可能直接用部分未训练数据作为验证集。。
 #然后对于模型过拟合或者欠拟合的判断贯穿整个机器学习的过程当中，原来stacking其实是最后一种用于提升模型泛化性能的方式咯。我的面试可以围绕这些开始吧。
 #上一个版本的结果不是很理想耶，所以这次真的是最后一次做这个实验了，我理解不应该删除“异常点”，此外随机重采样应该出现了问题了吧，come on, let's do it.
+#这个版本和下一个版本综合一起研究了很多的关于如何使用gpu提升计算效率的问题，只有在网络很大且batch-size很大的时候gpu计算速度才能够超过cpu，不论使用tensorflow还是pytorch。
+#然后我想到了一个比较奸诈的方式实现计算过程的提速，那就是设置更大的batch-size，毕竟这个参数对于网络的影响还是比较小的但是对于计算时间影响较大的。
 
 #修改内容集被整理如下：
 #（0）到这个时候我才发现GPU训练神经网络的速度比cpu训练速度快很多耶。不对呀，好像也没有快很多吧
@@ -382,7 +384,9 @@ X_train_scaled = X_all_scaled[:len(X_train_scaled)]
 X_test_scaled = X_all_scaled[len(X_train_scaled):]
 """
 
+"""
 #下面的实验只是删除了原数据中的0.05的数据（我默认他们是离群点咯）然后重新特征缩放用于计算
+#删除了离群点之后只有78.5%左右的成绩还是不够理想咯，所以我觉得还是不应该是删除所谓的离群点。
 X_Y_train_scaled = pd.concat([X_train_scaled, Y_train], axis=1)
 n_samples = len(X_Y_train_scaled)  #样本的数目
 outliers_fraction = 0.05  #异常样本比例还是设置为0.05吧符合之前的高斯噪声参数
@@ -396,6 +400,39 @@ Y_train = no_outliers.pop(columns_name[-1]) #将删除的最后一列也就是Su
 X_train_scaled = no_outliers
 
 #那么现在原来的数据特征已经被修改了，需要重新进行特征缩放会比较好的吧
+X_all = pd.concat([X_train_scaled, X_test_scaled], axis=0)
+X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = X_all.columns)
+X_train_scaled = X_all_scaled[:len(X_train_scaled)]
+X_test_scaled = X_all_scaled[len(X_train_scaled):]
+"""
+
+#我查了很久没有查到非图像类型数据的数据增强的技术，我觉得应该是我之前数据扩充太多了吧
+#不对，换个就角度来说数量、均值、方差是三个参数，均值没得说，可以确定应该是其余两个参数出问题了吧？
+#所以我现在试一下一比二的比例进行数据的增强呢，或许这样的做法能够使得模型的到提升吧？
+#具体的参数设置恐怕需要进行超参搜索才能够得到定论的吧，我现在可能只有凭感觉计算咯
+#那我现在还是扩充十倍吧（控制变量法），方差设置为0.01试一下实验结果吧（已经证明之前是数据的问题）希望结果会好
+#还有一个问题就是如何使用gpu对我的计算过程进行提升呢？好像只有设置更大的bath-size了吧
+#使用更大一些的batch-size和更多一些的交叉验证或许可以将计算时间进行减少咯。方差还是设置为0.005吧，感觉放心一点。。
+X_Y_train_scaled = pd.concat([X_train_scaled, Y_train], axis=1)
+#将数据进行多份的复制咯这里就是将数据进行1份的复制,加上本来的一份一共2份
+X_Y_copy = X_Y_train_scaled.copy()
+for i in range(0, 8):
+    X_Y_train = X_Y_train_scaled.copy()
+    X_Y_copy = pd.concat([X_Y_train, X_Y_copy])
+#下面将X_Y拆开才能够在X数据集上面增加噪声呢
+columns_name = list(X_Y_train_scaled.columns.values)
+Y_oversample_train = X_Y_copy.pop(columns_name[-1]) #将删除的最后一列也就是Survived赋值给Y_oversample_train
+X_oversample_train = X_Y_copy
+row = X_Y_copy.shape[0]
+col = X_Y_copy.shape[1]
+gauss_noise = np.random.normal(loc=0.0, scale=0.005, size=(row, col))
+#下面的这行代码如果不加上index=X_oversample_train.index.values这句就会出现NAN
+gauss_noise_df = pd.DataFrame(gauss_noise, columns=X_oversample_train.columns, index=X_oversample_train.index.values)
+#X_train_scaled、Y_train、X_oversample_train这些的id和具体的行的值都已经改变了。
+X_oversample_train = X_oversample_train + gauss_noise_df
+X_train_scaled = pd.concat([X_train_scaled, X_oversample_train], axis=0)
+Y_train = pd.concat([Y_train, Y_oversample_train], axis=0) 
+
 X_all = pd.concat([X_train_scaled, X_test_scaled], axis=0)
 X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = X_all.columns)
 X_train_scaled = X_all_scaled[:len(X_train_scaled)]
@@ -1851,6 +1888,7 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
+"""
 #这次真的是最后一个实验了吧，不再增加数据集只是删除0.05的数据试一下呢
 #尼玛的删除了这些数据之后效果还没有不删除的好，leadborad上面是0.77990
 #不对呀，这个实验之后我会去查询一下kaggle上面的数据增强的部分，速战速决吧
@@ -1867,6 +1905,26 @@ for item in nodes_list:
     item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 49)
 #tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+start_time = datetime.datetime.now()
+files = open("titanic_intermediate_parameters_2019-1-9164554.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+nodes_list = [best_nodes, best_nodes, best_nodes]
+for item in nodes_list:
+    item["device"] = "cuda"
+    item["batch_size"] = 1024 #为了使用gpu能够加速计算，强行将设置为这个batch-size
+    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 42)
+#stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
 end_time = datetime.datetime.now()
