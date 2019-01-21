@@ -1911,6 +1911,8 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
+#其实我还有一个想法，如果这个实验不行的话，我在试一下将噪声的标准差设置为0.002呢。
+#感觉一拍脑袋是想不出解决问题的办法的，还是只有做个实验，这次训练单个模型节约时间咯
 start_time = datetime.datetime.now()
 files = open("titanic_intermediate_parameters_2019-1-9164554.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
@@ -1921,7 +1923,7 @@ save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes, best_nodes]
 for item in nodes_list:
     item["device"] = "cuda"
-    item["batch_size"] = 1024 #为了使用gpu能够加速计算，强行将设置为这个batch-size
+    item["batch_size"] = 1024 #为了使用gpu能够加速计算，强行将设置为这个batch-size，下回可以取得更大一些的，塞满显存左右咯且不超过数据总量
     item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 42)
 #stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
