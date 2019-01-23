@@ -87,8 +87,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -296,7 +296,7 @@ X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
 
 #这个主要是为了测试写出来的文件是正确的。
 #output = pd.DataFrame(data = X_all)            
-#output.to_csv("C:/Users/win7/Desktop/dict.csv", columns=X_all.columns, index=False) 
+#output.to_csv("C:/Users/1/Desktop/dict.csv", columns=X_all.columns, index=False) 
 
 #我觉得训练集和测试集需要在一起进行特征缩放，所以注释掉了原来的X_train的特征缩放咯
 #用了五个月之后我发现我的特征缩放好像做错了？？所以试一下下面的特征缩放吧。。不过变量名好像可以不用修改吧
@@ -406,6 +406,7 @@ X_train_scaled = X_all_scaled[:len(X_train_scaled)]
 X_test_scaled = X_all_scaled[len(X_train_scaled):]
 """
 
+
 #我查了很久没有查到非图像类型数据的数据增强的技术，我觉得应该是我之前数据扩充太多了吧
 #不对，换个就角度来说数量、均值、方差是三个参数，均值没得说，可以确定应该是其余两个参数出问题了吧？
 #所以我现在试一下一比二的比例进行数据的增强呢，或许这样的做法能够使得模型的到提升吧？
@@ -416,7 +417,7 @@ X_test_scaled = X_all_scaled[len(X_train_scaled):]
 X_Y_train_scaled = pd.concat([X_train_scaled, Y_train], axis=1)
 #将数据进行多份的复制咯这里就是将数据进行1份的复制,加上本来的一份一共2份
 X_Y_copy = X_Y_train_scaled.copy()
-for i in range(0, 8):
+for i in range(0, 1):
     X_Y_train = X_Y_train_scaled.copy()
     X_Y_copy = pd.concat([X_Y_train, X_Y_copy])
 #下面将X_Y拆开才能够在X数据集上面增加噪声呢
@@ -442,7 +443,7 @@ X_test_scaled = X_all_scaled[len(X_train_scaled):]
 #这个主要是为了测试特征缩放之后的结果是正常的
 #下面特征缩放之后的结果看起来很壮观的样子23333。
 #output = pd.DataFrame(data = X_all_scaled)            
-#output.to_csv("C:/Users/win7/Desktop/dict_scaled.csv", columns=X_all.columns, index=False)
+#output.to_csv("C:/Users/1/Desktop/dict_scaled.csv", columns=X_all.columns, index=False)
 
 def cal_acc(Y_train_pred, Y_train):
 
@@ -1037,19 +1038,19 @@ def train_nn_model_noise_validate2(nodes, X_train_scaled, Y_train, max_evals=10)
         #print(Y_temp.shape)
         #print(Y_temp_reshape.shape)
         #output = pd.DataFrame(data = X_split_train)
-        #output.to_csv("C:/Users/win7/Desktop/X_split_train_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/X_split_train_shape.csv", index=False)
         #output = pd.DataFrame(data = X_split_train_df)            
-        #output.to_csv("C:/Users/win7/Desktop/X_split_train_df_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/X_split_train_df_shape.csv", index=False)
         #output = pd.DataFrame(data = X_temp)            
-        #output.to_csv("C:/Users/win7/Desktop/X_temp_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/X_temp_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_split_train)
-        #output.to_csv("C:/Users/win7/Desktop/Y_split_train_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/Y_split_train_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_split_train_df)
-        #output.to_csv("C:/Users/win7/Desktop/Y_split_train_df_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/Y_split_train_df_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_temp)
-        #output.to_csv("C:/Users/win7/Desktop/Y_temp_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/Y_temp_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_temp_reshape)
-        #output.to_csv("C:/Users/win7/Desktop/Y_temp_reshape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/Y_temp_reshape.csv", index=False)
 
         #clf.fit(X_temp.astype(np.float32), Y_temp_reshape.astype(np.longlong))
         #clf.fit(X_split_train.astype(np.float32), Y_split_train.astype(np.longlong))        
@@ -1710,7 +1711,7 @@ def tpot_stacking_predict(best_nodes, data_test, stacked_train, Y_train, stacked
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.05]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -1753,7 +1754,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.05],
                "max_epochs":[400],
@@ -1796,7 +1797,7 @@ space_nodes = {"title":["stacked_titanic"],
 #其实本身不需要best_nodes主要是为了快速测试
 #不然每次超参搜索的best_nodes效率太低了吧
 best_nodes = {"title":"stacked_titanic",
-              "path":"C:/Users/win7/Desktop/Titanic_Prediction.csv",
+              "path":"C:/Users/1/Desktop/Titanic_Prediction.csv",
               "mean":0,
               "std":0.05,
               "max_epochs":400,
@@ -1854,7 +1855,7 @@ save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes, best_nodes]
 for item in nodes_list:
     item["device"] = "cuda"
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
+    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
 #tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
@@ -1879,7 +1880,7 @@ save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes]
 for item in nodes_list:
     item["device"] = "cuda"
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
+    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 150)
 #tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
@@ -1902,17 +1903,47 @@ save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes, best_nodes,  best_nodes, best_nodes]
 for item in nodes_list:
     item["device"] = "cuda"
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
+    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 49)
-#tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
+#stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
-#其实我还有一个想法，如果这个实验不行的话，我在试一下将噪声的标准差设置为0.002呢。
-#感觉一拍脑袋是想不出解决问题的办法的，还是只有做个实验，这次训练单个模型节约时间咯
+"""
+#我下面的实验其实都在验证标准差和数据份数之间的关系呀
+#针对单个节点，现在试一下0.005和0.002这个标准差，10倍的数据，折数均为15，次数均为100
+#每次计算的batch_size设置为数据总量的1/4左右(2048)，是时间和资源方面权衡的结果，算是对比实验吧
+#我觉得现在应该从单模型的优化入手吧，这样的增强如果有效在进行stacking以节约计算时间吧
+#这组对比实验好像在选择最优标准差的样子，需要选择最优的数据倍数吗？还是做个实验试试吧
+#以后真的感觉折数可以少设置一点，然后次数可以多设置一点，batch_size好像可以随意一点，数据可以多一些。。玄学吧。。
+start_time = datetime.datetime.now()
+files = open("titanic_intermediate_parameters_2019-1-9233341.pickle", "rb")
+trials, space_nodes, best_nodes = pickle.load(files)
+files.close()
+
+best_nodes["device"] = "cpu"
+best_nodes["batch_size"] = 2048
+nn_predict(best_nodes, X_train_scaled.values, Y_train.values, X_test_scaled.values, 15, 100)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+#最后总结一下这次的数据增强的结果吧。应该这周四就能够完成所有内容咯。
+#根据常识我觉得不太可能数据增强上能够取得很好的结果，毕竟我那种一份数据变为十份就太夸张了吧
+#现在根据经验，单节点使用nn_predict容易造成过拟合，建议单节点依然使用stacked_features_validate2
+#然后每次都复制九倍的数据加上噪声再进行三个节点的stacking实在是太消耗计算资源了，以后直接做单节点的stacking实验吧
+#目前为止进行过的单节点的实验有：
+#10倍数据 0.005标准差 2048的batch_size 15和49为参数的  三节点  stacked_features_validate2在leaderboard上面有
+#10倍数据 0.002标准差 2048的batch_size 15和100为参数的  单节点  nn_predict在leaderboard上面只有0.732正确率
+#10倍数据 0.002标准差 2048的batch_size 15和32为参数的  单节点  stacked_features_validate2在leaderboard上面有0.765正确率
+#10倍数据 0.005标准差 2048的batch_size 15和32为参数的  单节点  stacked_features_validate2在leaderboard上面有
+#3倍数据 0.005标准差 512的batch_size 15和32为参数的  单节点  stacked_features_validate2在leaderboard上面有0.78468的正确率呢
+#2倍数据 0.005标准差 512的batch_size 15和32为参数的  单节点  stacked_features_validate2在leaderboard上面有0.7703的正确率
+#1倍数据 0标准差 256的batch_size 15和32为参数的  单节点  stacked_features_validate2在leaderboard上面有0.756的正确率
+#根据上面的实验可以再推导出数据倍数、标准差上面的一些规律：
 start_time = datetime.datetime.now()
 files = open("titanic_intermediate_parameters_2019-1-9164554.pickle", "rb")
 trials, space_nodes, best_nodes = pickle.load(files)
@@ -1920,13 +1951,12 @@ files.close()
 
 best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
-nodes_list = [best_nodes, best_nodes, best_nodes]
+nodes_list = [best_nodes]
 for item in nodes_list:
-    item["device"] = "cuda"
-    item["batch_size"] = 1024 #为了使用gpu能够加速计算，强行将设置为这个batch-size，下回可以取得更大一些的，塞满显存左右咯且不超过数据总量
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 42)
-#stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
+    item["device"] = "cpu"
+    item["batch_size"] = 512
+    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
 end_time = datetime.datetime.now()
