@@ -87,8 +87,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
+data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
+data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -296,7 +296,7 @@ X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
 
 #这个主要是为了测试写出来的文件是正确的。
 #output = pd.DataFrame(data = X_all)            
-#output.to_csv("C:/Users/win7/Desktop/dict.csv", columns=X_all.columns, index=False) 
+#output.to_csv("C:/Users/1/Desktop/dict.csv", columns=X_all.columns, index=False) 
 
 #我觉得训练集和测试集需要在一起进行特征缩放，所以注释掉了原来的X_train的特征缩放咯
 #用了五个月之后我发现我的特征缩放好像做错了？？所以试一下下面的特征缩放吧。。不过变量名好像可以不用修改吧
@@ -406,7 +406,6 @@ X_train_scaled = X_all_scaled[:len(X_train_scaled)]
 X_test_scaled = X_all_scaled[len(X_train_scaled):]
 """
 
-
 #我查了很久没有查到非图像类型数据的数据增强的技术，我觉得应该是我之前数据扩充太多了吧
 #不对，换个就角度来说数量、均值、方差是三个参数，均值没得说，可以确定应该是其余两个参数出问题了吧？
 #所以我现在试一下一比二的比例进行数据的增强呢，或许这样的做法能够使得模型的到提升吧？
@@ -426,7 +425,7 @@ Y_oversample_train = X_Y_copy.pop(columns_name[-1]) #将删除的最后一列也
 X_oversample_train = X_Y_copy
 row = X_Y_copy.shape[0]
 col = X_Y_copy.shape[1]
-gauss_noise = np.random.normal(loc=0.0, scale=0.005, size=(row, col))
+gauss_noise = np.random.normal(loc=0.0, scale=0.010, size=(row, col))
 #下面的这行代码如果不加上index=X_oversample_train.index.values这句就会出现NAN
 gauss_noise_df = pd.DataFrame(gauss_noise, columns=X_oversample_train.columns, index=X_oversample_train.index.values)
 #X_train_scaled、Y_train、X_oversample_train这些的id和具体的行的值都已经改变了。
@@ -443,7 +442,7 @@ X_test_scaled = X_all_scaled[len(X_train_scaled):]
 #这个主要是为了测试特征缩放之后的结果是正常的
 #下面特征缩放之后的结果看起来很壮观的样子23333。
 #output = pd.DataFrame(data = X_all_scaled)            
-#output.to_csv("C:/Users/win7/Desktop/dict_scaled.csv", columns=X_all.columns, index=False)
+#output.to_csv("C:/Users/1/Desktop/dict_scaled.csv", columns=X_all.columns, index=False)
 
 def cal_acc(Y_train_pred, Y_train):
 
@@ -1038,19 +1037,19 @@ def train_nn_model_noise_validate2(nodes, X_train_scaled, Y_train, max_evals=10)
         #print(Y_temp.shape)
         #print(Y_temp_reshape.shape)
         #output = pd.DataFrame(data = X_split_train)
-        #output.to_csv("C:/Users/win7/Desktop/X_split_train_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/X_split_train_shape.csv", index=False)
         #output = pd.DataFrame(data = X_split_train_df)            
-        #output.to_csv("C:/Users/win7/Desktop/X_split_train_df_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/X_split_train_df_shape.csv", index=False)
         #output = pd.DataFrame(data = X_temp)            
-        #output.to_csv("C:/Users/win7/Desktop/X_temp_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/X_temp_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_split_train)
-        #output.to_csv("C:/Users/win7/Desktop/Y_split_train_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/Y_split_train_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_split_train_df)
-        #output.to_csv("C:/Users/win7/Desktop/Y_split_train_df_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/Y_split_train_df_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_temp)
-        #output.to_csv("C:/Users/win7/Desktop/Y_temp_shape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/Y_temp_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_temp_reshape)
-        #output.to_csv("C:/Users/win7/Desktop/Y_temp_reshape.csv", index=False)
+        #output.to_csv("C:/Users/1/Desktop/Y_temp_reshape.csv", index=False)
 
         #clf.fit(X_temp.astype(np.float32), Y_temp_reshape.astype(np.longlong))
         #clf.fit(X_split_train.astype(np.float32), Y_split_train.astype(np.longlong))        
@@ -1681,7 +1680,7 @@ def lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stac
     data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
     output = pd.DataFrame(data = data)
             
-    output.to_csv(nodes_list[0]["path"]+"6", index=False)
+    output.to_csv(nodes_list[0]["path"], index=False)
     print("prediction file has been written.")
      
     print("the best accuracy rate of the model on the whole train dataset is:", best_acc)
@@ -1711,7 +1710,7 @@ def tpot_stacking_predict(best_nodes, data_test, stacked_train, Y_train, stacked
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0.05]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -1754,7 +1753,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
+               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0.05],
                "max_epochs":[400],
@@ -1797,7 +1796,7 @@ space_nodes = {"title":["stacked_titanic"],
 #其实本身不需要best_nodes主要是为了快速测试
 #不然每次超参搜索的best_nodes效率太低了吧
 best_nodes = {"title":"stacked_titanic",
-              "path":"C:/Users/win7/Desktop/Titanic_Prediction.csv",
+              "path":"C:/Users/1/Desktop/Titanic_Prediction.csv",
               "mean":0,
               "std":0.05,
               "max_epochs":400,
@@ -1855,7 +1854,7 @@ save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes, best_nodes]
 for item in nodes_list:
     item["device"] = "cuda"
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
+    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
 #tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
@@ -1880,7 +1879,7 @@ save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes]
 for item in nodes_list:
     item["device"] = "cuda"
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
+    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 150)
 #tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
@@ -1903,7 +1902,7 @@ save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes, best_nodes,  best_nodes, best_nodes]
 for item in nodes_list:
     item["device"] = "cuda"
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
+    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 49)
 #stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
@@ -1940,11 +1939,15 @@ print("time cost", (end_time - start_time))
 #10倍数据 0.002标准差 2048的batch_size 15和100为参数的  单节点  nn_predict在leaderboard上面只有0.732正确率
 #10倍数据 0.002标准差 2048的batch_size 15和32为参数的  单节点  stacked_features_validate2在leaderboard上面有
 #10倍数据 0.005标准差 2048的batch_size 15和32为参数的  单节点  stacked_features_validate2在leaderboard上面有
+#10倍数据 0.010标准差 2048的batch_size 15和32为参数的  单节点  stacked_features_validate2在leaderboard上面有
 #10倍数据 0.005标准差 2048的batch_size 30和49为参数的  单节点  stacked_features_validate2在leaderboard上面有
+#4倍数据 0.005标准差 512的batch_size 15和32为参数的  单节点  stacked_features_validate2在leaderboard上面有0.77990的正确率呢
 #3倍数据 0.005标准差 512的batch_size 15和32为参数的  单节点  stacked_features_validate2在leaderboard上面有0.78468的正确率呢
+#3倍数据 0.002标准差 512的batch_size 15和32为参数的  单节点  stacked_features_validate2在leaderboard上面有0.78468的正确率呢
 #2倍数据 0.005标准差 512的batch_size 15和32为参数的  单节点  stacked_features_validate2在leaderboard上面有0.7703的正确率
 #1倍数据 0标准差 256的batch_size 15和32为参数的  单节点  stacked_features_validate2在leaderboard上面有0.756的正确率
 #根据上面的实验可以再推导出数据倍数、标准差上面的一些规律：
+#标准差造成的偏倚大致是三倍的标准差，也就是取0.005的标准差最后一个属性的0值大致会变为0.015，感觉单模型层面的优化大致就是做这些吧。就选0.01,0.005,0.002作为经验值三选一咯。
 #10倍数据 0.005标准差 2048的batch_size 30和49为参数的  单节点  stacked_features_validate2的预计计算时间=5*30*49*300*0.1/60/60=61.25小时。。
 #10倍数据 0.005标准差 2048的batch_size 15和32为参数的  单节点  stacked_features_validate2的预计计算时间=5*15*32*300*0.1/60/60=20小时。。
 #10倍数据 0.005标准差 2048的batch_size 15和42为参数的  单节点  stacked_features_validate2的预计计算时间=5*15*42*300*0.1/60/60=26.25小时。。
@@ -1958,11 +1961,11 @@ best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes]
 for item in nodes_list:
-    item["device"] = "cuda"
+    item["device"] = "cpu"
     item["batch_size"] = 2048
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv"
-#这里是十倍数据 0.005标准差  batch_size为2048 30 49 输出是6记得修改回来哦
-stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 30, 49)
+    item["max_epochs"] = 600
+    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
 end_time = datetime.datetime.now()
