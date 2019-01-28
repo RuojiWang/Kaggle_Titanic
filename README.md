@@ -22,15 +22,15 @@
 * Firstly, configure the running environment.
 * Secondly, run examples of pytorch skorch and hyperopt.
 * Thirdly, include all the files into your project and copy the files in kaggle_titanic_files which are the raw data for kaggle titanic competiton, and then replace the pd.read_csv path with your copy path. 
-* Finally, you can run and debug the end_of_the_titanic6.py or save_intermediate_model1.py to learn more about it. The first file named end_of_the_titanic6.py is mainly used for network structure and other hyperparameters selection, while the other is used for saving former model or network structure including the best model.
+* Finally, you can run and debug the auto_model_example.py to learn details. 
 <br></br>
 
 ### Using for Other Competition
   
 * Firstly, configure the running environment.
-* Secondly, run the code on the titanic dataset to learn details.
-* Thirdly, determine network structure do little feature engineering and hyperparameters selection for new competiton. Which means space space_nodes best_nodes and parse_space funciton in the code are mainly needed to modified. **Remeber to modify space space_nodes best_nodes and parse_space function at the same time!**
-* Finally, change the network structure and run the code until you get satisfying results. Whenever you train the model, the best hyperparameters in history and prediction file of the model will be saved. **Do not forget to save the network class definition, especially the class defination of the best model, without which you can not use or load the best model from .pickle file. I strongly recommend you to create files like save_intermediate_model1.py to save versions of selection of model structure and other hyperparameters, which benefits you in using and saving best model of different versions, and also in optimizing the  design of the network structure and the selection of other hyperparameters.** 
+* Secondly, run the auto_model_example.py on the titanic dataset to learn details.
+* Thirdly, do little feature engineering and hyperparameters selection for new competiton. Which means space space_nodes best_nodes and parse_space funciton in the code are mainly needed to modified. **Remeber to modify space space_nodes best_nodes and parse_space function at the same time!**
+* Finally, modify the auto_model_example.py or optimize your neural network model until you get satisfying results. Whenever you train the model, the best hyperparameters in history and prediction file of the model will be saved. 
 <br></br>
 
 ### Contact Information
