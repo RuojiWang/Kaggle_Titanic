@@ -1401,12 +1401,40 @@ best_nodes = {"title":"stacked_titanic",
               "optimizer":torch.optim.Adam
               }
 
+#run the following code for running environment test
+start_time = datetime.datetime.now()
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best_params = fmin(nn_f, space, algo=algo, max_evals=2, trials=trials)
+
+#save the result of the hyperopt(bayesian optimization) search.
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+
+#use 5 best nodes to create 5 neural network model for stacking.
+nodes_list = [best_nodes, best_nodes]
+for item in nodes_list:
+    item["device"] = "cpu" #set the device to train neural network, "cpu" means using cpu, "cuda" means using gpu.
+    item["batch_size"] = 256 #set the batch_size of the neural network.
+    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv" #set the file path of the prediction file.
+#neural network model stacking.
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 2, 2)
+#save the stacking intermediate result.
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+
+#use logistic regression to fit stacked_train/stacked_test and predict the result. 
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+
+"""
+#run the following code for neural network model train
 #use hyperopt(bayesian optimization) to search the best network structure.
 #have a look at hyperopt will help in understanding the following code.
 start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=200, trials=trials)
+best_params = fmin(nn_f, space, algo=algo, max_evals=2, trials=trials)
 
 #save the result of the hyperopt(bayesian optimization) search.
 best_nodes = parse_nodes(trials, space_nodes)
@@ -1427,3 +1455,4 @@ save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+"""
