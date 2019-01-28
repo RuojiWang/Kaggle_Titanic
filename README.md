@@ -1,9 +1,9 @@
 # Kaggle_Titanic
 
-* Kaggle_Titanic is a semi-automatic deeping learning experiment code for kaggle titanic competition.  
+* Kaggle_Titanic is a semi-automatic deep learning experiment code for kaggle titanic competition. It helps me to get 1301/10209 of the competiton, which is a good example for beginners.
 * Kaggle_Titanic treats network structure design and network initialization and so on as hyperparameters selection. And it supports deep learning model which allows you to achieve better accuracy than traditional model like xgboost easily. 
 * Semi-automatic means autimaic hyperparameters optimization including compute and save the best model in history and output prediction file and intermediate computation file, which can save you lots of time. 
-* Besides determining network structure, you only work is little feature engineering like feature scale and little code change like file path or hyperparameters selection. 
+* Besides determining selection of hyperparameters for optimization, you only work is little feature engineering like feature scale or little code change like file path. 
 * Just enjoy deep learning and build your solution based on Kaggle_Titanic for other competitions.
 <br></br>
 
@@ -22,7 +22,7 @@
 * Firstly, configure the running environment.
 * Secondly, run examples of pytorch skorch and hyperopt.
 * Thirdly, include all the files into your project and copy the files in kaggle_titanic_files which are the raw data for kaggle titanic competiton, and then replace the pd.read_csv path with your copy path. 
-* Finally, you can run and debug the auto_model_example.py to learn details. 
+* Finally, you can run and debug the auto_model_example.py to learn more details. 
 <br></br>
 
 ### Using for Other Competition
