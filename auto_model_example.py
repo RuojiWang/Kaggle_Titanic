@@ -1060,12 +1060,14 @@ def get_oof_noise_validate4(nodes, X_train_scaled, Y_train, X_test_scaled, n_fol
     return oof_train, oof_test, best_model
 
 #the following 7 functions are different ways to get stacking data,
+#neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
+#the first one can save training time, 40 and 25 are fine choice for the last two function parameters.
+#the second one has less overfitting risk, 30 and 35 are fine choice for the last two function parameters.  
 #nodes_list is the list of best hyperparameters for neural networks,
 #X_train_scaled is the train data after feature scale,
 #X_test_scaled is the test data after feature scale,
 #n_folds is the fold number of the divided data,
 #max_evals is the number of training,
-#I recommend you use stacked_features_validate2 when you have sufficient resources
 def stacked_features(nodes_list, X_train_scaled, Y_train, X_test_scaled, folds, max_evals):
     
     input_train = [] 
@@ -1518,13 +1520,17 @@ best_params = fmin(nn_f, space, algo=algo, max_evals=2, trials=trials)
 best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
 
-#use 5 best nodes to create 5 neural network model for stacking.
+#use 2 best nodes to create 2 neural network model for stacking.
 nodes_list = [best_nodes, best_nodes]
-for item in nodes_list:
-    item["device"] = "cpu" #set the device to train neural network, "cpu" means using cpu, "cuda" means using gpu.
-    item["batch_size"] = 256 #set the batch_size of the neural network.
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv" #set the file path of the prediction file.
-#neural network model stacking.
+#the following code can change the settings of the stacking process
+#you may use it as following when you need.
+#for item in nodes_list:
+#    item["device"] = "cpu" #set the device to train neural network, "cpu" means using cpu, "cuda" means using gpu.
+#    item["batch_size"] = 256 #set the batch_size of the neural network.
+#    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv" #set the file path of the prediction file.
+#neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
+#the first one can save training time, 40 and 25 are fine choice for the last two function parameters.
+#the second one has less overfitting risk, 30 and 35 are fine choice for the last two function parameters.  
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 2, 2)
 #save the stacking intermediate result.
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
@@ -1535,7 +1541,7 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 
 """
-#run the following code for neural network model train
+#run the following code for neural network model training and prediction.
 #use hyperopt(bayesian optimization) to search the best network structure.
 #have a look at hyperopt will help in understanding the following code.
 start_time = datetime.datetime.now()
@@ -1549,12 +1555,16 @@ save_inter_params(trials, space_nodes, best_nodes, "titanic")
 
 #use 5 best nodes to create 5 neural network model for stacking.
 nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
-for item in nodes_list:
-    item["device"] = "cpu" #set the device to train neural network, "cpu" means using cpu, "cuda" means using gpu.
-    item["batch_size"] = 256 #set the batch_size of the neural network.
-    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv" #set the file path of the prediction file.
-#neural network model stacking.
-stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
+#the following code can change the settings of the stacking process
+#you may use it as following when you need.
+#for item in nodes_list:
+#    item["device"] = "cpu" #set the device to train neural network, "cpu" means using cpu, "cuda" means using gpu.
+#    item["batch_size"] = 256 #set the batch_size of the neural network.
+#    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv" #set the file path of the prediction file.
+#neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
+#the first one can save training time, 40 and 25 are fine choice for the last two function parameters.
+#the second one has less overfitting risk, 30 and 35 are fine choice for the last two function parameters.  
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 30, 35)
 #save the stacking intermediate result.
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 
