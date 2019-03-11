@@ -86,8 +86,8 @@ from sklearn.neural_network.multilayer_perceptron import MLPClassifier
 warnings.filterwarnings('ignore') 
 
 #load train data and test data
-data_train = pd.read_csv("C:/Users/win7/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/win7/Desktop/test.csv")
+data_train = pd.read_csv("kaggle_titanic_files/train.csv")
+data_test = pd.read_csv("kaggle_titanic_files/test.csv")
 #combine train data and test data
 combine = [data_train, data_test]
 
@@ -255,10 +255,7 @@ def cal_acc(Y_train_pred, Y_train):
 def cal_nnclf_acc(clf, X_train, Y_train):
     
     Y_train_pred = clf.predict(X_train.astype(np.float32))
-    count = (Y_train_pred == Y_train).sum()
-    acc = count/len(Y_train)
-    
-    return acc
+    return cal_acc(Y_train_pred, Y_train)
 
 #print correct rate, acc is the correct rate
 def print_nnclf_acc(acc):
@@ -1401,7 +1398,7 @@ def tpot_stacking_predict(best_nodes, data_test, stacked_train, Y_train, stacked
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 #space is the optimization space of bayesian hyperparameters
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/win7/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["kaggle_titanic_files/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -1445,7 +1442,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
 
 #space_nodes is the optimization space of bayesian hyperparameters, which mainly used to and makes it easier to get the best hyperparameters
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/win7/Desktop/Titanic_Prediction.csv"],
+               "path":["kaggle_titanic_files/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0],
                "max_epochs":[400],
@@ -1489,7 +1486,7 @@ space_nodes = {"title":["stacked_titanic"],
 #不然每次超参搜索的best_nodes效率太低了吧
 #best_nodes used to record the best hyperparameters of the neural networks
 best_nodes = {"title":"stacked_titanic",
-              "path":"C:/Users/win7/Desktop/Titanic_Prediction.csv",
+              "path":"kaggle_titanic_files/Titanic_Prediction.csv",
               "mean":0,
               "std":0,
               "max_epochs":400,
@@ -1527,7 +1524,7 @@ nodes_list = [best_nodes, best_nodes]
 #for item in nodes_list:
 #    item["device"] = "cpu" #set the device to train neural network, "cpu" means using cpu, "cuda" means using gpu.
 #    item["batch_size"] = 256 #set the batch_size of the neural network.
-#    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv" #set the file path of the prediction file.
+#    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv" #set the file path of the prediction file.
 #neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
 #the first one can save training time, 40 and 25 are fine choice for the last two function parameters.
 #the second one has less overfitting risk, 30 and 35 are fine choice for the last two function parameters.  
@@ -1560,7 +1557,7 @@ nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
 #for item in nodes_list:
 #    item["device"] = "cpu" #set the device to train neural network, "cpu" means using cpu, "cuda" means using gpu.
 #    item["batch_size"] = 256 #set the batch_size of the neural network.
-#    item["path"] = "C:/Users/win7/Desktop/Titanic_Prediction.csv" #set the file path of the prediction file.
+#    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv" #set the file path of the prediction file.
 #neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
 #the first one can save training time, 40 and 25 are fine choice for the last two function parameters.
 #the second one has less overfitting risk, 30 and 35 are fine choice for the last two function parameters.  

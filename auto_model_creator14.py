@@ -1,12 +1,12 @@
 #coding=utf-8
+#这个版本和下一个版本综合一起研究了很多的关于如何使用gpu提升计算效率的问题，只有在网络很大且batch-size很大的时候gpu计算速度才能够超过cpu，不论使用tensorflow还是pytorch。
+#然后我想到了一个比较奸诈的方式实现计算过程的提速，那就是设置更大的batch-size，毕竟这个参数对于网络的影响还是比较小的但是对于计算时间影响较大的。
 #这个版本的目的在于从以下四方面提升性能：从数据上提升性能、从算法上提升性能、从算法调优上提升性能、从模型融合上提升性能（性能提升的力度按上表的顺序从上到下依次递减。）
 #具体内容可参加https://www.baidu.com/link?url=zdq_sTzndnIZrJL71ZFaLlHnfSblGnNXPzeilgVTaKG2RJEHTWHZHTzVkkipM0El&wd=&eqid=aa03b37b0004b870000000025c2f02e6
 #更具体一点地说：可能以后就是增加正则化项吧，能够一定程度的减小网络的复杂度类似奥卡姆剃刀原则。自己随机生成大量的数据吧。将数据缩放到激活函数的阈值内
 #原来神经网络模型的训练一直就比较慢，以至于有的时候不一定要采用交叉验证的方式来训练，可能直接用部分未训练数据作为验证集。。
 #然后对于模型过拟合或者欠拟合的判断贯穿整个机器学习的过程当中，原来stacking其实是最后一种用于提升模型泛化性能的方式咯。我的面试可以围绕这些开始吧。
 #上一个版本的结果不是很理想耶，所以这次真的是最后一次做这个实验了，我理解不应该删除“异常点”，此外随机重采样应该出现了问题了吧，come on, let's do it.
-#这个版本和下一个版本综合一起研究了很多的关于如何使用gpu提升计算效率的问题，只有在网络很大且batch-size很大的时候gpu计算速度才能够超过cpu，不论使用tensorflow还是pytorch。
-#然后我想到了一个比较奸诈的方式实现计算过程的提速，那就是设置更大的batch-size，毕竟这个参数对于网络的影响还是比较小的但是对于计算时间影响较大的。
 
 #修改内容集被整理如下：
 #（0）到这个时候我才发现GPU训练神经网络的速度比cpu训练速度快很多耶。不对呀，好像也没有快很多吧
@@ -76,7 +76,6 @@ from sklearn.linear_model.logistic import LogisticRegressionCV
 from nltk.classify.svm import SvmClassifier
 from sklearn.ensemble.weight_boosting import AdaBoostClassifier
 from sklearn.neural_network.multilayer_perceptron import MLPClassifier
-from blaze.expr.strings import replace
 #下面的这个kfold是实现k折交叉的功能，返回每次的indice，可以设置为shuffle但默认未设
 #然后这个StratifiedKFold是返回k折交叉的迭代器，每次通过迭代器返回结果，可以设置为shuffle
 #两者的区别在于前者返回indice或者索引列表后者直接返回迭代器，虽然我这一份代码两种方式都有但是让他们并存吧
@@ -87,8 +86,8 @@ warnings.filterwarnings('ignore')
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-data_train = pd.read_csv("C:/Users/1/Desktop/train.csv")
-data_test = pd.read_csv("C:/Users/1/Desktop/test.csv")
+data_train = pd.read_csv("kaggle_titanic_files/train.csv")
+data_test = pd.read_csv("kaggle_titanic_files/test.csv")
 combine = [data_train, data_test]
 
 for dataset in combine:
@@ -296,7 +295,7 @@ X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
 
 #这个主要是为了测试写出来的文件是正确的。
 #output = pd.DataFrame(data = X_all)            
-#output.to_csv("C:/Users/1/Desktop/dict.csv", columns=X_all.columns, index=False) 
+#output.to_csv("kaggle_titanic_files/dict.csv", columns=X_all.columns, index=False) 
 
 #我觉得训练集和测试集需要在一起进行特征缩放，所以注释掉了原来的X_train的特征缩放咯
 #用了五个月之后我发现我的特征缩放好像做错了？？所以试一下下面的特征缩放吧。。不过变量名好像可以不用修改吧
@@ -442,7 +441,7 @@ X_test_scaled = X_all_scaled[len(X_train_scaled):]
 #这个主要是为了测试特征缩放之后的结果是正常的
 #下面特征缩放之后的结果看起来很壮观的样子23333。
 #output = pd.DataFrame(data = X_all_scaled)            
-#output.to_csv("C:/Users/1/Desktop/dict_scaled.csv", columns=X_all.columns, index=False)
+#output.to_csv("kaggle_titanic_files/dict_scaled.csv", columns=X_all.columns, index=False)
 
 def cal_acc(Y_train_pred, Y_train):
 
@@ -454,10 +453,7 @@ def cal_acc(Y_train_pred, Y_train):
 def cal_nnclf_acc(clf, X_train, Y_train):
     
     Y_train_pred = clf.predict(X_train.astype(np.float32))
-    count = (Y_train_pred == Y_train).sum()
-    acc = count/len(Y_train)
-    
-    return acc
+    return cal_acc(Y_train_pred, Y_train)
 
 def print_nnclf_acc(acc):
     
@@ -1037,19 +1033,19 @@ def train_nn_model_noise_validate2(nodes, X_train_scaled, Y_train, max_evals=10)
         #print(Y_temp.shape)
         #print(Y_temp_reshape.shape)
         #output = pd.DataFrame(data = X_split_train)
-        #output.to_csv("C:/Users/1/Desktop/X_split_train_shape.csv", index=False)
+        #output.to_csv("kaggle_titanic_files/X_split_train_shape.csv", index=False)
         #output = pd.DataFrame(data = X_split_train_df)            
-        #output.to_csv("C:/Users/1/Desktop/X_split_train_df_shape.csv", index=False)
+        #output.to_csv("kaggle_titanic_files/X_split_train_df_shape.csv", index=False)
         #output = pd.DataFrame(data = X_temp)            
-        #output.to_csv("C:/Users/1/Desktop/X_temp_shape.csv", index=False)
+        #output.to_csv("kaggle_titanic_files/X_temp_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_split_train)
-        #output.to_csv("C:/Users/1/Desktop/Y_split_train_shape.csv", index=False)
+        #output.to_csv("kaggle_titanic_files/Y_split_train_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_split_train_df)
-        #output.to_csv("C:/Users/1/Desktop/Y_split_train_df_shape.csv", index=False)
+        #output.to_csv("kaggle_titanic_files/Y_split_train_df_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_temp)
-        #output.to_csv("C:/Users/1/Desktop/Y_temp_shape.csv", index=False)
+        #output.to_csv("kaggle_titanic_files/Y_temp_shape.csv", index=False)
         #output = pd.DataFrame(data = Y_temp_reshape)
-        #output.to_csv("C:/Users/1/Desktop/Y_temp_reshape.csv", index=False)
+        #output.to_csv("kaggle_titanic_files/Y_temp_reshape.csv", index=False)
 
         #clf.fit(X_temp.astype(np.float32), Y_temp_reshape.astype(np.longlong))
         #clf.fit(X_split_train.astype(np.float32), Y_split_train.astype(np.longlong))        
@@ -1710,7 +1706,7 @@ def tpot_stacking_predict(best_nodes, data_test, stacked_train, Y_train, stacked
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 space = {"title":hp.choice("title", ["stacked_titanic"]),
-         "path":hp.choice("path", ["C:/Users/1/Desktop/Titanic_Prediction.csv"]),
+         "path":hp.choice("path", ["kaggle_titanic_files/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0]),
          "max_epochs":hp.choice("max_epochs",[400]),
@@ -1753,7 +1749,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          }
 
 space_nodes = {"title":["stacked_titanic"],
-               "path":["C:/Users/1/Desktop/Titanic_Prediction.csv"],
+               "path":["kaggle_titanic_files/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0],
                "max_epochs":[400],
@@ -1796,7 +1792,7 @@ space_nodes = {"title":["stacked_titanic"],
 #其实本身不需要best_nodes主要是为了快速测试
 #不然每次超参搜索的best_nodes效率太低了吧
 best_nodes = {"title":"stacked_titanic",
-              "path":"C:/Users/1/Desktop/Titanic_Prediction.csv",
+              "path":"kaggle_titanic_files/Titanic_Prediction.csv",
               "mean":0,
               "std":0,
               "max_epochs":400,
@@ -1854,7 +1850,7 @@ save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes, best_nodes]
 for item in nodes_list:
     item["device"] = "cuda"
-    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
 #tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
@@ -1879,7 +1875,7 @@ save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes]
 for item in nodes_list:
     item["device"] = "cuda"
-    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 150)
 #tacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
@@ -1902,7 +1898,7 @@ save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes, best_nodes,  best_nodes, best_nodes]
 for item in nodes_list:
     item["device"] = "cuda"
-    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 49)
 #stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 22)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
@@ -1964,7 +1960,7 @@ for item in nodes_list:
     item["device"] = "cpu"
     item["batch_size"] = 2048
     item["max_epochs"] = 600
-    item["path"] = "C:/Users/1/Desktop/Titanic_Prediction.csv"
+    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv"
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 15, 32)
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
