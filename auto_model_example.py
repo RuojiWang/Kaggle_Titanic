@@ -243,7 +243,7 @@ X_test_scaled = X_all_scaled[len(X_train):]
 def isclose(a, b, rel_tol=1e-09, abs_tol=0.0):
     return abs(a-b) <= max(rel_tol * max(abs(a), abs(b)), abs_tol)
 
-#calculate the correct rate of prediction, Y_train_pred is prediction and Y_train is answer
+#calculate the correct rate of prediction, Y_train_pred is prediction and Y_train is truth
 def cal_acc(Y_train_pred, Y_train):
 
     count = (Y_train_pred == Y_train).sum()
@@ -252,7 +252,7 @@ def cal_acc(Y_train_pred, Y_train):
     return acc
 
 #calculate the correct rate of prediction of classifier, 
-#clf is classifier Y_train_pred is prediction and Y_train is answer
+#clf is classifier Y_train_pred is prediction and Y_train is truth
 def cal_nnclf_acc(clf, X_train, Y_train):
     
     Y_train_pred = clf.predict(X_train.astype(np.float32))
@@ -534,7 +534,9 @@ def noise_augment_ndarray_data(mean, std, X_train, Y_train, columns):
     return X_noise_train, Y_train
 
 #the objective function and bayesian hyperparameters optimization wil get the minimum value of which,
-#params is the current parameters of bayesian hyperparameters optimization
+#params is the current parameters of bayesian hyperparameters optimization.
+#nn_f1 and nn_f2 are different criterion to judge the best hyperparameters,
+#which you can learn their usage scenarios from example code in the final of this file.
 def nn_f1(params):
    
     print("mean", params["mean"])
@@ -665,8 +667,9 @@ def parse_nodes(trials, space_nodes):
 
 #parse numbers of best hyperparameters in the bayesian hyperparameters optimization,
 #trials is the record of bayesian hyperparameters optimization,
-#space_nodes is the optimization space of bayesian hyperparameters, which mainly used to and makes it easier to get the best hyperparameters
-#num is the how many numbers of best hyperparameters to get
+#space_nodes is the optimization space of bayesian hyperparameters, 
+#which mainly used to and makes it easier to get the best hyperparameters
+#num is the numbers of best hyperparameters to get
 def parse_trials(trials, space_nodes, num):
     
     trials_list =[]
@@ -1562,7 +1565,8 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          "optimizer":hp.choice("optimizer", [torch.optim.Adam])
          }
 
-#space_nodes is the optimization space of bayesian hyperparameters, which mainly used to and makes it easier to get the best hyperparameters
+#space_nodes is the optimization space of bayesian hyperparameters, 
+#which mainly used to and makes it easier to get the best hyperparameters
 space_nodes = {"title":["stacked_titanic"],
                "path":["kaggle_titanic_files/Titanic_Prediction.csv"],
                "mean":[0],
@@ -1631,6 +1635,7 @@ best_nodes = {"title":"stacked_titanic",
               }
 
 #run the following code for running environment test
+#split train data and validation data for best hyperparameters selection.
 X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.14)
 start_time = datetime.datetime.now()
 trials = Trials()
@@ -1668,6 +1673,7 @@ print("time cost", (end_time - start_time))
 #run the following code for neural network model training and prediction.
 #use hyperopt(bayesian optimization) to search the best network structure.
 #have a look at hyperopt will help in understanding the following code.
+#split train data and validation data for best hyperparameters selection.
 X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.14)
 start_time = datetime.datetime.now()
 trials = Trials()
