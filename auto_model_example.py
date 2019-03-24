@@ -5,19 +5,19 @@
 #原来神经网络模型的训练一直就比较慢，以至于有的时候不一定要采用交叉验证的方式来训练，可能直接用部分未训练数据作为验证集。。
 #然后对于模型过拟合或者欠拟合的判断贯穿整个机器学习的过程当中，原来stacking其实是最后一种用于提升模型泛化性能的方式咯。我的面试可以围绕这些开始吧。
 #上一个版本的结果不是很理想耶，所以这次真的是最后一次做这个实验了，我理解不应该删除“异常点”，此外随机重采样应该出现了问题了吧，come on, let's do it.
-#这个版本和下一个版本综合一起研究了很多的关于如何使用gpu提升计算效率的问题，只有在网络很大且batch-size很大的时候gpu计算速度才能够超过cpu，不论使用tensorflow还是pytorch。
+#这个版本和下一个版本综合一起研究了很多的关于如何使用gpu提升计算效率的问题，只有在网络很大且batch-size很大的时候gpu计算速度才能够超过cuda，不论使用tensorflow还是pytorch。
 #然后我想到了一个比较奸诈的方式实现计算过程的提速，那就是设置更大的batch-size，毕竟这个参数对于网络的影响还是比较小的但是对于计算时间影响较大的。
 
 #修改内容集被整理如下：
-#（0）到这个时候我才发现GPU训练神经网络的速度比cpu训练速度快很多耶。不对呀，好像也没有快很多吧
-#现在看来可能是和昨天cpu在运行别的程序有关吧导致计算比较慢，GPU似乎并没有比cpu带来十倍的优势吧？
-#只有模型越大batch_size越大的情况下情况下gpu的优势在得以体现，否则比使用cpu好不了多少的
+#（0）到这个时候我才发现GPU训练神经网络的速度比cuda训练速度快很多耶。不对呀，好像也没有快很多吧
+#现在看来可能是和昨天cuda在运行别的程序有关吧导致计算比较慢，GPU似乎并没有比cuda带来十倍的优势吧？
+#只有模型越大batch_size越大的情况下情况下gpu的优势在得以体现，否则比使用cuda好不了多少的
 #（1）将保存文件的路径修改了。
 #（2）特征处理的流程需要修改。尤其是可能增加清除离群点的过程（泰坦尼克数据集上面用了效果变差了。。）。
 #（3）record_best_model_acc的方式可能需要修改，或许我们需要换种方式获取最佳模型咯，不对好像暂时还不能修改这个东西。
 #（4）create_nn_module函数可能需要修改，因为每层都有dropout或者修改为其他结构如回归问题咯。
 #（5）noise_augment_dataframe_data可能需要修改，因为Y_train或许也需要增加噪声的。
-#（6）nn_f可能需要修改，因为noise_augment_dataframe_data的columns需要修改咯，还有评价准则可能需要优化或者不需要加噪声吧？但是暂时不知如何优化
+#（6）nn_f1可能需要修改，因为noise_augment_dataframe_data的columns需要修改咯，还有评价准则可能需要优化或者不需要加噪声吧？但是暂时不知如何优化
 #（7）nn_stacking_f应该是被弃用了，因为之前我尝试过第二层使用神经网络或者tpot结果都不尽如人意咯，第二层使用逻辑回归才是王道。
 #（8）parse_nodes、parse_trials、space、space_nodes需要根据每次的数据修改，best_nodes本身不需要主要是为了快速测试而存在。max_epoch需要根据数据集大小调整。
 #（9）train_nn_model、train_nn_model_validate1或许需要换种方式获取最佳模型咯。现在已经找到最佳方式选择模型咯
@@ -30,6 +30,7 @@
 #我到今天才知道dataframe是一列一列的而ndarray是一行一行的？？不过之前的函数测试都是木有问题的哈，这就很好咯
 import os
 import sys
+import math
 import random
 import pickle
 import datetime
@@ -400,34 +401,105 @@ def create_nn_module(input_nodes, hidden_layers, hidden_nodes, output_nodes, per
 #clf is the model to be inited,
 #weiht_mode is the ways to init,
 #bias means need bias or not
-def init_module(clf, weight_mode, bias):
-    
-    for name, params in clf.named_parameters():
-        if name.find("weight") != -1:
+def init_module(rsg, weight_mode, bias):
+
+    for layer in rsg.modules():
+        #我本来想单独处理nn.Linear nn.Conv2d等
+        #但是处理的流程好像都是一样的，所以不用分开处理
+        #不对啊，nn.Conv2d
+        #目前这个可能会遇到dropout relu之类的
+        if isinstance(layer, nn.Linear):
             if (weight_mode==1):
                 pass
-        
+                #weight和bias均使用pytorch默认的初始值，也就是下面的赋值方式咯
+                #def reset_parameters(self):
+                #stdv = 1. / math.sqrt(self.weight.size(1))
+                #self.weight.data.uniform_(-stdv, stdv)
+                #if self.bias is not None:
+                #    self.bias.data.uniform_(-stdv, stdv)
+
+            #这下面是xavier_normal_的方式初始化的三种情况
             elif (weight_mode==2):
-                torch.nn.init.normal_(params)
-        
+                #使用xavier_normal_的方式初始化weight但是不改变默认bias
+                #可能两个函数的std存在差异，不知道是否能够交融在一起
+                #现在需要注意的是每个函数需要注意参数，使用默认参数可能造成weight和bias范围不搭
+                #uniform_的默认stdv值是stdv = 1. / math.sqrt(self.weight.size(1))
+                #xavier_normal_的默认std值是std = gain * math.sqrt(2.0 / (fan_in + fan_out))
+                #还好这两个参数的范围是搭的所以可以直接放在一起吧
+                nn.init.xavier_normal_(layer.weight.data)
+                
             elif (weight_mode==3):
-                torch.nn.init.xavier_normal_(params)
-        
+                #使用xavier_normal_的方式初始化weight和bias
+                nn.init.xavier_normal_(layer.weight.data)
+                #nn.init.xavier_normal_(layer.bias.data)
+                #这下面是模拟上面xavier_normal_的初始化方式
+                #特别注意了一下bias的std范围和xavier_normal_的是搭配的
+                std = 1.0 * math.sqrt(1.0 / layer.weight.data.size(0))
+                #这里不计算std的话，可能参数的范围和上面是不搭的
+                nn.init.normal_(layer.bias.data, 0, std)
+                
+            elif (weight_mode==4):
+                #使用xavier_normal_的方式初始化weight
+                #将bias的值设置为固定的值咯，这样一来好像需要设定很多bias候选值？
+                #感觉就提供五到十个选择吧，我理解bias区间范围还是比较窄的（从默认赋值看出）
+                nn.init.xavier_normal_(layer.weight.data)
+                nn.init.constant_(layer.bias.data, bias)
+                
+            #接下来是xavier_uniform_初始化的三类情况
+            elif (weight_mode==5):
+                #xavier_uniform_的std = gain * math.sqrt(2.0 / (fan_in + fan_out))
+                #std = math.sqrt(3.0) * std
+                #这个std的默认范围和默认的bias的空间是不搭的，但是还是作为一种初始化方案吧
+                nn.init.xavier_uniform_(layer.weight.data)
+            
+            elif (weight_mode==6):
+                nn.init.xavier_uniform_(layer.weight.data)
+                #nn.init.xavier_uniform_(layer.bias.data)
+                #这下面是模拟上面xavier_uniform_的初始化方式
+                std = 1.0 * math.sqrt(1.0 / layer.weight.data.size(0))
+                std = math.sqrt(3.0) * std
+                #这里不计算std的话，可能参数的范围和上面是不搭的
+                nn.init.uniform_(layer.bias.data, -std, std)
+                
+            elif (weight_mode==7):
+                nn.init.xavier_uniform_(layer.weight.data)
+                nn.init.constant_(layer.bias.data, bias)
+            
+            #接下来是kaiming_normal_初始化的三类情况
+            elif (weight_mode==8):
+                #使用kaiming_normal_的方式初始化weight但是不改变默认bias
+                nn.init.kaiming_normal_(layer.weight.data)
+                
+            elif (weight_mode==9):
+                nn.init.kaiming_normal_(layer.weight.data)
+                gain = math.sqrt(2.0 / (1 + 0** 2))
+                fan = layer.bias.data.size(0)
+                std = gain / fan
+                nn.init.normal_(layer.bias.data, 0, std)
+            
+            elif (weight_mode==10):
+                nn.init.kaiming_normal_(layer.weight.data)
+                nn.init.constant_(layer.bias.data, bias)
+                
+            #接下来是kaiming_uniform_初始化的三类情况
+            elif (weight_mode==11):
+                #使用kaiming_uniform_的方式初始化weight但是不改变默认bias
+                nn.init.kaiming_uniform_(layer.weight.data)
+                
+            elif (weight_mode==12):
+                nn.init.kaiming_uniform_(layer.weight.data)
+                gain = math.sqrt(2.0 / (1 + 0** 2))
+                fan = layer.bias.data.size(0)
+                std = gain / math.sqrt(fan)
+                std = math.sqrt(3.0) * std
+                nn.init.uniform_(layer.bias.data, -std, std)
+            
+            elif (weight_mode==13):
+                nn.init.kaiming_uniform_(layer.weight.data)
+                nn.init.constant_(layer.bias.data, bias)                
+                
             else:
-                torch.nn.init.xavier_uniform_(params)
-        
-        if name.find("bias") != -1:
-            if (weight_mode==1):
                 pass
-        
-            elif (weight_mode==2):
-                torch.nn.init.constant_(params, bias)
-        
-            elif (weight_mode==3):
-                torch.nn.init.constant_(params, bias)
-        
-            else:
-                torch.nn.init.constant_(params, bias)
 
 #add noise to do data augmentation for dataframe data,
 #mean is the mean of the Gaussian noise,
@@ -463,7 +535,7 @@ def noise_augment_ndarray_data(mean, std, X_train, Y_train, columns):
 
 #the objective function and bayesian hyperparameters optimization wil get the minimum value of which,
 #params is the current parameters of bayesian hyperparameters optimization
-def nn_f(params):
+def nn_f1(params):
    
     print("mean", params["mean"])
     print("std", params["std"])
@@ -500,6 +572,55 @@ def nn_f(params):
     init_module(clf.module, params["weight_mode"], params["bias"])
     
     metric = cross_val_score(clf, X_train_scaled.values.astype(np.float32), Y_train.values.astype(np.longlong), cv=skf, scoring="accuracy").mean()
+    
+    print(metric)
+    print()    
+    return -metric
+
+def nn_f2(params):
+   
+    print("mean", params["mean"])
+    print("std", params["std"])
+    print("lr", params["lr"])
+    print("optimizer__weight_decay", params["optimizer__weight_decay"])
+    print("criterion", params["criterion"])
+    print("batch_size", params["batch_size"])
+    print("optimizer__betas", params["optimizer__betas"])
+    print("bias", params["bias"])
+    print("weight_mode", params["weight_mode"])
+    print("patience", params["patience"])
+    print("input_nodes", params["input_nodes"])
+    print("hidden_layers", params["hidden_layers"])
+    print("hidden_nodes", params["hidden_nodes"])
+    print("output_nodes", params["output_nodes"])
+    print("percentage", params["percentage"])
+    
+    acc_list = []
+    for i in range(0, 5):    
+        clf = NeuralNetClassifier(lr = params["lr"],
+                                  optimizer__weight_decay = params["optimizer__weight_decay"],
+                                  criterion = params["criterion"],
+                                  batch_size = params["batch_size"],
+                                  optimizer__betas = params["optimizer__betas"],
+                                  module = create_nn_module(params["input_nodes"], params["hidden_layers"], 
+                                                            params["hidden_nodes"], params["output_nodes"], params["percentage"]),
+                                  max_epochs = params["max_epochs"],
+                                  callbacks=[skorch.callbacks.EarlyStopping(patience=params["patience"])],
+                                  device = params["device"],
+                                  optimizer = params["optimizer"]
+                                  )
+    
+        init_module(clf.module, params["weight_mode"], params["bias"])
+        
+        clf.fit(X_split_train.values.astype(np.float32), Y_split_train.values.astype(np.longlong))
+        Y_pred = clf.predict(X_split_test.values.astype(np.float32))
+        acc = cal_acc(Y_pred, Y_split_test)  
+        acc_list.append(acc)
+
+    acc_sum = 0.0
+    for i in range(0, len(acc_list)):
+        acc_sum += acc_list[i]
+    metric = acc_sum / len(acc_list)
     
     print(metric)
     print()    
@@ -587,7 +708,7 @@ def parse_trials(trials, space_nodes, num):
 #nodes is the best hyperparameters for neural networks,
 #X_train_scaled is the train data after feature scale,
 #max_evals is the number of training,
-#I recommend you use train_nn_model_validate2 when you have sufficient resources 
+#I recommend you use train_nn_model_validate1 or train_nn_model_validate2
 def train_nn_model(nodes, X_train_scaled, Y_train, max_evals=10):
     
     #由于神经网络模型初始化、dropout等的问题导致网络不够稳定
@@ -714,7 +835,7 @@ def train_nn_model_noise_validate1(nodes, X_train_scaled, Y_train, max_evals=10)
     return best_model, best_acc
 
 #然后在这里增加一次噪声和验证咯，感觉我把程序弄的真的好复杂呀？
-#或许我下一阶段的实验就是查看是否nn_f不加入噪声只是第二阶段增加噪声效果是否更好？
+#或许我下一阶段的实验就是查看是否nn_f1不加入噪声只是第二阶段增加噪声效果是否更好？
 def train_nn_model_noise_validate2(nodes, X_train_scaled, Y_train, max_evals=10):
     
     X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.1, stratify=Y_train)
@@ -826,7 +947,7 @@ def train_nn_model_noise_validate4(nodes, X_train_scaled, Y_train, max_evals=10)
 #X_test_scaled is the test data after feature scale,
 #n_folds is the fold number of the divided data,
 #max_evals is the number of training,
-#I recommend you use get_oof_validate2 when you have sufficient resources 
+#I  you use get_oof_validate1 or get_oof_validate2
 def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
     
     """K-fold stacking"""
@@ -1401,7 +1522,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          "path":hp.choice("path", ["kaggle_titanic_files/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0]),
-         "max_epochs":hp.choice("max_epochs",[400]),
+         "max_epochs":hp.choice("max_epochs",[600]),
          "patience":hp.choice("patience", [4,5,6,7,8,9,10]),
          "lr":hp.choice("lr", [0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.00006, 0.00007, 0.00008, 0.00009, 0.00010,
                                0.00011, 0.00012, 0.00013, 0.00014, 0.00015, 0.00016, 0.00017, 0.00018, 0.00019, 0.00020,
@@ -1434,9 +1555,10 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
                                                    85, 90, 95, 100, 105, 110, 115]), 
          "output_nodes":hp.choice("output_nodes", [2]),
          "percentage":hp.choice("percentage", [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45]),
-         "weight_mode":hp.choice("weight_mode", [1]),
-         "bias":hp.choice("bias", [0]),
-         "device":hp.choice("device", ["cpu"]),
+         "weight_mode":hp.choice("weight_mode", [1, 2, 3, 4, 5, 6, 7,
+                                                 8, 9, 10, 11, 12, 13]),
+         "bias":hp.choice("bias", [-0.03, -0.02, -0.01, 0, 0.01, 0.02, 0.03]),
+         "device":hp.choice("device", ["cuda"]),
          "optimizer":hp.choice("optimizer", [torch.optim.Adam])
          }
 
@@ -1445,7 +1567,7 @@ space_nodes = {"title":["stacked_titanic"],
                "path":["kaggle_titanic_files/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0],
-               "max_epochs":[400],
+               "max_epochs":[600],
                "patience":[4,5,6,7,8,9,10],
                "lr":[0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.00006, 0.00007, 0.00008, 0.00009, 0.00010,
                      0.00011, 0.00012, 0.00013, 0.00014, 0.00015, 0.00016, 0.00017, 0.00018, 0.00019, 0.00020,
@@ -1476,9 +1598,10 @@ space_nodes = {"title":["stacked_titanic"],
                                85, 90, 95, 100, 105, 110, 115], 
                "output_nodes":[2],
                "percentage":[0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45],
-               "weight_mode":[1],
-               "bias":[0],
-               "device":["cpu"],
+               "weight_mode":[1, 2, 3, 4, 5, 6, 7,
+                              8, 9, 10, 11, 12, 13],
+               "bias":[-0.03, -0.02, -0.01, 0, 0.01, 0.02, 0.03],
+               "device":["cuda"],
                "optimizer":[torch.optim.Adam]
                }
 
@@ -1489,7 +1612,7 @@ best_nodes = {"title":"stacked_titanic",
               "path":"kaggle_titanic_files/Titanic_Prediction.csv",
               "mean":0,
               "std":0,
-              "max_epochs":400,
+              "max_epochs":600,
               "patience":5,
               "lr":0.00010,
               "optimizer__weight_decay":0.005,
@@ -1503,15 +1626,17 @@ best_nodes = {"title":"stacked_titanic",
               "percentage":0.15,
               "weight_mode":1,
               "bias":0.0,
-              "device":"cpu",
+              "device":"cuda",
               "optimizer":torch.optim.Adam
               }
 
 #run the following code for running environment test
+X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.14)
 start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=2, trials=trials)
+#max_evals determine hyperparameters search times, bigger max_evals may lead to better results.
+best_params = fmin(nn_f2, space, algo=algo, max_evals=2, trials=trials)
 
 #save the result of the hyperopt(bayesian optimization) search.
 best_nodes = parse_nodes(trials, space_nodes)
@@ -1521,14 +1646,16 @@ save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes]
 #the following code can change the settings of the stacking process
 #you may use it as following when you need.
+#change settings except device or path is not recommended, cause you may lost best hyperparameters.
+#if you must use specific parameters, set it and start hyperparameters once more.
 #for item in nodes_list:
-#    item["device"] = "cpu" #set the device to train neural network, "cpu" means using cpu, "cuda" means using gpu.
+#    item["device"] = "cuda" #set the device to train neural network, "cuda" means using cuda, "cuda" means using gpu.
 #    item["batch_size"] = 256 #set the batch_size of the neural network.
 #    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv" #set the file path of the prediction file.
 #neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
 #the first one can save training time, 40 and 25 are fine choice for the last two function parameters.
 #the second one has less overfitting risk, 30 and 35 are fine choice for the last two function parameters.  
-stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 2, 2)
+stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 2, 2)
 #save the stacking intermediate result.
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 
@@ -1541,10 +1668,50 @@ print("time cost", (end_time - start_time))
 #run the following code for neural network model training and prediction.
 #use hyperopt(bayesian optimization) to search the best network structure.
 #have a look at hyperopt will help in understanding the following code.
+X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.14)
 start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-best_params = fmin(nn_f, space, algo=algo, max_evals=2, trials=trials)
+#max_evals determine hyperparameters search times, bigger max_evals may lead to better results.
+best_params = fmin(nn_f2, space, algo=algo, max_evals=3000, trials=trials)
+
+#save the result of the hyperopt(bayesian optimization) search.
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+
+#use 5 best nodes to create 5 neural network model for stacking.
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes]
+#the following code can change the settings of the stacking process
+#you may use it as following when you need.
+#change settings except device or path is not recommended, cause you may lost best hyperparameters.
+#if you must use specific parameters, set it and start hyperparameters once more.
+#for item in nodes_list:
+#    item["device"] = "cuda" #set the device to train neural network, "cuda" means using cuda, "cuda" means using gpu.
+#    item["batch_size"] = 256 #set the batch_size of the neural network.
+#    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv" #set the file path of the prediction file.
+#neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
+#the first one can save training time, 40 and 25 are fine choice for the last two function parameters.
+#the second one has less overfitting risk, 30 and 35 are fine choice for the last two function parameters.  
+stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 40, 25)
+#save the stacking intermediate result.
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+
+#use logistic regression to fit stacked_train/stacked_test and predict the result. 
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+"""
+#another way for neural network model training and prediction.
+#run the following code for neural network model training and prediction.
+#use hyperopt(bayesian optimization) to search the best network structure.
+#have a look at hyperopt will help in understanding the following code.
+start_time = datetime.datetime.now()
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+#max_evals determine hyperparameters search times, bigger max_evals may lead to better results.
+best_params = fmin(nn_f1, space, algo=algo, max_evals=3000, trials=trials)
 
 #save the result of the hyperopt(bayesian optimization) search.
 best_nodes = parse_nodes(trials, space_nodes)
@@ -1554,13 +1721,15 @@ save_inter_params(trials, space_nodes, best_nodes, "titanic")
 nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
 #the following code can change the settings of the stacking process
 #you may use it as following when you need.
+#change settings except device or path is not recommended, cause you may lost best hyperparameters.
+#if you must use specific parameters, set it and start hyperparameters once more.
 #for item in nodes_list:
-#    item["device"] = "cpu" #set the device to train neural network, "cpu" means using cpu, "cuda" means using gpu.
+#    item["device"] = "cuda" #set the device to train neural network, "cuda" means using cuda, "cuda" means using gpu.
 #    item["batch_size"] = 256 #set the batch_size of the neural network.
 #    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv" #set the file path of the prediction file.
 #neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
 #the first one can save training time, 40 and 25 are fine choice for the last two function parameters.
-#the second one has less overfitting risk, 30 and 35 are fine choice for the last two function parameters.  
+#the second one has less overfitting risk, 30 and 35 are fine choice for the last two function parameters.
 stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 30, 35)
 #save the stacking intermediate result.
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
