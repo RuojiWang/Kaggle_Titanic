@@ -5,13 +5,13 @@
 #原来神经网络模型的训练一直就比较慢，以至于有的时候不一定要采用交叉验证的方式来训练，可能直接用部分未训练数据作为验证集。。
 #然后对于模型过拟合或者欠拟合的判断贯穿整个机器学习的过程当中，原来stacking其实是最后一种用于提升模型泛化性能的方式咯。我的面试可以围绕这些开始吧。
 #上一个版本的结果不是很理想耶，所以这次真的是最后一次做这个实验了，我理解不应该删除“异常点”，此外随机重采样应该出现了问题了吧，come on, let's do it.
-#这个版本和下一个版本综合一起研究了很多的关于如何使用gpu提升计算效率的问题，只有在网络很大且batch-size很大的时候gpu计算速度才能够超过cuda，不论使用tensorflow还是pytorch。
+#这个版本和下一个版本综合一起研究了很多的关于如何使用gpu提升计算效率的问题，只有在网络很大且batch-size很大的时候gpu计算速度才能够超过cpu，不论使用tensorflow还是pytorch。
 #然后我想到了一个比较奸诈的方式实现计算过程的提速，那就是设置更大的batch-size，毕竟这个参数对于网络的影响还是比较小的但是对于计算时间影响较大的。
 
 #修改内容集被整理如下：
-#（0）到这个时候我才发现GPU训练神经网络的速度比cuda训练速度快很多耶。不对呀，好像也没有快很多吧
-#现在看来可能是和昨天cuda在运行别的程序有关吧导致计算比较慢，GPU似乎并没有比cuda带来十倍的优势吧？
-#只有模型越大batch_size越大的情况下情况下gpu的优势在得以体现，否则比使用cuda好不了多少的
+#（0）到这个时候我才发现GPU训练神经网络的速度比CPU训练速度快很多耶。不对呀，好像也没有快很多吧
+#现在看来可能是和昨天CPU在运行别的程序有关吧导致计算比较慢，GPU似乎并没有比CPU带来十倍的优势吧？
+#只有模型越大batch_size越大的情况下情况下gpu的优势在得以体现，否则比使用cpu好不了多少的
 #（1）将保存文件的路径修改了。
 #（2）特征处理的流程需要修改。尤其是可能增加清除离群点的过程（泰坦尼克数据集上面用了效果变差了。。）。
 #（3）record_best_model_acc的方式可能需要修改，或许我们需要换种方式获取最佳模型咯，不对好像暂时还不能修改这个东西。
@@ -1475,7 +1475,9 @@ def lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stac
     
     clf = LogisticRegression()
     param_dist = {"penalty": ["l1", "l2"],
-                  "C": np.linspace(0.001, 100000, 10000),
+                  #这个C的数值设置应该是用等比数列，不应该使用等差数列
+                  #"C": np.linspace(0.001, 100000, 100000)
+                  "C": np.logspace(-4, 5, 100),
                   "fit_intercept": [True, False],
                   #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
                   }
@@ -1561,7 +1563,7 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
          "weight_mode":hp.choice("weight_mode", [1, 2, 3, 4, 5, 6, 7,
                                                  8, 9, 10, 11, 12, 13]),
          "bias":hp.choice("bias", [-0.03, -0.02, -0.01, 0, 0.01, 0.02, 0.03]),
-         "device":hp.choice("device", ["cuda"]),
+         "device":hp.choice("device", ["cpu"]),
          "optimizer":hp.choice("optimizer", [torch.optim.Adam])
          }
 
@@ -1605,7 +1607,7 @@ space_nodes = {"title":["stacked_titanic"],
                "weight_mode":[1, 2, 3, 4, 5, 6, 7,
                               8, 9, 10, 11, 12, 13],
                "bias":[-0.03, -0.02, -0.01, 0, 0.01, 0.02, 0.03],
-               "device":["cuda"],
+               "device":["cpu"],
                "optimizer":[torch.optim.Adam]
                }
 
@@ -1630,7 +1632,7 @@ best_nodes = {"title":"stacked_titanic",
               "percentage":0.15,
               "weight_mode":1,
               "bias":0.0,
-              "device":"cuda",
+              "device":"cpu",
               "optimizer":torch.optim.Adam
               }
 
@@ -1654,7 +1656,7 @@ nodes_list = [best_nodes, best_nodes]
 #change settings except device or path is not recommended, cause you may lost best hyperparameters.
 #if you must use specific parameters, set it and start hyperparameters once more.
 #for item in nodes_list:
-#    item["device"] = "cuda" #set the device to train neural network, "cuda" means using cuda, "cuda" means using gpu.
+#    item["device"] = "cpu" #set the device to train neural network, "cpu" means using cpu, "cuda" means using gpu.
 #    item["batch_size"] = 256 #set the batch_size of the neural network.
 #    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv" #set the file path of the prediction file.
 #neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
@@ -1665,7 +1667,7 @@ stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_sca
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 
 #use logistic regression to fit stacked_train/stacked_test and predict the result. 
-lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 300)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 
@@ -1692,7 +1694,7 @@ nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes]
 #change settings except device or path is not recommended, cause you may lost best hyperparameters.
 #if you must use specific parameters, set it and start hyperparameters once more.
 #for item in nodes_list:
-#    item["device"] = "cuda" #set the device to train neural network, "cuda" means using cuda, "cuda" means using gpu.
+#    item["device"] = "cpu" #set the device to train neural network, "cpu" means using cpu, "cuda" means using gpu.
 #    item["batch_size"] = 256 #set the batch_size of the neural network.
 #    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv" #set the file path of the prediction file.
 #neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
@@ -1703,7 +1705,7 @@ stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_sca
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 
 #use logistic regression to fit stacked_train/stacked_test and predict the result. 
-lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 300)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
@@ -1730,7 +1732,7 @@ nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
 #change settings except device or path is not recommended, cause you may lost best hyperparameters.
 #if you must use specific parameters, set it and start hyperparameters once more.
 #for item in nodes_list:
-#    item["device"] = "cuda" #set the device to train neural network, "cuda" means using cuda, "cuda" means using gpu.
+#    item["device"] = "cpu" #set the device to train neural network, "cpu" means using cpu, "cuda" means using gpu.
 #    item["batch_size"] = 256 #set the batch_size of the neural network.
 #    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv" #set the file path of the prediction file.
 #neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
@@ -1741,7 +1743,7 @@ stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_sca
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 
 #use logistic regression to fit stacked_train/stacked_test and predict the result. 
-lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 2000)
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 300)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
