@@ -46,6 +46,8 @@ import torch.nn.init
 import torch.nn as nn
 import torch.nn.functional as F
 
+import sklearn.metrics as metrics
+
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.linear_model import LogisticRegression 
 from sklearn.ensemble import RandomForestClassifier, IsolationForest
@@ -1481,7 +1483,7 @@ def lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stac
                   "fit_intercept": [True, False],
                   #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
                   }
-    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=max_evals)
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=max_evals, scoring="accuracy")
     random_search.fit(stacked_train, Y_train)
     best_acc = random_search.best_estimator_.score(stacked_train, Y_train)
     lr_pred = random_search.best_estimator_.predict(stacked_test)
@@ -1523,12 +1525,15 @@ def tpot_stacking_predict(best_nodes, data_test, stacked_train, Y_train, stacked
     
 #现在直接利用经验参数值进行搜索咯，这样可以节约计算资源
 #space is the optimization space of bayesian hyperparameters
+#narrow the space of bayesian hyperparameters to get better optimization results
 space = {"title":hp.choice("title", ["stacked_titanic"]),
          "path":hp.choice("path", ["kaggle_titanic_files/Titanic_Prediction.csv"]),
          "mean":hp.choice("mean", [0]),
          "std":hp.choice("std", [0]),
-         "max_epochs":hp.choice("max_epochs",[600]),
-         "patience":hp.choice("patience", [4,5,6,7,8,9,10]),
+         "max_epochs":hp.choice("max_epochs",[1200]),
+         #为了尽可能的减少超参搜索的空间，以获得更好的结果
+         #"patience":hp.choice("patience", [4,5,6,7,8,9,10]),
+         "patience":hp.choice("patience", [3,6,9]),
          "lr":hp.choice("lr", [0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.00006, 0.00007, 0.00008, 0.00009, 0.00010,
                                0.00011, 0.00012, 0.00013, 0.00014, 0.00015, 0.00016, 0.00017, 0.00018, 0.00019, 0.00020,
                                0.00021, 0.00022, 0.00023, 0.00024, 0.00025, 0.00026, 0.00027, 0.00028, 0.00029, 0.00030,
@@ -1545,25 +1550,27 @@ space = {"title":hp.choice("title", ["stacked_titanic"]),
                                0.00131, 0.00132, 0.00133, 0.00134, 0.00135, 0.00136, 0.00137, 0.00138, 0.00139, 0.00140,
                                0.00141, 0.00142, 0.00143, 0.00144, 0.00145, 0.00146, 0.00147, 0.00148, 0.00149, 0.00150,
                                0.00151, 0.00152, 0.00153, 0.00154, 0.00155, 0.00156, 0.00157, 0.00158, 0.00159, 0.00160]),  
-         "optimizer__weight_decay":hp.choice("optimizer__weight_decay",[0.000, 0.00000001, 0.000001, 0.0001, 0.01]),  
-         "criterion":hp.choice("criterion", [torch.nn.NLLLoss, torch.nn.CrossEntropyLoss]),
-
-         "batch_size":hp.choice("batch_size", [64, 128, 256, 512, 1024, 2048, 4096]),
-         "optimizer__betas":hp.choice("optimizer__betas",
-                                      [[0.88, 0.9991], [0.88, 0.9993], [0.88, 0.9995], [0.88, 0.9997], [0.88, 0.9999],
-                                       [0.90, 0.9991], [0.90, 0.9993], [0.90, 0.9995], [0.90, 0.9997], [0.90, 0.9999],
-                                       [0.92, 0.9991], [0.92, 0.9993], [0.92, 0.9995], [0.92, 0.9997], [0.92, 0.9999]]),
+         #"optimizer__weight_decay":hp.choice("optimizer__weight_decay",[0.000, 0.00000001, 0.000001, 0.0001, 0.01]), 
+         "optimizer__weight_decay":hp.choice("optimizer__weight_decay",[0.000]),  
+         #"criterion":hp.choice("criterion", [torch.nn.NLLLoss, torch.nn.CrossEntropyLoss]),
+         "criterion":hp.choice("criterion", [torch.nn.NLLLoss]),
+         #"batch_size":hp.choice("batch_size", [64, 128, 256, 512, 1024, 2048, 4096]),
+         "batch_size":hp.choice("batch_size", [128]),
+         #"optimizer__betas":hp.choice("optimizer__betas",
+         #                             [[0.88, 0.9991], [0.88, 0.9993], [0.88, 0.9995], [0.88, 0.9997], [0.88, 0.9999],
+         #                              [0.90, 0.9991], [0.90, 0.9993], [0.90, 0.9995], [0.90, 0.9997], [0.90, 0.9999],
+         #                              [0.92, 0.9991], [0.92, 0.9993], [0.92, 0.9995], [0.92, 0.9997], [0.92, 0.9999]]),
+         "optimizer__betas":hp.choice("optimizer__betas",[[0.90, 0.999]]),
          "input_nodes":hp.choice("input_nodes", [20]),
          "hidden_layers":hp.choice("hidden_layers", [0, 1, 2, 3, 4, 5, 6, 7, 8]), 
-         "hidden_nodes":hp.choice("hidden_nodes", [5, 10, 15, 20, 25, 30, 35, 40, 
-                                                   45, 50, 55, 60, 65, 70, 75, 80, 
-                                                   85, 90, 95, 100, 105, 110, 115]), 
+         "hidden_nodes":hp.choice("hidden_nodes", [10, 20, 30, 40, 50, 60, 70, 80,
+                                                   90, 100, 110, 120, 130, 140, 150]), 
          "output_nodes":hp.choice("output_nodes", [2]),
-         "percentage":hp.choice("percentage", [0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45]),
+         "percentage":hp.choice("percentage", [0.10, 0.20, 0.30, 0.40, 0.50, 0.60]),
          "weight_mode":hp.choice("weight_mode", [1, 2, 3, 4, 5, 6, 7,
                                                  8, 9, 10, 11, 12, 13]),
          "bias":hp.choice("bias", [-0.03, -0.02, -0.01, 0, 0.01, 0.02, 0.03]),
-         "device":hp.choice("device", ["cpu"]),
+         "device":hp.choice("device", ["cuda"]),
          "optimizer":hp.choice("optimizer", [torch.optim.Adam])
          }
 
@@ -1573,8 +1580,9 @@ space_nodes = {"title":["stacked_titanic"],
                "path":["kaggle_titanic_files/Titanic_Prediction.csv"],
                "mean":[0],
                "std":[0],
-               "max_epochs":[600],
-               "patience":[4,5,6,7,8,9,10],
+               "max_epochs":[1200],
+               #"patience":[4,5,6,7,8,9,10],
+               "patience":[3,6,9],
                "lr":[0.00001, 0.00002, 0.00003, 0.00004, 0.00005, 0.00006, 0.00007, 0.00008, 0.00009, 0.00010,
                      0.00011, 0.00012, 0.00013, 0.00014, 0.00015, 0.00016, 0.00017, 0.00018, 0.00019, 0.00020,
                      0.00021, 0.00022, 0.00023, 0.00024, 0.00025, 0.00026, 0.00027, 0.00028, 0.00029, 0.00030,
@@ -1591,23 +1599,26 @@ space_nodes = {"title":["stacked_titanic"],
                      0.00131, 0.00132, 0.00133, 0.00134, 0.00135, 0.00136, 0.00137, 0.00138, 0.00139, 0.00140,
                      0.00141, 0.00142, 0.00143, 0.00144, 0.00145, 0.00146, 0.00147, 0.00148, 0.00149, 0.00150,
                      0.00151, 0.00152, 0.00153, 0.00154, 0.00155, 0.00156, 0.00157, 0.00158, 0.00159, 0.00160],
-               "optimizer__weight_decay":[0.000, 0.00000001, 0.000001, 0.0001, 0.01],
-               "criterion":[torch.nn.NLLLoss, torch.nn.CrossEntropyLoss],
-               "batch_size":[64, 128, 256, 512, 1024, 2048, 4096],
-               "optimizer__betas":[[0.88, 0.9991], [0.88, 0.9993], [0.88, 0.9995], [0.88, 0.9997], [0.88, 0.9999],
-                                   [0.90, 0.9991], [0.90, 0.9993], [0.90, 0.9995], [0.90, 0.9997], [0.90, 0.9999],
-                                   [0.92, 0.9991], [0.92, 0.9993], [0.92, 0.9995], [0.92, 0.9997], [0.92, 0.9999]],
+               #"optimizer__weight_decay":[0.000, 0.00000001, 0.000001, 0.0001, 0.01],
+               "optimizer__weight_decay":[0.000],
+               #"criterion":[torch.nn.NLLLoss, torch.nn.CrossEntropyLoss],
+               "criterion":[torch.nn.NLLLoss],
+               #"batch_size":[64, 128, 256, 512, 1024, 2048, 4096],
+               "batch_size":[128],
+               #"optimizer__betas":[[0.88, 0.9991], [0.88, 0.9993], [0.88, 0.9995], [0.88, 0.9997], [0.88, 0.9999],
+               #                   [0.90, 0.9991], [0.90, 0.9993], [0.90, 0.9995], [0.90, 0.9997], [0.90, 0.9999],
+               #                    [0.92, 0.9991], [0.92, 0.9993], [0.92, 0.9995], [0.92, 0.9997], [0.92, 0.9999]],
+               "optimizer__betas":[[0.90, 0.999]],
                "input_nodes":[20],
                "hidden_layers":[0, 1, 2, 3, 4, 5, 6, 7, 8], 
-               "hidden_nodes":[5, 10, 15, 20, 25, 30, 35, 40, 
-                               45, 50, 55, 60, 65, 70, 75, 80, 
-                               85, 90, 95, 100, 105, 110, 115], 
+               "hidden_nodes":[10, 20, 30, 40, 50, 60, 70, 80,
+                               90, 100, 110, 120, 130, 140, 150], 
                "output_nodes":[2],
-               "percentage":[0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45],
+               "percentage":[0.10, 0.20, 0.30, 0.40, 0.50, 0.60],
                "weight_mode":[1, 2, 3, 4, 5, 6, 7,
                               8, 9, 10, 11, 12, 13],
                "bias":[-0.03, -0.02, -0.01, 0, 0.01, 0.02, 0.03],
-               "device":["cpu"],
+               "device":["cuda"],
                "optimizer":[torch.optim.Adam]
                }
 
@@ -1618,21 +1629,21 @@ best_nodes = {"title":"stacked_titanic",
               "path":"kaggle_titanic_files/Titanic_Prediction.csv",
               "mean":0,
               "std":0,
-              "max_epochs":600,
-              "patience":5,
+              "max_epochs":1200,
+              "patience":6,
               "lr":0.00010,
-              "optimizer__weight_decay":0.005,
-              "criterion":torch.nn.CrossEntropyLoss,
+              "optimizer__weight_decay":0.000,
+              "criterion":torch.nn.NLLLoss,
               "batch_size":128,
-              "optimizer__betas":[0.86, 0.999],
+              "optimizer__betas":[0.90, 0.999],
               "input_nodes":20,
               "hidden_layers":3, 
               "hidden_nodes":60, 
               "output_nodes":2,
-              "percentage":0.15,
+              "percentage":0.20,
               "weight_mode":1,
               "bias":0.0,
-              "device":"cpu",
+              "device":"cuda",
               "optimizer":torch.optim.Adam
               }
 
@@ -1643,7 +1654,7 @@ start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 #max_evals determine hyperparameters search times, bigger max_evals may lead to better results.
-best_params = fmin(nn_f2, space, algo=algo, max_evals=2, trials=trials)
+best_params = fmin(nn_f2, space, algo=algo, max_evals=10, trials=trials)
 
 #save the result of the hyperopt(bayesian optimization) search.
 best_nodes = parse_nodes(trials, space_nodes)
@@ -1707,7 +1718,7 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 """
 
-
+"""
 #another way for neural network model training and prediction.
 #run the following code for neural network model training and prediction.
 #use hyperopt(bayesian optimization) to search the best network structure.
@@ -1740,3 +1751,4 @@ save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 300)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
+"""
