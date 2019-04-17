@@ -392,6 +392,8 @@ def create_nn_module(input_nodes, hidden_layers, hidden_nodes, output_nodes, per
         module_list.append(nn.ReLU())
         #这边softmax的值域刚好就是(0,1)算是符合softmax的值域吧。
         module_list.append(nn.Softmax())
+        #按照官方文档的说明，似乎最后一层必须加上这个
+        #nonono上面的写法就是官方的推荐版本
             
     model = nn.Sequential()
     for i in range(0, len(module_list)):
