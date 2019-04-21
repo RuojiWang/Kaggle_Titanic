@@ -573,7 +573,7 @@ def nn_f1(params):
                               )
     #这里似乎可以采用分层采样吧，原来这个就是分层随机采样，妈的吓我一跳还以为要重新修改。
     #我现在在train_test_split中也采用了分层划分的数据集，一般使用分层的效果更好一点的。
-    skf = StratifiedKFold(Y_train, n_folds=5, shuffle=True, random_state=None)
+    skf = StratifiedKFold(Y_train, n_folds=8, shuffle=True, random_state=None)
     
     init_module(clf.module, params["weight_mode"], params["bias"])
     
@@ -800,7 +800,7 @@ def train_nn_model_validate2(nodes, X_train_scaled, Y_train, max_evals=10):
                                   )
         init_module(clf.module, nodes["weight_mode"], nodes["bias"])
         
-        skf = StratifiedKFold(Y_train, n_folds=5, shuffle=True, random_state=None)
+        skf = StratifiedKFold(Y_train, n_folds=8, shuffle=True, random_state=None)
         metric = cross_val_score(clf, X_train_scaled.astype(np.float32), Y_train.astype(np.longlong), cv=skf, scoring="accuracy").mean()
         print_nnclf_acc(metric)
         
@@ -1024,7 +1024,7 @@ def get_oof_validate1(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5
     
     return oof_train, oof_test, best_model
 
-def get_oof_validate2(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
+def get_oof_validate2(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 8, max_evals = 10):
     
     """K-fold stacking"""
     num_train, num_test = X_train_scaled.shape[0], X_test_scaled.shape[0]
@@ -1056,7 +1056,7 @@ def get_oof_validate2(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5
     
     return oof_train, oof_test, best_model
 
-def get_oof_noise_validate1(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
+def get_oof_noise_validate1(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 8, max_evals = 10):
     
     """K-fold stacking"""
     num_train, num_test = X_train_scaled.shape[0], X_test_scaled.shape[0]
@@ -1088,7 +1088,7 @@ def get_oof_noise_validate1(nodes, X_train_scaled, Y_train, X_test_scaled, n_fol
     
     return oof_train, oof_test, best_model
 
-def get_oof_noise_validate2(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
+def get_oof_noise_validate2(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 8, max_evals = 10):
     
     """K-fold stacking"""
     num_train, num_test = X_train_scaled.shape[0], X_test_scaled.shape[0]
@@ -1120,7 +1120,7 @@ def get_oof_noise_validate2(nodes, X_train_scaled, Y_train, X_test_scaled, n_fol
     
     return oof_train, oof_test, best_model
 
-def get_oof_noise_validate3(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
+def get_oof_noise_validate3(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 8, max_evals = 10):
     
     """K-fold stacking"""
     num_train, num_test = X_train_scaled.shape[0], X_test_scaled.shape[0]
@@ -1152,7 +1152,7 @@ def get_oof_noise_validate3(nodes, X_train_scaled, Y_train, X_test_scaled, n_fol
     
     return oof_train, oof_test, best_model
 
-def get_oof_noise_validate4(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_evals = 10):
+def get_oof_noise_validate4(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 8, max_evals = 10):
     
     """K-fold stacking"""
     num_train, num_test = X_train_scaled.shape[0], X_test_scaled.shape[0]
@@ -1187,7 +1187,7 @@ def get_oof_noise_validate4(nodes, X_train_scaled, Y_train, X_test_scaled, n_fol
 #the following 7 functions are different ways to get stacking data,
 #neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
 #the first one can save training time, 40 and 25 are fine choice for the last two function parameters.
-#the second one has less overfitting risk, 30 and 35 are fine choice for the last two function parameters.  
+#the second one has less overfitting risk, 30 and 15 are fine choice for the last two function parameters.  
 #nodes_list is the list of best hyperparameters for neural networks,
 #X_train_scaled is the train data after feature scale,
 #X_test_scaled is the test data after feature scale,
@@ -1650,13 +1650,11 @@ best_nodes = {"title":"stacked_titanic",
               }
 
 #run the following code for running environment test
-#split train data and validation data for best hyperparameters selection.
-X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.14)
 start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 #max_evals determine hyperparameters search times, bigger max_evals may lead to better results.
-best_params = fmin(nn_f2, space, algo=algo, max_evals=10, trials=trials)
+best_params = fmin(nn_f1, space, algo=algo, max_evals=2, trials=trials)
 
 #save the result of the hyperopt(bayesian optimization) search.
 best_nodes = parse_nodes(trials, space_nodes)
@@ -1674,8 +1672,8 @@ nodes_list = [best_nodes, best_nodes]
 #    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv" #set the file path of the prediction file.
 #neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
 #the first one can save training time, 40 and 25 are fine choice for the last two function parameters.
-#the second one has less overfitting risk, 30 and 35 are fine choice for the last two function parameters.  
-stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 2, 2)
+#the second one has less overfitting risk, 30 and 15 are fine choice for the last two function parameters.  
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 2, 2)
 #save the stacking intermediate result.
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 
@@ -1685,16 +1683,15 @@ end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 
 """
-#run the following code for neural network model training and prediction.
+#I recommend the following way for neural network model training and prediction.
+#cause in nn_f1 cross validation has been used to prevent overfitting.
 #use hyperopt(bayesian optimization) to search the best network structure.
 #have a look at hyperopt will help in understanding the following code.
-#split train data and validation data for best hyperparameters selection.
-X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.14)
 start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 #max_evals determine hyperparameters search times, bigger max_evals may lead to better results.
-best_params = fmin(nn_f2, space, algo=algo, max_evals=3000, trials=trials)
+best_params = fmin(nn_f1, space, algo=algo, max_evals=3000, trials=trials)
 #save the result of the hyperopt(bayesian optimization) search.
 best_nodes = parse_nodes(trials, space_nodes)
 save_inter_params(trials, space_nodes, best_nodes, "titanic")
@@ -1710,7 +1707,7 @@ nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
 #    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv" #set the file path of the prediction file.
 #neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
 #the first one can save training time, 40 and 25 are fine choice for the last two function parameters.
-#the second one has less overfitting risk, 30 and 35 are fine choice for the last two function parameters.  
+#the second one has less overfitting risk, 30 and 15 are fine choice for the last two function parameters.
 stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 40, 25)
 #save the stacking intermediate result.
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
@@ -1729,6 +1726,43 @@ start_time = datetime.datetime.now()
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
 #max_evals determine hyperparameters search times, bigger max_evals may lead to better results.
+best_params = fmin(nn_f1, space, algo=algo, max_evals=3000, trials=trials)
+#save the result of the hyperopt(bayesian optimization) search.
+best_nodes = parse_nodes(trials, space_nodes)
+save_inter_params(trials, space_nodes, best_nodes, "titanic")
+#use 5 best nodes to create 5 neural network model for stacking.
+nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
+#the following code can change the settings of the stacking process
+#you may use it as following when you need.
+#change settings except device or path is not recommended, cause you may lost best hyperparameters.
+#if you must use specific parameters, set it and start hyperparameters once more.
+#for item in nodes_list:
+#    item["device"] = "cpu" #set the device to train neural network, "cpu" means using cpu, "cuda" means using gpu.
+#    item["batch_size"] = 256 #set the batch_size of the neural network.
+#    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv" #set the file path of the prediction file.
+#neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
+#the first one can save training time, 40 and 25 are fine choice for the last two function parameters.
+#the second one has less overfitting risk, 30 and 15 are fine choice for the last two function parameters.
+stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 30, 15)
+#save the stacking intermediate result.
+save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
+#use logistic regression to fit stacked_train/stacked_test and predict the result. 
+lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 300)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+"""
+
+"""
+#another way for neural network model training and prediction.
+#run the following code for neural network model training and prediction.
+#use hyperopt(bayesian optimization) to search the best network structure.
+#have a look at hyperopt will help in understanding the following code.
+#split train data and validation data for best hyperparameters selection.
+X_split_train, X_split_test, Y_split_train, Y_split_test = train_test_split(X_train_scaled, Y_train, test_size=0.14)
+start_time = datetime.datetime.now()
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+#max_evals determine hyperparameters search times, bigger max_evals may lead to better results.
 best_params = fmin(nn_f2, space, algo=algo, max_evals=3000, trials=trials)
 #save the result of the hyperopt(bayesian optimization) search.
 best_nodes = parse_nodes(trials, space_nodes)
@@ -1745,8 +1779,8 @@ nodes_list = [best_nodes, best_nodes, best_nodes, best_nodes, best_nodes]
 #    item["path"] = "kaggle_titanic_files/Titanic_Prediction.csv" #set the file path of the prediction file.
 #neural network model stacking. I recommend using stacked_features_validate1 or stacked_features_validate2
 #the first one can save training time, 40 and 25 are fine choice for the last two function parameters.
-#the second one has less overfitting risk, 30 and 35 are fine choice for the last two function parameters.
-stacked_train, stacked_test = stacked_features_validate2(nodes_list, X_train_scaled, Y_train, X_test_scaled, 30, 35)
+#the second one has less overfitting risk, 30 and 15 are fine choice for the last two function parameters.  
+stacked_train, stacked_test = stacked_features_validate1(nodes_list, X_train_scaled, Y_train, X_test_scaled, 40, 25)
 #save the stacking intermediate result.
 save_stacked_dataset(stacked_train, stacked_test, "stacked_titanic")
 #use logistic regression to fit stacked_train/stacked_test and predict the result. 
