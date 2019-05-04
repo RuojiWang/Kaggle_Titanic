@@ -1485,7 +1485,7 @@ def lr_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stac
                   "fit_intercept": [True, False],
                   #"solver": ["newton-cg", "lbfgs", "liblinear", "sag"]
                   }
-    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=max_evals, scoring="accuracy")
+    random_search = RandomizedSearchCV(clf, param_distributions=param_dist, n_iter=max_evals, cv=10, scoring="accuracy")
     random_search.fit(stacked_train, Y_train)
     best_acc = random_search.best_estimator_.score(stacked_train, Y_train)
     lr_pred = random_search.best_estimator_.predict(stacked_test)
