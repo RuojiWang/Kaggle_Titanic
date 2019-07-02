@@ -1,18 +1,10 @@
 #coding=utf-8
-#这是第二个版本的解决方案，主要的目的是测试一哈那个自动特征工程的库是否有用
-#如果电影票房估计的late_submit的提交方案成绩还可以刷新且新的特征工程有用，那么就在做一个版本
-#但是不幸的是根据我现在的了解，成绩是不可能改变的了，那就只是在Titanic上面试试特征工程吧。
-#自动特征工程的主要依据就是下面的链接 https://zhuanlan.zhihu.com/p/43630912
-#这下面分别是这个库的说明文档和 https://docs.featuretools.com/ 
-#直接看中文的这个资料可能更清楚一些，比如说为什么是多张表的结构 https://www.jiqizhixin.com/articles/2018-06-21-2
-#这个特征工程所提出的方法最早是2015年的一片论文里面提出来的，年代不算特别久远吧。
-#我好想哭，做了一晚上弄不出来到底这个是什么情况？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？？
-#废了九牛二虎之力终于解决了不能够运行的问题，但是现在的问题是没有按照预期执行
-#这个应该是tans_primitives参数的问题，现在我从文档中好像没看出来应该如何取值呢
-#我觉得如果我能够查到tans_primitives参数对应的取值，我觉得这个问题应该就解决了吧
-#https://docs.featuretools.com/automated_feature_engineering/primitives.html
-#这个文档里面关于trans_primitives()的取值有一些说明，还可以自己定义primitives种类
-#按照下面的代码终于能够产出结果了，产生的特征可以看出是相当的多呢，下一步是特征选择并用于模型训练咯
+#这个是第三个版本的解决方案，将产生的特征进行选择并用于模型训练咯
+#我之前一直有点困惑的是，先进行特征缩放然后进行特征创造，还是先创造特征然后在进行特征缩放
+#我觉得这两种做法应该是具体看特征咯和创建特征的操作咯，可能某种意义上都是有用的吧，但是资源有限应该后者更有用吧？
+#如果两种特征是两种价格的话那么减法的操作可以直接用在不经过特征缩放的这两个特征上，这种情况好像缩放没意义？
+#有些特征比如说是树的高度和最大树叶的长度这两种特征之间相减就没啥意义的。。但是这种可能乘除有意义？？
+#后来发生了一件事情，使用ft.list_primitives()得到的特征处理方式每次顺序不一样。。所以还是只有手工处理一下咯。。
 import pickle
 import datetime
 import warnings
@@ -186,21 +178,6 @@ data_test_1  = data_test.copy()
 X_train = data_train_1[['Pclass', 'Sex', 'Age', 'Fare', 'Embarked', 'Cabin', 'Title', 'FamilySizePlus', 'Ticket_Count']]
 Y_train = data_train_1['Survived']
 X_test = data_test_1[['Pclass', 'Sex', 'Age', 'Fare', 'Embarked', 'Cabin', 'Title', 'FamilySizePlus', 'Ticket_Count']]
-
-#combine X_train and X_test
-X_all = pd.concat([X_train, X_test], axis=0)
-#print(X_all.columns)
-#下面是我补充的将性别、姓名、Embarked修改为了one-hot编码类型了
-#原来DictVectorizer类也可以实现OneHotEncoder()的效果，而且更简单一些
-#use DictVectorizer to create something like one-hot encoding
-dict_vector = DictVectorizer(sparse=False)
-X_all = dict_vector.fit_transform(X_all.to_dict(orient='record'))
-X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
-
-#scale feature to (0,1), which could make process of training easier
-X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = X_all.columns)
-X_train_scaled = X_all_scaled[:len(X_train)]
-X_test_scaled = X_all_scaled[len(X_train):]
 
 def save_inter_params(trials, space_nodes, best_nodes, title):
  
@@ -1459,44 +1436,86 @@ def logistic_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train
     print()
     return random_search.best_estimator_, Y_pred
 
-"""
-#我看了文档看了很久好像不是特别理解这里面的东西
-#https://www.jiqizhixin.com/articles/2018-06-21-2 看这篇文章梳理了基本概念然后获得了理解
-X_es = ft.EntitySet("X_es")
-X_es.entity_from_dataframe(entity_id="X_es", 
-                           make_index=True,
-                           index="id",
-                           dataframe=X_train_scaled)
-#print(es["X_es"])
-#print(es["X_es"].df)
-Y_es = ft.EntitySet("Y_es")
-Y_es.entity_from_dataframe(entity_id="Y_es", 
-                           make_index=True,
-                           index="id",
-                           dataframe=Y_train.to_frame())
-features, feature_names = ft.dfs(entities=X_es, target_entity="X_es", max_depth=2)
-print("mother fucker.")
-"""
+def cal_abs_skew(series, type):
 
+    if(type=="1"):
+        return abs(series.skew())
+    elif(type=="log"):
+        return abs(np.log(series).skew())
+    elif(type=="log1p"):
+        return abs(np.log1p(series).skew())
+    else:
+        return -1
+    
+def min_skew(series, type1, type2):
+    
+    if(cal_abs_skew(series, type1) <= cal_abs_skew(series, type2)):
+        return type1
+    else:
+        return type2
+
+
+#combine X_train and X_test
+#之后的特征创建直接使用X_all就可以了
+X_all = pd.concat([X_train, X_test], axis=0)
+
+#print(X_all.columns)
+#下面是我补充的将性别、姓名、Embarked修改为了one-hot编码类型了
+dict_vector = DictVectorizer(sparse=False)
+X_all = dict_vector.fit_transform(X_all.to_dict(orient='record'))
+X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
+
+#然后对X_all中skew偏度进行调整咯
+column_names = X_all.columns.values.tolist() 
+for feature in column_names:    
+    type = min_skew(X_all[feature], "log1p", min_skew(X_all[feature], "1", "log"))
+    X_all[feature] = cal_abs_skew(X_all[feature], type)
+    
+    
+#我之前一直有点困惑的是，先进行特征缩放然后进行特征创造，还是先创造特征然后在进行特征缩放
+#我觉得这两种做法应该是具体看特征咯和创建特征的操作咯
+#如果两种特征是两种价格的话那么减法的操作可以直接用了不经过特征缩放的这两个特征上
+#有些特征比如说是树的高度和最大树叶的长度这两种特征之间相减就没啥意义的。。但是这种可能乘除有意义？？
+#从dataframe中创建实体并用于特征
 X_es = ft.EntitySet(id="titanic_data")
-X_es.entity_from_dataframe(entity_id="X_train_scaled", 
+X_es.entity_from_dataframe(entity_id="X_all", 
                            make_index=True,
                            index="index",
-                           dataframe=X_train_scaled)
-#所以下面的输出已经证明确实创造了新的index名为id
-#print(X_es["X_es"].df)
-#然后我查了一下dfs的文档，我发现下面代码之所以不能够取得预期结果是因为agg_primitives是针对多个表的
-#换句话说也就是参数设置有问题，应该是使用trans_primitives的参数的问题咯
-#print(ft.list_primitives())
-all_primitives = ft.list_primitives().values.tolist()#先将dataframe转化为ndarray再转化为list
-#print(all_primitives)
+                           dataframe=X_all)
+
+#获取所有的primitives值，并将dataframe转化为ndarray再转化为list
+all_primitives = ft.list_primitives().values.tolist()
 #提取所有transform类型的primitives的方式
 trans_primitives = []
 for i in all_primitives:
     if i[1]=="transform":
         trans_primitives.append(i[0])
-features, feature_names = ft.dfs(entityset=X_es, target_entity="X_train_scaled", trans_primitives = trans_primitives[:3], max_depth=2)
+#下面的print输出的结果是下面的内容，但是有个问题每次顺序都不一样，老子也是真的佛了熬所以还是需要手动操作咯。
+#['cum_max', 'years', 'divide', 'hours', 'is_null', 'numwords', 'latitude', 'minutes', 'cum_min', 
+#'weeks', 'month', 'year', 'cum_sum', 'subtract', 'seconds', 'minute', 'and', 'longitude', 
+#'time_since_previous', 'add', 'haversine', 'diff', 'negate', 'day', 'days_since', 'time_since', 
+#'week', 'cum_mean', 'weekend', 'months', 'second', 'cum_count', 'multiply', 'or', 'weekday', 
+#'isin', 'hour', 'mod', 'characters', 'not', 'absolute', 'percentile', 'days']
+print(trans_primitives)
+features, feature_names = ft.dfs(entityset=X_es, target_entity="X_all", trans_primitives = trans_primitives[:3], max_depth=2)
 print(features)
 print(feature_names)
-
-
+#使用特征选择之前应该先将所有的特征进行缩放再放入到模型中进行选择吧
+X_all = features
+X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = features)
+X_train_scaled = X_all_scaled[:len(X_train)]
+X_test_scaled = X_all_scaled[len(X_train):]
+#然后开始对模型进行选择咯
+rfc_model = LogisticRegression(random_state=42).fit(X_train_scaled, Y_train)
+perm = PermutationImportance(rfc_model, random_state=42).fit(X_train_scaled, Y_train)
+eli5.show_weights(perm, feature_names = X_train_scaled.columns.tolist())
+feature_importances1 = perm.feature_importances_
+feature_importances_std = perm.feature_importances_std_ 
+feature_importances2 = np.where(feature_importances1>0)
+X_train_scaled_new = X_train_scaled[X_train_scaled.columns[feature_importances2]]
+X_test_scaled_new = X_test_scaled[X_test_scaled.columns[feature_importances2]]
+print(feature_importances1)
+print(feature_importances_std)
+print(feature_importances2)
+print(len(feature_importances2[0]))
+print()
