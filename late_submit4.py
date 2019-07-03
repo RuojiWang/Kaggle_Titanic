@@ -5,6 +5,11 @@
 #如果两种特征是两种价格的话那么减法的操作可以直接用在不经过特征缩放的这两个特征上，这种情况好像缩放没意义？
 #有些特征比如说是树的高度和最大树叶的长度这两种特征之间相减就没啥意义的。。但是这种可能乘除有意义？？
 #后来发生了一件事情，使用ft.list_primitives()得到的特征处理方式每次顺序不一样。。所以还是只有手工处理一下咯。。
+#我还想起了一件事情，偏度的调整应该在创建特征之前使用吧，而且特征创建之后放入模型之前应该也再用一次吧？
+#我在这里总结一下代码测试的一些内容：
+#（1）先测试有无、再测试是否合法。所谓的合法其实就包括了：范围、重复、边界等，根源就是在数学上面。
+#（2）这些基本的东西，我可能至少浪费了三四年才知道的吧？我觉得自己真的弱爆了像个煞笔。然后又想到了高中的遗憾。。
+#（3）我觉得高中的问题不全是能力的问题，根本在于见识和格局以及自己拥有的资源上面，就算复读的话还是无法如愿的吧。
 import pickle
 import datetime
 import warnings
@@ -1444,21 +1449,43 @@ def cal_abs_skew(series, type):
         return abs(np.log(series).skew())
     elif(type=="log1p"):
         return abs(np.log1p(series).skew())
+    #如果输入异常那么返回一个非常大的数目
     else:
-        return -1
-    
+        return 1000000
+
+#并不需要判断两个值相等的情况，只是需要比较大小就行了熬
 def min_skew(series, type1, type2):
     
     if(cal_abs_skew(series, type1) <= cal_abs_skew(series, type2)):
         return type1
-    else:
+    elif(cal_abs_skew(series, type2) < cal_abs_skew(series, type1)):
         return type2
+    #如果上面两种情况都不满足的时候就是存在nan的时候，此时应该返回
+    else:
+        #如果type1的计算结果不存在nan那么就返回他
+        if(np.isnan(cal_abs_skew(series, type1)) and (not np.isnan(cal_abs_skew(series, type2)))):
+            return type2
+        #如果不是上面的情况那么可能存在两种情况，
+        #两个计算结果都返回nan或者仅第一个结果不返回nan
+        #这两种情况下只需要返回第一个结果就可以咯
+        else:
+            return type1
 
+def trans_skew(series, type):
+
+    if(type=="1"):
+        return series
+    elif(type=="log"):
+        return np.log(series)
+    elif(type=="log1p"):
+        return np.log1p(series)
+    #如果出现异常的时候就返回nan好咯
+    else:
+        return np.nan
 
 #combine X_train and X_test
 #之后的特征创建直接使用X_all就可以了
 X_all = pd.concat([X_train, X_test], axis=0)
-
 #print(X_all.columns)
 #下面是我补充的将性别、姓名、Embarked修改为了one-hot编码类型了
 dict_vector = DictVectorizer(sparse=False)
@@ -1469,8 +1496,7 @@ X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
 column_names = X_all.columns.values.tolist() 
 for feature in column_names:    
     type = min_skew(X_all[feature], "log1p", min_skew(X_all[feature], "1", "log"))
-    X_all[feature] = cal_abs_skew(X_all[feature], type)
-    
+    X_all[feature] = trans_skew(X_all[feature], type)
     
 #我之前一直有点困惑的是，先进行特征缩放然后进行特征创造，还是先创造特征然后在进行特征缩放
 #我觉得这两种做法应该是具体看特征咯和创建特征的操作咯
@@ -1483,30 +1509,48 @@ X_es.entity_from_dataframe(entity_id="X_all",
                            index="index",
                            dataframe=X_all)
 
+"""
 #获取所有的primitives值，并将dataframe转化为ndarray再转化为list
 all_primitives = ft.list_primitives().values.tolist()
 #提取所有transform类型的primitives的方式
 trans_primitives = []
+all_trans_primitives = []
 for i in all_primitives:
     if i[1]=="transform":
         trans_primitives.append(i[0])
-#下面的print输出的结果是下面的内容，但是有个问题每次顺序都不一样，老子也是真的佛了熬所以还是需要手动操作咯。
+        all_trans_primitives.append(i)
+#print(trans_primitives)输出的结果是下面的内容，但是有个问题每次顺序都不一样，老子也是真的佛了熬所以还是需要手动操作咯。
 #['cum_max', 'years', 'divide', 'hours', 'is_null', 'numwords', 'latitude', 'minutes', 'cum_min', 
 #'weeks', 'month', 'year', 'cum_sum', 'subtract', 'seconds', 'minute', 'and', 'longitude', 
 #'time_since_previous', 'add', 'haversine', 'diff', 'negate', 'day', 'days_since', 'time_since', 
 #'week', 'cum_mean', 'weekend', 'months', 'second', 'cum_count', 'multiply', 'or', 'weekday', 
 #'isin', 'hour', 'mod', 'characters', 'not', 'absolute', 'percentile', 'days']
 print(trans_primitives)
+print(all_trans_primitives)
 features, feature_names = ft.dfs(entityset=X_es, target_entity="X_all", trans_primitives = trans_primitives[:3], max_depth=2)
 print(features)
 print(feature_names)
+"""
+
+#下面开始真正的创造新的特征咯
+trans_primitives =['percentile', 'negate', 'diff', 'cum_sum', 'divide', 'subtract', 'latitude', 'cum_mean', 'mod', 'multiply', 'add']
+features, feature_names = ft.dfs(entityset=X_es, target_entity="X_all", trans_primitives = trans_primitives[:3], max_depth=2)
+print(features)
+print(feature_names)
+
 #使用特征选择之前应该先将所有的特征进行缩放再放入到模型中进行选择吧
 X_all = features
-X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = features)
+X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = feature_names)
+#然后对于X_all_scaled的数据进行特征的缩放咯
+column_names = X_all_scaled.columns.values.tolist() 
+for feature in column_names:    
+    type = min_skew(X_all_scaled[feature], "log1p", min_skew(X_all_scaled[feature], "1", "log"))
+    X_all_scaled[feature] = trans_skew(X_all_scaled[feature], type)
 X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
+
 #然后开始对模型进行选择咯
-rfc_model = LogisticRegression(random_state=42).fit(X_train_scaled, Y_train)
+rfc_model = LogisticRegression(random_state=42, penalty="l1").fit(X_train_scaled, Y_train)
 perm = PermutationImportance(rfc_model, random_state=42).fit(X_train_scaled, Y_train)
 eli5.show_weights(perm, feature_names = X_train_scaled.columns.tolist())
 feature_importances1 = perm.feature_importances_
