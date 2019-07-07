@@ -1,19 +1,21 @@
 #coding=utf-8
-#这个是第三个版本的解决方案，将产生的特征进行选择并用于模型训练咯
-#我之前一直有点困惑的是，先进行特征缩放然后进行特征创造，还是先创造特征然后在进行特征缩放
-#我觉得这两种做法应该是具体看特征咯和创建特征的操作咯，可能某种意义上都是有用的吧，但是资源有限应该后者更有用吧？
-#如果两种特征是两种价格的话那么减法的操作可以直接用在不经过特征缩放的这两个特征上，这种情况好像缩放没意义？
-#有些特征比如说是树的高度和最大树叶的长度这两种特征之间相减就没啥意义的。。但是这种可能乘除有意义？？
-#后来发生了一件事情，使用ft.list_primitives()得到的特征处理方式每次顺序不一样。。所以还是只有手工处理一下咯。。
-#我还想起了一件事情，偏度的调整应该在创建特征之前使用吧，而且特征创建之后放入模型之前应该也再用一次吧？
-#现在的问题是一直出现下面的错误啊AttributeError: 'IdentityFeature' object has no attribute 'startswith'
-#这个问题已经很长时间了但是我还是没有解决，我试过取消掉entity_from_dataframe中的index合成设置但是其他地方报错了
-#目前看来这个问题的唯一解决方案就是先自己合成index到Dataframe中然后在取消entity_from_dataframe中的index合成或许可以？
-#这样子还是不能够解决问题，这下我真的不知道问题出在哪里了，看来我觉得只有采用其他方式进行特征选择咯。。。哎两三天的努力宣告破产
-#我在这里总结一下代码测试的一些内容：
-#（1）先测试有无、再测试是否合法。所谓的合法其实就包括了：范围、重复、边界等，根源就是在数学上面。
-#（2）这些基本的东西，我可能至少浪费了三四年才知道的吧？我觉得自己真的弱爆了像个煞笔。然后又想到了高中的遗憾。。
-#（3）我觉得高中的问题不全是能力的问题，根本在于见识和格局以及自己拥有的资源上面，就算复读的话还是无法如愿的吧。
+#这个是第四个版本的解决方案，将产生的特征进行选择并用于模型训练咯
+#之前的特征选择无论如何反正出现了各种奇怪的问题，我觉得只能够采用新的方式进行特征选择了
+#我印象中RFE应该是sklearn提供的最好的特征选择方式之一了，而且RFECV效果应该是更好的
+#我还担心一个问题就是RFECV出来的特征万一没有办法进行stacking怎么办呢
+#因为RFECV有个问题就是计算量较大，而且普适性不强，所以对每个模型都需要重新计算，不过我已经有办法在stacking中使用了。
+#但是这么说我突然很好奇eli5到底是如何实现特征选择评估的呢？我查了很久以下三种说法大致都差不多
+#https://wenlongshen.github.io/2018/11/15/Feature-Importance/
+#https://blog.csdn.net/lz_peter/article/details/88654198
+#https://ai.yanxishe.com/page/TextTranslation/1627
+#上面网页大致的意思就是Permutation Importance对很多scikit-learn中涉及到的预估模型都有用。其背后的思想很简单：
+#随机重排或打乱样本中的特定一列数据，其余列保持不变。如果模型的预测准确率显著下降，那就认为这个特征很重要。
+#与之对应，如果重排和打乱这一列特征对模型准确率没有影响的话，那就认为这列对应的特征没有什么作用。
+#RFECV的主要思想就是：
+#RFECV 通过交叉验证的方式执行RFE，以此来选择最佳数量的特征：对于一个数量为d的feature的集合，
+#他的所有的子集的个数是2的d次方减1(包含空集)。指定一个外部的学习算法，比如SVM之类的。
+#通过该算法计算所有子集的validation error。选择error最小的那个子集作为所挑选的特征。
+#具体的细节可以在这个网页查到 https://www.cnblogs.com/stevenlk/p/6543628.html
 import pickle
 import datetime
 import warnings
@@ -1589,7 +1591,19 @@ X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
 
 #然后开始对模型进行选择咯
-rfc_model = LogisticRegression(random_state=42, penalty="l1").fit(X_train_scaled, Y_train)
+lr = LogisticRegression(random_state=42, penalty="l1").fit(X_train_scaled, Y_train)
+
+selector = RFE(estimator=lr)
+X_t = selector.fit_transform(X_train_scaled, Y_train)
+### 切分测试集与验证集
+X_train, X_test, y_train, y_test = model_selection.train_test_split(X, y,
+                                                                    test_size=0.25, random_state=0, stratify=y)
+X_train_t, X_test_t, y_train_t, y_test_t = model_selection.train_test_split(X_t, y,
+                                                                            test_size=0.25, random_state=0,
+                                                                            stratify=y)
+
+
+
 perm = PermutationImportance(rfc_model, random_state=42).fit(X_train_scaled, Y_train)
 eli5.show_weights(perm, feature_names = X_train_scaled.columns.tolist())
 feature_importances1 = perm.feature_importances_
