@@ -1,25 +1,13 @@
 #coding=utf-8
-#这个是第四个版本的解决方案，将产生的特征进行选择并用于模型训练咯
-#之前的特征选择无论如何反正出现了各种奇怪的问题，我觉得只能够采用新的方式进行特征选择了
-#我印象中RFE应该是sklearn提供的最好的特征选择方式之一了，而且RFECV效果应该是更好的
-#我还担心一个问题就是RFECV出来的特征万一没有办法进行stacking怎么办呢
-#因为RFECV有个问题就是计算量较大，而且普适性不强，所以对每个模型都需要重新计算，不过我已经有办法在stacking中使用了。
-#但是这么说我突然很好奇eli5到底是如何实现特征选择评估的呢？我查了很久以下三种说法大致都差不多
-#https://wenlongshen.github.io/2018/11/15/Feature-Importance/
-#https://blog.csdn.net/lz_peter/article/details/88654198
-#https://ai.yanxishe.com/page/TextTranslation/1627
-#上面网页大致的意思就是Permutation Importance对很多scikit-learn中涉及到的预估模型都有用。其背后的思想很简单：
-#随机重排或打乱样本中的特定一列数据，其余列保持不变。如果模型的预测准确率显著下降，那就认为这个特征很重要。
-#与之对应，如果重排和打乱这一列特征对模型准确率没有影响的话，那就认为这列对应的特征没有什么作用。
-#RFECV的主要思想就是：
-#RFECV 通过交叉验证的方式执行RFE，以此来选择最佳数量的特征：对于一个数量为d的feature的集合，
-#他的所有的子集的个数是2的d次方减1(包含空集)。指定一个外部的学习算法，比如SVM之类的。
-#通过该算法计算所有子集的validation error。选择error最小的那个子集作为所挑选的特征。
-#具体的细节可以在这个网页查到 https://www.cnblogs.com/stevenlk/p/6543628.html
-#现在好像发现了一个新的问题，所有特征的影响程度好像都是一样的？？
-#第二次执行trans_skew之后，X_trans_scaled中每一行所有的元素值都一样了，但是第一次执行没有这个问题，找不到原因。。
-#但是去掉第二次偏度调整的代码，整个程序就可以正常执行了，好像很多特征还是蛮有用的，现在在考虑是否将合成的index_list去掉。。
-#我将type变量修改为了method，我是说不能够使用type(X_all)的方法了，原来是我定义了叫做type的字符串类型变量。。
+#这个是一个比较清爽版本的实现，总的来说就是在前面代码的基础上去掉了index_list等
+#然后琢磨了一下神经网络提取特征的问题，能够查到的稍微有点意思的资料大致就是下面这些：
+#https://zhuanlan.zhihu.com/p/50800849
+#https://www.cnblogs.com/chuxiuhong/p/6132814.html
+#上面的链接好像和我想象中的结果不太一样，但是我在想分类的神经网络最后一层不就是逻辑回归或者softmax么
+#如果最后一层不是逻辑回归或者是softmax的话怎么进行反向传播进行训练呢？难道是将最后一层替换为lgb之类进行反向传播？？
+#而且我觉得上面的问题其实不是最重要的问题，神经网络最重要的是找到合适的结构，至于最后是逻辑回归softmax还是svm之类的模型其实不重要
+#所以说我觉得作为一个硕士生，就不要去做这种模型探索之类的工作了吧，我没有相应的理论功底，就像一个深度学习领域的民间科学家。
+#我觉得之后应该是一个新的时代的开始，而妹有必要去纠结过去的神经网络比赛探索阶段咯。。之后可能在副业和比赛中挣扎？？
 import pickle
 import datetime
 import warnings
@@ -1496,13 +1484,6 @@ def trans_skew(series, method):
 #combine X_train and X_test
 #之后的特征创建直接使用X_all就可以了
 X_all = pd.concat([X_train, X_test], axis=0)
-#现在这边需要创建index_list的部分为后面的特征创建埋下伏笔
-index_list = [i for i in range(0, len(X_all))]
-data = {"index": index_list}
-#需要保证新创建的DataFrame和原来的Dataframe一样的index,否则无法进行合并咯
-index = pd.DataFrame(data, index=X_all.index)
-#下面的合并操作需要注意axis被设置为了1而不是之前一直使用的0
-X_all = pd.concat([X_all, index], axis=1)
 
 #print(X_all.columns)
 #下面是我补充的将性别、姓名、Embarked修改为了one-hot编码类型了
@@ -1512,8 +1493,6 @@ X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
 
 #然后对X_all中skew偏度进行调整咯
 column_names = X_all.columns.values.tolist()
-#删除掉index属性，虽然不去掉index最后的结果也是一样的，但是我总觉得去掉之后更科学合理
-column_names.remove("index")
 for feature in column_names: 
     method = min_skew(X_all[feature], "log1p", min_skew(X_all[feature], "1", "log"))
     X_all[feature] = trans_skew(X_all[feature], method)
@@ -1530,8 +1509,8 @@ for feature in column_names:
 #'Title=Mrs', 'Title=Rare'
 X_es = ft.EntitySet(id="titanic_data")
 X_es.entity_from_dataframe(entity_id="X_all", 
-                           #make_index=True,
-                           make_index=False,
+                           make_index=True,
+                           #make_index=False,
                            index="index",
                            variable_types = {'Age': ft.variable_types.Numeric,
                                              'Cabin=cabin': ft.variable_types.Numeric,
@@ -1580,28 +1559,17 @@ print(feature_names)
 """
 
 #下面开始真正的创造新的特征咯
+#感觉下面应该会执行很久的样子，所以可以在这里进行一下时间上面的记录
+#个人感觉会计算很久，所以将时间记录拆分成了两部分进行，这样可以了解的更清楚
+start_time = datetime.datetime.now()
 trans_primitives =['percentile', 'negate', 'diff', 'cum_sum', 'divide', 'subtract', 'latitude', 'cum_mean', 'mod', 'multiply', 'add']
 dfs_features, dfs_feature_names = ft.dfs(entityset=X_es, target_entity="X_all", trans_primitives = trans_primitives[:1], max_depth=2)
 print(dfs_features)
 print(dfs_feature_names)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
 
-#我不知道为什么第二次进行偏度调整的时候每一行的元素就会变成一样，可能是哪里遇到了BUG吧？？
-"""
-#使用特征选择之前应该先将所有的特征进行缩放再放入到模型中进行选择吧
-X_all = dfs_features
-X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = dfs_feature_names)
-#然后对于X_all_scaled的数据进行特征的缩放咯
-column_names = X_all_scaled.columns.values.tolist()
-#其实这里经过了dfs算法已经没有index这个特征咯
-column_names.remove("index")
-#下面的五行代码，上面执行就妹有问题，下面执行就出现问题了，难道是不能够进行两次np.log的调整？？？
-for feature in column_names:    
-    method = min_skew(X_all_scaled[feature], "log1p", min_skew(X_all_scaled[feature], "1", "log"))
-    X_all_scaled[feature] = trans_skew(X_all_scaled[feature], method)
-X_train_scaled = X_all_scaled[:len(X_train)]
-X_test_scaled = X_all_scaled[len(X_train):]
-"""
-
+start_time = datetime.datetime.now()
 X_all = dfs_features
 X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = dfs_feature_names)
 X_train_scaled = X_all_scaled[:len(X_train)]
@@ -1614,3 +1582,8 @@ print(rfecv.n_features_)
 print(rfecv.ranking_)
 print(rfecv.grid_scores_)
 print()
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+
+#我觉得这下面应该将选出的特征进行存储进而用于机器学习内
+X_train_scaled = rfecv.transform(X_train_scaled)
