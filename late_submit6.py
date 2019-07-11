@@ -8,6 +8,10 @@
 #而且我觉得上面的问题其实不是最重要的问题，神经网络最重要的是找到合适的结构，至于最后是逻辑回归softmax还是svm之类的模型其实不重要
 #所以说我觉得作为一个硕士生，就不要去做这种模型探索之类的工作了吧，我没有相应的理论功底，就像一个深度学习领域的民间科学家。
 #我觉得之后应该是一个新的时代的开始，而妹有必要去纠结过去的神经网络比赛探索阶段咯。。之后可能在副业和比赛中挣扎？？
+#今天卢震宇推荐了一个技术很强的人，我突然觉得好震撼，毕竟自己已经远离那些厉害的人已经很久了，感觉自己在混吃等死，加油吧增加产能咯
+#然后实现了将创建的特征进行保存的代码版本，因为RFECV选择特征和模型关系较大，所以将模型修改为lgb吧。
+#现在终于实现了将特征进行选择并且保存用于之后的特征选择。创造出新的特征之后试一下加上超参搜索看能否有更好的结果在leaderborad上面
+#lgb依然出现了特征名字在模型训练报错的情况，原因未知在家里都没有这种情况，所有现在还是需要重新创造一下特征的名字咯
 import pickle
 import datetime
 import warnings
@@ -1491,6 +1495,9 @@ dict_vector = DictVectorizer(sparse=False)
 X_all = dict_vector.fit_transform(X_all.to_dict(orient='record'))
 X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
 
+#先将原始特征进行保存吧，之后可能会利用
+X_all.to_csv("origin_features.csv")
+
 #然后对X_all中skew偏度进行调整咯
 column_names = X_all.columns.values.tolist()
 for feature in column_names: 
@@ -1564,26 +1571,114 @@ print(feature_names)
 start_time = datetime.datetime.now()
 trans_primitives =['percentile', 'negate', 'diff', 'cum_sum', 'divide', 'subtract', 'latitude', 'cum_mean', 'mod', 'multiply', 'add']
 dfs_features, dfs_feature_names = ft.dfs(entityset=X_es, target_entity="X_all", trans_primitives = trans_primitives[:1], max_depth=2)
-print(dfs_features)
-print(dfs_feature_names)
+#print(dfs_features)
+#print(dfs_feature_names)
 end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
+print("feature creation time cost", (end_time - start_time))
+print()
 
 start_time = datetime.datetime.now()
 X_all = dfs_features
 X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = dfs_feature_names)
+X_all_scaled.to_csv("all_features.csv", index=False)
 X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
 #然后开始对模型进行选择咯,其实我在想不一定非要用逻辑回归，可能lgb说不定效果更好呢
-lr = LogisticRegression(random_state=42, penalty="l1")
-rfecv = RFECV(estimator=lr, cv=10, scoring="accuracy")
+#想了一下我觉得用lgb应该能够取得更好的效果咯，所以还是采用lgb的方式进行特征选择
+#lr = LogisticRegression(random_state=42, penalty="l1")
+lgb = LGBMClassifier(random_state=42)
+rfecv = RFECV(estimator=lgb, cv=10, scoring="accuracy")
 rfecv.fit(X_train_scaled, Y_train)
-print(rfecv.n_features_)
-print(rfecv.ranking_)
-print(rfecv.grid_scores_)
-print()
+#print(rfecv.n_features_)
+#print(rfecv.ranking_)
+#print(rfecv.support_)
+#print(rfecv.grid_scores_)
+#print()
 end_time = datetime.datetime.now()
-print("time cost", (end_time - start_time))
+print("feature selection time cost", (end_time - start_time))
+print()
 
-#我觉得这下面应该将选出的特征进行存储进而用于机器学习内
-X_train_scaled = rfecv.transform(X_train_scaled)
+#上面算是将新的特征创建出来咯，剩下的就是读取特征并且进行选择咯
+#我觉得这下面应该将选出的特征进行存储进而用于新的机器学习咯
+start_time = datetime.datetime.now()
+column_names = X_all_scaled.columns.values
+X_all_scaled = rfecv.transform(X_all_scaled)
+#print(column_names)
+#print(column_names[rfecv.support_])
+#经过transform出来的数据都是ndarray类型的，现在需要转换为dataframe类型
+X_all_scaled = pd.DataFrame(data=X_all_scaled, columns=column_names[rfecv.support_])
+#将数据存储到新创建的dataframe中
+X_all_scaled.to_csv("new_features.csv", index=False)
+#为了防止新的dataframe不能够读出，试一下下面的代码咯
+X_all_scaled = pd.read_csv("new_features.csv")
+X_train_scaled = X_all_scaled[:len(X_train)]
+X_test_scaled = X_all_scaled[len(X_train):]
+end_time = datetime.datetime.now()
+print("feature save time cost", (end_time - start_time))
+print()
+
+#接下来试一下新的特征加入超参搜索能够达到的效果如何
+#由于lgb_f中无法携带参数而且训练集是X_train_scaled
+#所以经过特征选择以后的参数名也叫作X_train_scaled而不是其他名字
+start_time = datetime.datetime.now()
+#修改dataframe的列名否则lgb将会报错，原因未知
+column_names = [i for i in range(0, len(X_train_scaled.iloc[0]))]
+X_train_scaled.columns = column_names
+cnt = 0
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best = fmin(lgb_f, lgb_space, algo=tpe.suggest, max_evals=1, trials=trials)
+best_nodes = parse_lgb_nodes(trials, lgb_space_nodes)
+save_inter_params(trials, lgb_space_nodes, best_nodes, "new_features_titanic_late_submition")
+clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
+pred = clf.predict(X_train_scaled)
+print(clf.score(X_train_scaled, Y_train))
+print()
+
+#作为对比，下面是没有经过特征选择而直接进行超参搜索的情况咯
+X_all_scaled = pd.read_csv("all_features.csv")
+X_train_scaled = X_all_scaled[:len(X_train)]
+X_test_scaled = X_all_scaled[len(X_train):]
+#修改dataframe的列名否则lgb将会报错，原因未知
+column_names = [i for i in range(0, len(X_train_scaled.iloc[0]))]
+X_train_scaled.columns = column_names
+cnt = 0
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best = fmin(lgb_f, lgb_space, algo=tpe.suggest, max_evals=1, trials=trials)
+best_nodes = parse_lgb_nodes(trials, lgb_space_nodes)
+save_inter_params(trials, lgb_space_nodes, best_nodes, "all_features_titanic_late_submition")
+clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
+pred = clf.predict(X_train_scaled)
+print(clf.score(X_train_scaled, Y_train))
+print()
+
+
+#作为对比，下面是原特征进行的超参搜索得到的结果,其实也就是利用前20个参数？
+#X_all从csv文件读出来的时候会多一列的数据，但是并不会影响取得特征的操作
+X_all = pd.read_csv("origin_features.csv")
+X_all_scaled = pd.read_csv("all_features.csv")
+X_train_scaled = X_all_scaled[:len(X_train)]
+X_test_scaled = X_all_scaled[len(X_train):]
+#然后提取前面的部分参数
+column_names = list(X_all.columns.values)
+for i in dfs_feature_names:
+    column_names.append(str(i))
+X_all_scaled = X_all_scaled[column_names]
+#修改dataframe的列名否则lgb将会报错，原因未知
+#column_names = [i for i in range(0, len(X_train_scaled.iloc[0]))]
+print()
+
+
+cnt = 0
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+best = fmin(lgb_f, lgb_space, algo=tpe.suggest, max_evals=1, trials=trials)
+best_nodes = parse_lgb_nodes(trials, lgb_space_nodes)
+save_inter_params(trials, lgb_space_nodes, best_nodes, "titanic_late_submition")
+clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
+pred = clf.predict(X_train_scaled)
+print(clf.score(X_train_scaled, Y_train))
+end_time = datetime.datetime.now()
+print("hyperparameters search time cost", (end_time - start_time))
+print()
