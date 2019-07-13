@@ -12,6 +12,8 @@
 #然后实现了将创建的特征进行保存的代码版本，因为RFECV选择特征和模型关系较大，所以将模型修改为lgb吧。
 #现在终于实现了将特征进行选择并且保存用于之后的特征选择。创造出新的特征之后试一下加上超参搜索看能否有更好的结果在leaderborad上面
 #lgb依然出现了特征名字在模型训练报错的情况，原因未知在家里都没有这种情况，所有现在还是需要重新创造一下特征的名字咯
+#然后创建了三个对比实验，分别对比了带上全特征的模型、经过特征搜索之后的模型、普通情况下创造的特征的结果咯，但是好像计算了一天害妹有结果呢
+#我还在想是不是可以设置dfs的参数比较如说，将depth由2设置为3呢。
 import pickle
 import datetime
 import warnings
@@ -1495,8 +1497,8 @@ dict_vector = DictVectorizer(sparse=False)
 X_all = dict_vector.fit_transform(X_all.to_dict(orient='record'))
 X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
 
-#先将原始特征进行保存吧，之后可能会利用
-X_all.to_csv("origin_features.csv")
+#先将原始特征进行保存吧，之后可能会利用,这里必须加上index为False不然以后就会多列数据
+X_all.to_csv("origin_features.csv", index=False)
 
 #然后对X_all中skew偏度进行调整咯
 column_names = X_all.columns.values.tolist()
@@ -1570,7 +1572,7 @@ print(feature_names)
 #个人感觉会计算很久，所以将时间记录拆分成了两部分进行，这样可以了解的更清楚
 start_time = datetime.datetime.now()
 trans_primitives =['percentile', 'negate', 'diff', 'cum_sum', 'divide', 'subtract', 'latitude', 'cum_mean', 'mod', 'multiply', 'add']
-dfs_features, dfs_feature_names = ft.dfs(entityset=X_es, target_entity="X_all", trans_primitives = trans_primitives[:1], max_depth=2)
+dfs_features, dfs_feature_names = ft.dfs(entityset=X_es, target_entity="X_all", trans_primitives = trans_primitives, max_depth=2)
 #print(dfs_features)
 #print(dfs_feature_names)
 end_time = datetime.datetime.now()
@@ -1614,7 +1616,7 @@ X_all_scaled = pd.read_csv("new_features.csv")
 X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
 end_time = datetime.datetime.now()
-print("feature save time cost", (end_time - start_time))
+print("new feature save time cost", (end_time - start_time))
 print()
 
 #接下来试一下新的特征加入超参搜索能够达到的效果如何
@@ -1627,7 +1629,7 @@ X_train_scaled.columns = column_names
 cnt = 0
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-best = fmin(lgb_f, lgb_space, algo=tpe.suggest, max_evals=1, trials=trials)
+best = fmin(lgb_f, lgb_space, algo=tpe.suggest, max_evals=9000, trials=trials)
 best_nodes = parse_lgb_nodes(trials, lgb_space_nodes)
 save_inter_params(trials, lgb_space_nodes, best_nodes, "new_features_titanic_late_submition")
 clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
@@ -1645,7 +1647,7 @@ X_train_scaled.columns = column_names
 cnt = 0
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-best = fmin(lgb_f, lgb_space, algo=tpe.suggest, max_evals=1, trials=trials)
+best = fmin(lgb_f, lgb_space, algo=tpe.suggest, max_evals=9000, trials=trials)
 best_nodes = parse_lgb_nodes(trials, lgb_space_nodes)
 save_inter_params(trials, lgb_space_nodes, best_nodes, "all_features_titanic_late_submition")
 clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
@@ -1657,25 +1659,17 @@ print()
 #作为对比，下面是原特征进行的超参搜索得到的结果,其实也就是利用前20个参数？
 #X_all从csv文件读出来的时候会多一列的数据，但是并不会影响取得特征的操作
 X_all = pd.read_csv("origin_features.csv")
-X_all_scaled = pd.read_csv("all_features.csv")
+column_names = [i for i in range(0, len(X_all.iloc[0]))]
+X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = column_names)
 X_train_scaled = X_all_scaled[:len(X_train)]
 X_test_scaled = X_all_scaled[len(X_train):]
 #然后提取前面的部分参数
-column_names = list(X_all.columns.values)
-for i in dfs_feature_names:
-    column_names.append(str(i))
-X_all_scaled = X_all_scaled[column_names]
-#修改dataframe的列名否则lgb将会报错，原因未知
-#column_names = [i for i in range(0, len(X_train_scaled.iloc[0]))]
-print()
-
-
 cnt = 0
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-best = fmin(lgb_f, lgb_space, algo=tpe.suggest, max_evals=1, trials=trials)
+best = fmin(lgb_f, lgb_space, algo=tpe.suggest, max_evals=9000, trials=trials)
 best_nodes = parse_lgb_nodes(trials, lgb_space_nodes)
-save_inter_params(trials, lgb_space_nodes, best_nodes, "titanic_late_submition")
+save_inter_params(trials, lgb_space_nodes, best_nodes, "origin_features_titanic_late_submition")
 clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
 pred = clf.predict(X_train_scaled)
 print(clf.score(X_train_scaled, Y_train))
