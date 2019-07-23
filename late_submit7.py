@@ -9,6 +9,11 @@
 #根据1563到1595的实验发现，特征的先后顺序确实对创造的参数产生了很大的影响。是不是因为maxdepth设置为2造成的，试一下如何设置为1还有这个问题基本就可以不考虑这个库了
 #OK设置maxdepth=1就基本解决这个问题咯，现在产生的特征就和顺序没有关系了，毕竟设置为1的时候只是在原特征的基础上创建新特征，设置为2的时候会考虑新创建的特征。。
 #不过我觉得maxdepth设置为2也未尝不可取，就是感觉效率可能是非常的低，毕竟盲目的大海捞针并不客气。设置为1的时候可能更正常一些，而且基本还是包含了常见的操作的。。
+#所以机器学习的部分就先按照这个想法试验一下吧，之后就准备尝试一些写的比赛咯。创业事业那边准备接触一些新的思想和创业公司咯。
+#现在遇到了一个问题的话，创建特征的操作遇到了NaN和inf这真的抽象，我得分析一下为什么出现上述值，已经上述值合理的替代数值是什么
+#经过分析我发现NaN和inf都是因为被除数为0，前者除数为0后者除数不为0，差别仅此而已。
+#我现在应该算是已经解决了之前的问题了吧，我觉得剩下的就是等待一个demo运行完毕就可以
+#demo已经运行完了熬，这个特征选择还真的选出了几个有点意思的特征，就是不知道提交之后是否能够得到更好的结果咯，虽然我好想忘记保存预测结果了，
 import pickle
 import datetime
 import warnings
@@ -1599,10 +1604,30 @@ print()
 """
 
 #下面开始真正的创造新的特征咯
-#
+#现在遇到了一个新的问题divide之后会出现NAN，我暂时还不知道用什么东西替换他最合适呢？
+#首先NAN的产生肯定是因为被除数为0造成的，所以应该取值为尽量大的正数会更加合理一些的吧。
+#通过观察dfs_features.iloc[0]的数值，我发现dfs_features.iloc[0]中的下列特征的值为inf或者NAN
+#Embarked=S / Title=Mrs                       inf
+#Sex=female / Ticket_Count=share              NaN
+#FamilySizePlus / Title=Rare                  inf
+#Title=Miss / Embarked=C                      NaN
+#FamilySizePlus / Title=Master                inf
+#进一步研究我发现上述都是除数为0.0造成的
+#不同的是0.0除以0.0会得到NAN，非0.0除以0.0会得到inf
+#>>> dfs_features['Embarked=S'][0] 0.6931471805599453
+#>>> dfs_features['Title=Mrs'][0] 0.0
+#>>> dfs_features['Sex=female'][0] 0.0
+#>>> dfs_features['Ticket_Count=share'][0] 0.0
+#>>> dfs_features['FamilySizePlus'][0] 1.0986122886681098
+#>>> dfs_features['Title=Rare'][0] 0.0
+#>>> dfs_features['Title=Miss'][0] 0.0
+#>>> dfs_features['Embarked=C'][0] 0.0
+#>>> dfs_features['FamilySizePlus'][0] 1.0986122886681098
+#>>> dfs_features['Title=Master'][0] 0.0
+#这个和我之前查到的结果好像是差不多的，原来inf和NaN的区别在于除数是否为零
 start_time = datetime.datetime.now()
 trans_primitives =['divide', 'percentile', 'negate', 'diff', 'cum_sum', 'cum_max', 'subtract', 'latitude', 'cum_mean', 'mod', 'multiply', 'add']
-dfs_features, dfs_feature_names = ft.dfs(entityset=X_es, target_entity="X_all", trans_primitives = trans_primitives[:1], max_depth=1)
+dfs_features, dfs_feature_names = ft.dfs(entityset=X_es, target_entity="X_all", trans_primitives = trans_primitives, max_depth=1)
 print(dfs_features)
 print(dfs_feature_names)
 end_time = datetime.datetime.now()
@@ -1611,6 +1636,11 @@ print()
 
 start_time = datetime.datetime.now()
 X_all = dfs_features
+#由于创造特征的时候除法导致的NAN，所以用一个较大的数字去替换他相对合理一点熬
+#不仅仅是产生了NAN还产生了INF，我觉得这个就是需要详细分析一下INF和NAN产生的原理
+#X_all = X_all.fillna(1000)
+X_all = X_all.replace(np.nan, 1000)
+X_all = X_all.replace(np.inf, 1000)
 X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = dfs_feature_names)
 X_all_scaled.to_csv("all_features.csv", index=False)
 X_train_scaled = X_all_scaled[:len(X_train)]
