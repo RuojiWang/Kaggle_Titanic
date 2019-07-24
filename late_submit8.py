@@ -1,20 +1,10 @@
 #coding=utf-8
-#之前版本的程序执行了两天居然还没有任何输出，说明根本没有执行到超参搜索，光是在创建特征等操作上面就花费了两天时间。
-#我就是很好奇到底要怎么做才能够用这个库创建出能够产生价值的特征呢？？？
-#所以我现在只有把trans_primitives里面的特征和数据拿出来挨个的查看，或者每次单独选择其中一个方式创建特征，看看到底是卡在哪里了？？
-#特征的部分目前还是这些特征感觉没有可以去掉的或者可以增加的特征，那么接下来就是挨个试一下到底是谁导致的这么慢呀
-#trans_primitives =['percentile', 'negate', 'diff', 'cum_sum', 'cum_max', 'divide', 'subtract', 'latitude', 'cum_mean', 'mod', 'multiply', 'add']
-#设置搜索参数trans_primitives = trans_primitives[:6]时候就一直等不到结果了，难道是因为除数可能为0导致的问题么？？？
-#受到这个例子的启发我准备把trans_primitives参数换个位置试试看结果是否有所不同？？顺便看一下之前好像有些参数并没有得到一些结果呢。。
-#根据1563到1595的实验发现，特征的先后顺序确实对创造的参数产生了很大的影响。是不是因为maxdepth设置为2造成的，试一下如何设置为1还有这个问题基本就可以不考虑这个库了
-#OK设置maxdepth=1就基本解决这个问题咯，现在产生的特征就和顺序没有关系了，毕竟设置为1的时候只是在原特征的基础上创建新特征，设置为2的时候会考虑新创建的特征。。
-#不过我觉得maxdepth设置为2也未尝不可取，就是感觉效率可能是非常的低，毕竟盲目的大海捞针并不客气。设置为1的时候可能更正常一些，而且基本还是包含了常见的操作的。。
-#所以机器学习的部分就先按照这个想法试验一下吧，之后就准备尝试一些写的比赛咯。创业事业那边准备接触一些新的思想和创业公司咯。
-#现在遇到了一个问题的话，创建特征的操作遇到了NaN和inf这真的抽象，我得分析一下为什么出现上述值，已经上述值合理的替代数值是什么
-#经过分析我发现NaN和inf都是因为被除数为0，前者除数为0后者除数不为0，差别仅此而已。
-#我现在应该算是已经解决了之前的问题了吧，我觉得剩下的就是等待一个demo运行完毕就可以
-#demo已经运行完了熬，这个特征选择还真的选出了几个有点意思的特征，就是不知道提交之后是否能够得到更好的结果咯，虽然我好想忘记保存预测结果了
-#但是仔细看发现选出的特征基本没有原始特征在里面了，而且我觉得很奇怪的就是大部分特征我是真的想不出到底和预测结果有什么联系。
+#还是新开一个版本研究一下之前所选出的特征的和最佳分类器的情况，
+#其实我有点担心万一这个问题的最优解其实和特征无关咋办，
+#也就是说这个最优解其实就是靠分类器超参搜索出来的，很有可能是这个原因
+#所以我觉得除非经过超参搜索之后的得分明显的有所提升不然不一定能够说明特征工程有用呢
+#然后提交到kaggle之后，尼玛除了new_feature最低0.75119以外，其余两个分数一样略高一点都是0.75598
+#但是我还是觉得这个做法如果能够在十折交叉验证结果更好应该就说明还是有用的吧。
 import pickle
 import datetime
 import warnings
@@ -1546,64 +1536,6 @@ X_es.entity_from_dataframe(entity_id="X_all",
                            dataframe=X_all)
 
 """
-#获取所有的primitives值，并将dataframe转化为ndarray再转化为list
-all_primitives = ft.list_primitives().values.tolist()
-#提取所有transform类型的primitives的方式
-trans_primitives = []
-all_trans_primitives = []
-for i in all_primitives:
-    if i[1]=="transform":
-        trans_primitives.append(i[0])
-        all_trans_primitives.append(i)
-#print(trans_primitives)输出的结果是下面的内容，但是有个问题每次顺序都不一样，老子也是真的佛了熬所以还是需要手动操作咯。
-#['cum_max', 'years', 'divide', 'hours', 'is_null', 'numwords', 'latitude', 'minutes', 'cum_min', 
-#'weeks', 'month', 'year', 'cum_sum', 'subtract', 'seconds', 'minute', 'and', 'longitude', 
-#'time_since_previous', 'add', 'haversine', 'diff', 'negate', 'day', 'days_since', 'time_since', 
-#'week', 'cum_mean', 'weekend', 'months', 'second', 'cum_count', 'multiply', 'or', 'weekday', 
-#'isin', 'hour', 'mod', 'characters', 'not', 'absolute', 'percentile', 'days']
-print(trans_primitives)
-print(all_trans_primitives)
-features, feature_names = ft.dfs(entityset=X_es, target_entity="X_all", trans_primitives = trans_primitives[:3], max_depth=2)
-print(features)
-print(feature_names)
-"""
-
-"""
-#下面开始真正的创造新的特征咯
-#感觉下面应该会执行很久的样子，所以可以在这里进行一下时间上面的记录
-#个人感觉会计算很久，所以将时间记录拆分成了两部分进行，这样可以了解的更清楚
-#trans_primitives = trans_primitives[:1]时候print(dfs_features)[1309 rows x 40 columns]
-#trans_primitives = trans_primitives[:2]时候print(dfs_features)[1309 rows x 80 columns] 结尾特征：<Feature: -PERCENTILE(Title=Mrs)>, <Feature: -PERCENTILE(Title=Rare)>]
-#trans_primitives = trans_primitives[:3]时候print(dfs_features)[1309 rows x 80 columns] 结尾特征：<Feature: -PERCENTILE(Title=Mrs)>, <Feature: -PERCENTILE(Title=Rare)>]
-#trans_primitives = trans_primitives[:4]时候print(dfs_features)[1309 rows x 80 columns] 结尾特征：<Feature: -PERCENTILE(Title=Mrs)>, <Feature: -PERCENTILE(Title=Rare)>]
-#trans_primitives = trans_primitives[:5]时候print(dfs_features)[1309 rows x 80 columns] 结尾特征：<Feature: -PERCENTILE(Title=Mrs)>, <Feature: -PERCENTILE(Title=Rare)>]
-#trans_primitives = trans_primitives[:6]时候就一直等不到结果了，难道是因为除数可能为0导致的问题么？？？受到这个例子的启发我准备把trans_primitives参数换个位置试试看结果是否有所不同？？
-start_time = datetime.datetime.now()
-trans_primitives =['percentile', 'negate', 'diff', 'cum_sum', 'cum_max', 'divide', 'subtract', 'latitude', 'cum_mean', 'mod', 'multiply', 'add']
-dfs_features, dfs_feature_names = ft.dfs(entityset=X_es, target_entity="X_all", trans_primitives = trans_primitives[:6], max_depth=2)
-print(dfs_features)
-print(dfs_feature_names)
-end_time = datetime.datetime.now()
-print("feature creation time cost", (end_time - start_time))
-print()
-"""
-
-"""
-#下面开始真正的创造新的特征咯
-#吸取了上面被注视掉的代码的经验，我将'divide',放到第一个位置，虽然产生了NAN但是还是能够创建出400个特征的。
-#trans_primitives = trans_primitives[:1]时候print(dfs_features)[1309 rows x 400 columns] 结尾特征：<Feature: Pclass=2nd / Cabin=no cabin>, <Feature: Pclass=2nd / Pclass=3rd>]
-#trans_primitives = trans_primitives[:2]时候print(dfs_features)[1309 rows x 800 columns] 结尾特征：<Feature: PERCENTILE(Embarked=Q / Title=Rare)>, <Feature: PERCENTILE(Sex=female / Title=Rare)>]
-#trans_primitives = trans_primitives[:3]时候print(dfs_features)[1309 rows x 1220 columns] 结尾特征：<Feature: -PERCENTILE(Title=Mrs)>, <Feature: -PERCENTILE(Title=Rare)>]
-start_time = datetime.datetime.now()
-trans_primitives =['divide', 'percentile', 'negate', 'diff', 'cum_sum', 'cum_max', 'subtract', 'latitude', 'cum_mean', 'mod', 'multiply', 'add']
-dfs_features, dfs_feature_names = ft.dfs(entityset=X_es, target_entity="X_all", trans_primitives = trans_primitives[:3], max_depth=2)
-print(dfs_features)
-print(dfs_feature_names)
-end_time = datetime.datetime.now()
-print("feature creation time cost", (end_time - start_time))
-print()
-"""
-
 #下面开始真正的创造新的特征咯
 #现在遇到了一个新的问题divide之后会出现NAN，我暂时还不知道用什么东西替换他最合适呢？
 #首先NAN的产生肯定是因为被除数为0造成的，所以应该取值为尽量大的正数会更加合理一些的吧。
@@ -1736,4 +1668,64 @@ pred = clf.predict(X_train_scaled)
 print(clf.score(X_train_scaled, Y_train))
 end_time = datetime.datetime.now()
 print("hyperparameters search time cost", (end_time - start_time))
+print()
+"""
+#虽然我知道RFECV受到模型的影响比较大但是想试一下在xgboost上面的效果咯
+#下面的输出大致是这个样子的好像比我想象中的要好挺多的，所以创建特征即将成为我的秘密武器咯
+#0.8832772166105499
+#0.8787878787878788
+#0.8877665544332211
+#0.920314253647587
+#0.9046015712682379
+#0.9248035914702581
+#time cost 0:00:09.062000
+start_time = datetime.datetime.now()
+
+X_all = pd.read_csv("origin_features.csv")
+column_names = [i for i in range(0, len(X_all.iloc[0]))]
+X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = column_names)
+X_train_scaled = X_all_scaled[:len(X_train)]
+X_test_scaled = X_all_scaled[len(X_train):]
+trials, lgb_space_nodes, best_nodes = load_inter_params("origin_features_titanic_late_submition")
+clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
+Y_pred = clf.predict(X_test_scaled)
+data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
+output = pd.DataFrame(data = data)            
+output.to_csv("origin_features_prediction.csv", index=False)
+clf = XGBClassifier(random_state=42)
+clf.fit(X_train_scaled, Y_train)
+print(clf.score(X_train_scaled, Y_train))
+
+X_all = pd.read_csv("all_features.csv")
+column_names = [i for i in range(0, len(X_all.iloc[0]))]
+X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = column_names)
+X_train_scaled = X_all_scaled[:len(X_train)]
+X_test_scaled = X_all_scaled[len(X_train):]
+trials, lgb_space_nodes, best_nodes = load_inter_params("all_features_titanic_late_submition")
+clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
+Y_pred = clf.predict(X_test_scaled)
+data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
+output = pd.DataFrame(data = data)            
+output.to_csv("all_features_prediction.csv", index=False)    
+clf = XGBClassifier(random_state=42)
+clf.fit(X_train_scaled, Y_train)
+print(clf.score(X_train_scaled, Y_train))
+
+X_all = pd.read_csv("new_features.csv")
+column_names = [i for i in range(0, len(X_all.iloc[0]))]
+X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = column_names)
+X_train_scaled = X_all_scaled[:len(X_train)]
+X_test_scaled = X_all_scaled[len(X_train):]
+trials, lgb_space_nodes, best_nodes = load_inter_params("new_features_titanic_late_submition")
+clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
+Y_pred = clf.predict(X_test_scaled)
+data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
+output = pd.DataFrame(data = data)            
+output.to_csv("new_features_prediction.csv", index=False)
+clf = XGBClassifier(random_state=42)
+clf.fit(X_train_scaled, Y_train)
+print(clf.score(X_train_scaled, Y_train))
+
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
 print()
