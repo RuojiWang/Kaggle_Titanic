@@ -1,22 +1,14 @@
 #coding=utf-8
-#还是新开一个版本研究一下之前所选出的特征的和最佳分类器的情况，
-#其实我有点担心万一这个问题的最优解其实和特征无关咋办，
-#也就是说这个最优解其实就是靠分类器超参搜索出来的，很有可能是这个原因
-#所以我觉得除非经过超参搜索之后的得分明显的有所提升不然不一定能够说明特征工程有用呢
-#然后提交到kaggle之后，尼玛除了new_feature最低0.75119以外，其余两个分数一样略高一点都是0.75598
-#但是我还是觉得这个做法如果能够在二十五折交叉验证结果更好应该就说明还是有用的吧。
-#而且train_lgb_model输出的指标都是准确率，所还行的吧，训练集上面的十折交叉验证真的不错呢
-#我这么多模型的二十五折的交叉验证结果都还不错，这已经能够说明问题啦。
+#这是第一个版本的解决方案，主要就是使用了非神经网络进行了一个stacking
 import pickle
 import datetime
 import warnings
 import numpy as np
 import pandas as pd
-import featuretools as ft
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.linear_model import LogisticRegression, ElasticNet, Lasso
-from sklearn.feature_selection import VarianceThreshold, SelectFromModel, RFE, RFECV
+from sklearn.feature_selection import SelectFromModel, RFE, VarianceThreshold
 from sklearn.cross_validation import cross_val_score, StratifiedKFold, train_test_split
 from sklearn.ensemble import RandomForestClassifier, IsolationForest, AdaBoostClassifier
 from sklearn.model_selection import train_test_split, RandomizedSearchCV, GridSearchCV, KFold
@@ -174,12 +166,27 @@ data_test = pd.concat([data_test, results], axis=1)
 #data_train_1 data_train data_test_1 data_test have different id
 data_train_1 = data_train.copy()
 data_test_1  = data_test.copy()
-#data_test_1 = data_test_1.drop(['PassengerId', 'Name', 'SibSp', 'Parch', 'Ticket', 'FamilySize'], axis=1)
+data_test_1 = data_test_1.drop(['PassengerId', 'Name', 'SibSp', 'Parch', 'Ticket', 'FamilySize'], axis=1)
 
 #get feature from data_train_1 and data_test_1
 X_train = data_train_1[['Pclass', 'Sex', 'Age', 'Fare', 'Embarked', 'Cabin', 'Title', 'FamilySizePlus', 'Ticket_Count']]
 Y_train = data_train_1['Survived']
 X_test = data_test_1[['Pclass', 'Sex', 'Age', 'Fare', 'Embarked', 'Cabin', 'Title', 'FamilySizePlus', 'Ticket_Count']]
+
+#combine X_train and X_test
+X_all = pd.concat([X_train, X_test], axis=0)
+#print(X_all.columns)
+#下面是我补充的将性别、姓名、Embarked修改为了one-hot编码类型了
+#原来DictVectorizer类也可以实现OneHotEncoder()的效果，而且更简单一些
+#use DictVectorizer to create something like one-hot encoding
+dict_vector = DictVectorizer(sparse=False)
+X_all = dict_vector.fit_transform(X_all.to_dict(orient='record'))
+X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
+
+#scale feature to (0,1), which could make process of training easier
+X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = X_all.columns)
+X_train_scaled = X_all_scaled[:len(X_train)]
+X_test_scaled = X_all_scaled[len(X_train):]
 
 def save_inter_params(trials, space_nodes, best_nodes, title):
  
@@ -1438,364 +1445,62 @@ def logistic_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train
     print()
     return random_search.best_estimator_, Y_pred
 
-def cal_abs_skew(series, method):
 
-    if(method=="1"):
-        return abs(series.skew())
-    elif(method=="log"):
-        return abs(np.log(series).skew())
-    elif(method=="log1p"):
-        return abs(np.log1p(series).skew())
-    #如果输入异常那么返回一个非常大的数目
-    else:
-        return np.nan
-
-#并不需要判断两个值相等的情况，只是需要比较大小就行了熬
-def min_skew(series, method1, method2):
-    
-    if(cal_abs_skew(series, method1) <= cal_abs_skew(series, method2)):
-        return method1
-    elif(cal_abs_skew(series, method2) < cal_abs_skew(series, method1)):
-        return method2
-    #如果上面两种情况都不满足的时候就是存在nan的时候，此时应该返回
-    else:
-        #如果type1的计算结果不存在nan那么就返回他
-        if(np.isnan(cal_abs_skew(series, method1)) and (not np.isnan(cal_abs_skew(series, method2)))):
-            return method2
-        #如果不是上面的情况那么可能存在两种情况，
-        #两个计算结果都返回nan或者仅第一个结果不返回nan
-        #这两种情况下只需要返回第一个结果就可以咯
-        else:
-            return method1
-
-def trans_skew(series, method):
-
-    if(method=="1"):
-        return series
-    elif(method=="log"):
-        return np.log(series)
-    elif(method=="log1p"):
-        return np.log1p(series)
-    #如果出现异常的时候就返回nan好咯
-    else:
-        return np.nan
-
-#combine X_train and X_test
-#之后的特征创建直接使用X_all就可以了
-X_all = pd.concat([X_train, X_test], axis=0)
-
-#print(X_all.columns)
-#下面是我补充的将性别、姓名、Embarked修改为了one-hot编码类型了
-dict_vector = DictVectorizer(sparse=False)
-X_all = dict_vector.fit_transform(X_all.to_dict(orient='record'))
-X_all = pd.DataFrame(data=X_all, columns=dict_vector.feature_names_)
-
-#先将原始特征进行保存吧，之后可能会利用,这里必须加上index为False不然以后就会多列数据
-X_all.to_csv("origin_features.csv", index=False)
-
-#然后对X_all中skew偏度进行调整咯
-column_names = X_all.columns.values.tolist()
-for feature in column_names: 
-    method = min_skew(X_all[feature], "log1p", min_skew(X_all[feature], "1", "log"))
-    X_all[feature] = trans_skew(X_all[feature], method)
-    
-#我之前一直有点困惑的是，先进行特征缩放然后进行特征创造，还是先创造特征然后在进行特征缩放
-#我觉得这两种做法应该是具体看特征咯和创建特征的操作咯
-#如果两种特征是两种价格的话那么减法的操作可以直接用了不经过特征缩放的这两个特征上
-#有些特征比如说是树的高度和最大树叶的长度这两种特征之间相减就没啥意义的。。但是这种可能乘除有意义？？
-#从dataframe中创建实体并用于特征
-#'Age', 'Cabin=cabin', 'Cabin=no cabin', 'Embarked=C', 'Embarked=Q',
-#'Embarked=S', 'FamilySizePlus', 'Fare', 'Pclass=1st', 'Pclass=2nd',
-#'Pclass=3rd', 'Sex=female', 'Sex=male', 'Ticket_Count=no share',
-#'Ticket_Count=share', 'Title=Master', 'Title=Miss', 'Title=Mr',
-#'Title=Mrs', 'Title=Rare'
-X_es = ft.EntitySet(id="titanic_data")
-X_es.entity_from_dataframe(entity_id="X_all", 
-                           make_index=True,
-                           #make_index=False,
-                           index="index",
-                           variable_types = {'Age': ft.variable_types.Numeric,
-                                             'Cabin=cabin': ft.variable_types.Numeric,
-                                             'Cabin=no cabin': ft.variable_types.Numeric,
-                                             'Embarked=C': ft.variable_types.Numeric,
-                                             'Embarked=Q': ft.variable_types.Numeric,
-                                             'Embarked=S': ft.variable_types.Numeric,
-                                             'FamilySizePlus': ft.variable_types.Numeric,
-                                             'Fare': ft.variable_types.Numeric,
-                                             'Pclass=1st': ft.variable_types.Numeric,
-                                             'Pclass=2nd': ft.variable_types.Numeric,
-                                             'Pclass=3rd': ft.variable_types.Numeric,
-                                             'Sex=female': ft.variable_types.Numeric,
-                                             'Sex=male': ft.variable_types.Numeric,
-                                             'Ticket_Count=no share': ft.variable_types.Numeric,
-                                             'Ticket_Count=share': ft.variable_types.Numeric,
-                                             'Title=Master': ft.variable_types.Numeric,
-                                             'Title=Miss': ft.variable_types.Numeric,
-                                             'Title=Mr': ft.variable_types.Numeric,
-                                             'Title=Mrs': ft.variable_types.Numeric,
-                                             'Title=Rare': ft.variable_types.Numeric,
-                                             'index': ft.variable_types.Index},
-                           dataframe=X_all)
-
-"""
-#下面开始真正的创造新的特征咯
-#现在遇到了一个新的问题divide之后会出现NAN，我暂时还不知道用什么东西替换他最合适呢？
-#首先NAN的产生肯定是因为被除数为0造成的，所以应该取值为尽量大的正数会更加合理一些的吧。
-#通过观察dfs_features.iloc[0]的数值，我发现dfs_features.iloc[0]中的下列特征的值为inf或者NAN
-#Embarked=S / Title=Mrs                       inf
-#Sex=female / Ticket_Count=share              NaN
-#FamilySizePlus / Title=Rare                  inf
-#Title=Miss / Embarked=C                      NaN
-#FamilySizePlus / Title=Master                inf
-#进一步研究我发现上述都是除数为0.0造成的
-#不同的是0.0除以0.0会得到NAN，非0.0除以0.0会得到inf
-#>>> dfs_features['Embarked=S'][0] 0.6931471805599453
-#>>> dfs_features['Title=Mrs'][0] 0.0
-#>>> dfs_features['Sex=female'][0] 0.0
-#>>> dfs_features['Ticket_Count=share'][0] 0.0
-#>>> dfs_features['FamilySizePlus'][0] 1.0986122886681098
-#>>> dfs_features['Title=Rare'][0] 0.0
-#>>> dfs_features['Title=Miss'][0] 0.0
-#>>> dfs_features['Embarked=C'][0] 0.0
-#>>> dfs_features['FamilySizePlus'][0] 1.0986122886681098
-#>>> dfs_features['Title=Master'][0] 0.0
-#这个和我之前查到的结果好像是差不多的，原来inf和NaN的区别在于除数是否为零
+#进行一次stacking的测试咯
+#这个是lgb进行超参搜索的版本
 start_time = datetime.datetime.now()
-trans_primitives =['divide', 'percentile', 'negate', 'diff', 'cum_sum', 'cum_max', 'subtract', 'latitude', 'cum_mean', 'mod', 'multiply', 'add']
-dfs_features, dfs_feature_names = ft.dfs(entityset=X_es, target_entity="X_all", trans_primitives = trans_primitives, max_depth=1)
-print(dfs_features)
-print(dfs_feature_names)
-end_time = datetime.datetime.now()
-print("feature creation time cost", (end_time - start_time))
-print()
-
-start_time = datetime.datetime.now()
-X_all = dfs_features
-#由于创造特征的时候除法导致的NAN，所以用一个较大的数字去替换他相对合理一点熬
-#不仅仅是产生了NAN还产生了INF，我觉得这个就是需要详细分析一下INF和NAN产生的原理
-#X_all = X_all.fillna(1000)
-X_all = X_all.replace(np.nan, 1000)
-X_all = X_all.replace(np.inf, 1000)
-X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = dfs_feature_names)
-X_all_scaled.to_csv("all_features.csv", index=False)
-X_train_scaled = X_all_scaled[:len(X_train)]
-X_test_scaled = X_all_scaled[len(X_train):]
-#然后开始对模型进行选择咯,其实我在想不一定非要用逻辑回归，可能lgb说不定效果更好呢
-#想了一下我觉得用lgb应该能够取得更好的效果咯，所以还是采用lgb的方式进行特征选择
-#lr = LogisticRegression(random_state=42, penalty="l1")
-lgb = LGBMClassifier(random_state=42)
-rfecv = RFECV(estimator=lgb, cv=10, scoring="accuracy")
-rfecv.fit(X_train_scaled, Y_train)
-#print(rfecv.n_features_)
-#print(rfecv.ranking_)
-#print(rfecv.support_)
-#print(rfecv.grid_scores_)
-#print()
-end_time = datetime.datetime.now()
-print("feature selection time cost", (end_time - start_time))
-print()
-
-#上面算是将新的特征创建出来咯，剩下的就是读取特征并且进行选择咯
-#我觉得这下面应该将选出的特征进行存储进而用于新的机器学习咯
-start_time = datetime.datetime.now()
-column_names = X_all_scaled.columns.values
-X_all_scaled = rfecv.transform(X_all_scaled)
-#print(column_names)
-#print(column_names[rfecv.support_])
-#经过transform出来的数据都是ndarray类型的，现在需要转换为dataframe类型
-X_all_scaled = pd.DataFrame(data=X_all_scaled, columns=column_names[rfecv.support_])
-#将数据存储到新创建的dataframe中
-X_all_scaled.to_csv("new_features.csv", index=False)
-#为了防止新的dataframe不能够读出，试一下下面的代码咯
-X_all_scaled = pd.read_csv("new_features.csv")
-X_train_scaled = X_all_scaled[:len(X_train)]
-X_test_scaled = X_all_scaled[len(X_train):]
-end_time = datetime.datetime.now()
-print("new feature save time cost", (end_time - start_time))
-print()
-
-#接下来试一下新的特征加入超参搜索能够达到的效果如何
-#由于lgb_f中无法携带参数而且训练集是X_train_scaled
-#所以经过特征选择以后的参数名也叫作X_train_scaled而不是其他名字
-start_time = datetime.datetime.now()
-#修改dataframe的列名否则lgb将会报错，原因未知
-column_names = [i for i in range(0, len(X_train_scaled.iloc[0]))]
-X_train_scaled.columns = column_names
-cnt = 0
 trials = Trials()
 algo = partial(tpe.suggest, n_startup_jobs=10)
-best = fmin(lgb_f, lgb_space, algo=tpe.suggest, max_evals=1, trials=trials)
-best_nodes = parse_lgb_nodes(trials, lgb_space_nodes)
-save_inter_params(trials, lgb_space_nodes, best_nodes, "new_features_titanic_late_submition")
-clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
-pred = clf.predict(X_train_scaled)
-print(clf.score(X_train_scaled, Y_train))
-print()
-
-#作为对比，下面是没有经过特征选择而直接进行超参搜索的情况咯
-X_all_scaled = pd.read_csv("all_features.csv")
-X_train_scaled = X_all_scaled[:len(X_train)]
-X_test_scaled = X_all_scaled[len(X_train):]
-#修改dataframe的列名否则lgb将会报错，原因未知
-column_names = [i for i in range(0, len(X_train_scaled.iloc[0]))]
-X_train_scaled.columns = column_names
 cnt = 0
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
 best = fmin(lgb_f, lgb_space, algo=tpe.suggest, max_evals=1, trials=trials)
-best_nodes = parse_lgb_nodes(trials, lgb_space_nodes)
-save_inter_params(trials, lgb_space_nodes, best_nodes, "all_features_titanic_late_submition")
-clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
-pred = clf.predict(X_train_scaled)
-print(clf.score(X_train_scaled, Y_train))
-print()
-
-#作为对比，下面是原特征进行的超参搜索得到的结果,其实也就是利用前20个参数？
-#X_all从csv文件读出来的时候会多一列的数据，但是并不会影响取得特征的操作
-X_all = pd.read_csv("origin_features.csv")
-column_names = [i for i in range(0, len(X_all.iloc[0]))]
-X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = column_names)
-X_train_scaled = X_all_scaled[:len(X_train)]
-X_test_scaled = X_all_scaled[len(X_train):]
-#然后提取前面的部分参数
-cnt = 0
-trials = Trials()
-algo = partial(tpe.suggest, n_startup_jobs=10)
-best = fmin(lgb_f, lgb_space, algo=tpe.suggest, max_evals=1, trials=trials)
-best_nodes = parse_lgb_nodes(trials, lgb_space_nodes)
-save_inter_params(trials, lgb_space_nodes, best_nodes, "origin_features_titanic_late_submition")
-clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
-pred = clf.predict(X_train_scaled)
-print(clf.score(X_train_scaled, Y_train))
-end_time = datetime.datetime.now()
-print("hyperparameters search time cost", (end_time - start_time))
-print()
-"""
-
-#虽然我知道RFECV受到模型的影响比较大但是想试一下在xgboost上面的效果咯
-#下面的输出大致是这个样子的好像比我想象中的要好挺多的，所以创建特征即将成为我的秘密武器咯
-#time cost 0:00:09.062000
-start_time = datetime.datetime.now()
-
-result = []
-
-X_all = pd.read_csv("origin_features.csv")
-column_names = [i for i in range(0, len(X_all.iloc[0]))]
-X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = column_names)
-X_train_scaled = X_all_scaled[:len(X_train)]
-X_test_scaled = X_all_scaled[len(X_train):]
-trials, lgb_space_nodes, best_nodes = load_inter_params("origin_features_titanic_late_submition")
-clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
-result.append(clf.score(X_train_scaled, Y_train))
-Y_pred = clf.predict(X_test_scaled)
-data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
-output = pd.DataFrame(data = data)            
-output.to_csv("origin_features_prediction.csv", index=False)
-#试一下二十五折的lr是否结果也能提升，如果也提升了那就是特征选择的功劳
-clf = LogisticRegression(random_state=42)
-skf = StratifiedKFold(Y_train, n_folds=25, shuffle=True, random_state=42)
-metric = cross_val_score(clf, X_train_scaled, Y_train, cv=skf, scoring="accuracy").mean()
-print(metric)
-result.append(metric)
-#试一下二十五折的randomforest是否结果也能提升，如果也提升了那就是特征选择的功劳
-clf = RandomForestClassifier(random_state=42)
-skf = StratifiedKFold(Y_train, n_folds=25, shuffle=True, random_state=42)
-metric = cross_val_score(clf, X_train_scaled, Y_train, cv=skf, scoring="accuracy").mean()
-print(metric)
-result.append(metric)
-#试一下二十五折的xgboost是否结果也能提升，如果也提升了那就是特征选择的功劳
-clf = XGBClassifier(random_state=42)
-skf = StratifiedKFold(Y_train, n_folds=25, shuffle=True, random_state=42)
-metric = cross_val_score(clf, X_train_scaled, Y_train, cv=skf, scoring="accuracy").mean()
-print(metric)
-result.append(metric)
-#试一下二十五折的catboost是否结果也能提升，如果也提升了那就是特征选择的功劳
-clf = CatBoostClassifier(random_state=42)
-skf = StratifiedKFold(Y_train, n_folds=25, shuffle=True, random_state=42)
-metric = cross_val_score(clf, X_train_scaled, Y_train, cv=skf, scoring="accuracy").mean()
-print(metric)
-result.append(metric)
-print()
-
-X_all = pd.read_csv("all_features.csv")
-column_names = [i for i in range(0, len(X_all.iloc[0]))]
-X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = column_names)
-X_train_scaled = X_all_scaled[:len(X_train)]
-X_test_scaled = X_all_scaled[len(X_train):]
-trials, lgb_space_nodes, best_nodes = load_inter_params("all_features_titanic_late_submition")
-clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
-result.append(clf.score(X_train_scaled, Y_train))
-Y_pred = clf.predict(X_test_scaled)
-data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
-output = pd.DataFrame(data = data)
-output.to_csv("all_features_prediction.csv", index=False)
-#试一下二十五折的lr是否结果也能提升，如果也提升了那就是特征选择的功劳
-clf = LogisticRegression(random_state=42)
-skf = StratifiedKFold(Y_train, n_folds=25, shuffle=True, random_state=42)
-metric = cross_val_score(clf, X_train_scaled, Y_train, cv=skf, scoring="accuracy").mean()
-print(metric)
-result.append(metric)
-#试一下二十五折的randomforest是否结果也能提升，如果也提升了那就是特征选择的功劳
-clf = RandomForestClassifier(random_state=42)
-skf = StratifiedKFold(Y_train, n_folds=25, shuffle=True, random_state=42)
-metric = cross_val_score(clf, X_train_scaled, Y_train, cv=skf, scoring="accuracy").mean()
-print(metric)
-result.append(metric)
-#试一下二十五折的xgboost是否结果也能提升，如果也提升了那就是特征选择的功劳
-clf = XGBClassifier(random_state=42)
-skf = StratifiedKFold(Y_train, n_folds=25, shuffle=True, random_state=42)
-metric = cross_val_score(clf, X_train_scaled, Y_train, cv=skf, scoring="accuracy").mean()
-print(metric)
-result.append(metric)
-#试一下二十五折的catboost是否结果也能提升，如果也提升了那就是特征选择的功劳
-clf = CatBoostClassifier(random_state=42)
-skf = StratifiedKFold(Y_train, n_folds=25, shuffle=True, random_state=42)
-metric = cross_val_score(clf, X_train_scaled, Y_train, cv=skf, scoring="accuracy").mean()
-print(metric)
-result.append(metric)
-print()
-
-X_all = pd.read_csv("new_features.csv")
-column_names = [i for i in range(0, len(X_all.iloc[0]))]
-X_all_scaled = pd.DataFrame(MinMaxScaler().fit_transform(X_all), columns = column_names)
-X_train_scaled = X_all_scaled[:len(X_train)]
-X_test_scaled = X_all_scaled[len(X_train):]
-trials, lgb_space_nodes, best_nodes = load_inter_params("new_features_titanic_late_submition")
-clf = train_lgb_model(best_nodes, X_train_scaled, Y_train)
-result.append(clf.score(X_train_scaled, Y_train))
-Y_pred = clf.predict(X_test_scaled)
-data = {"PassengerId":data_test["PassengerId"], "Survived":Y_pred}
-output = pd.DataFrame(data = data)            
-output.to_csv("new_features_prediction.csv", index=False)
-#试一下二十五折的lr是否结果也能提升，如果也提升了那就是特征选择的功劳
-clf = LogisticRegression(random_state=42)
-skf = StratifiedKFold(Y_train, n_folds=25, shuffle=True, random_state=42)
-metric = cross_val_score(clf, X_train_scaled, Y_train, cv=skf, scoring="accuracy").mean()
-print(metric)
-result.append(metric)
-#试一下二十五折的randomforest是否结果也能提升，如果也提升了那就是特征选择的功劳
-clf = RandomForestClassifier(random_state=42)
-skf = StratifiedKFold(Y_train, n_folds=25, shuffle=True, random_state=42)
-metric = cross_val_score(clf, X_train_scaled, Y_train, cv=skf, scoring="accuracy").mean()
-print(metric)
-result.append(metric)
-#试一下二十五折的xgboost是否结果也能提升，如果也提升了那就是特征选择的功劳
-clf = XGBClassifier(random_state=42)
-skf = StratifiedKFold(Y_train, n_folds=25, shuffle=True, random_state=42)
-metric = cross_val_score(clf, X_train_scaled, Y_train, cv=skf, scoring="accuracy").mean()
-print(metric)
-result.append(metric)
-#试一下二十五折的catboost是否结果也能提升，如果也提升了那就是特征选择的功劳
-clf = CatBoostClassifier(random_state=42)
-skf = StratifiedKFold(Y_train, n_folds=25, shuffle=True, random_state=42)
-metric = cross_val_score(clf, X_train_scaled, Y_train, cv=skf, scoring="accuracy").mean()
-print(metric)
-result.append(metric)
-print()
-
+best_lgb_nodes = parse_lgb_nodes(trials, lgb_space_nodes)
+save_inter_params(trials, lgb_space_nodes, best_lgb_nodes, "lgb_titanic")
+clf = train_lgb_model(best_lgb_nodes, X_train_scaled, Y_train)
 end_time = datetime.datetime.now()
 print("time cost", (end_time - start_time))
 print()
 
-for i in range(0, len(result)):
-    print(result[i])
+#这个是xgb进行超参搜索的版本
+start_time = datetime.datetime.now()
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+cnt = 0
+best = fmin(xgb_f, xgb_space, algo=tpe.suggest, max_evals=1, trials=trials)
+best_xgb_nodes = parse_xgb_nodes(trials, xgb_space_nodes)
+save_inter_params(trials, xgb_space_nodes, best_xgb_nodes, "xgb_titanic")
+clf = train_xgb_model(best_xgb_nodes, X_train_scaled, Y_train)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+print()
+
+#这个是cat进行超参搜索的版本
+start_time = datetime.datetime.now()
+trials = Trials()
+algo = partial(tpe.suggest, n_startup_jobs=10)
+cnt = 0
+best = fmin(cat_f, cat_space, algo=tpe.suggest, max_evals=1, trials=trials)
+best_cat_nodes = parse_cat_nodes(trials, cat_space_nodes)
+save_inter_params(trials, cat_space_nodes, best_cat_nodes, "cat_titanic")
+rsg = train_cat_model(best_cat_nodes, X_train_scaled, Y_train)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))
+print()
+
+start_time = datetime.datetime.now()
+#进行stacking的部分，我之前看这个比赛别人都是blending还以为不适合stacking，其实回归问题以及这个比赛还是有stacking的
+trials, space_nodes, best_lgb_nodes = load_inter_params("lgb_titanic")
+best_lgb_model = create_lgb_model(best_lgb_nodes, X_train_scaled, Y_train)
+trials, space_nodes, best_xgb_nodes = load_inter_params("xgb_titanic")
+best_xgb_model = create_xgb_model(best_xgb_nodes, X_train_scaled, Y_train)
+trials, space_nodes, best_cat_nodes = load_inter_params("cat_titanic")
+best_cat_model = create_cat_model(best_cat_nodes, X_train_scaled, Y_train)
+
+#nodes_list = [best_lgb_nodes, best_xgb_nodes] 
+#models_list = [best_lgb_model, best_xgb_model] 
+nodes_list = [best_lgb_nodes, best_xgb_nodes, best_cat_nodes] 
+models_list = [best_lgb_model, best_xgb_model, best_cat_model]
+stacked_train, stacked_test = stacked_features_nonnn(models_list, X_train_scaled, Y_train, X_test_scaled, 2)
+save_stacked_dataset(stacked_train, stacked_test, "titanic")
+logistic_stacking_rscv_predict(nodes_list, data_test, stacked_train, Y_train, stacked_test, 600)
+end_time = datetime.datetime.now()
+print("time cost", (end_time - start_time))

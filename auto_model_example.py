@@ -377,7 +377,7 @@ def create_nn_module(input_nodes, hidden_layers, hidden_nodes, output_nodes, per
         module_list.append(nn.Softmax())
         
     #当存在隐藏节点的时候
-    else :
+    else:
         module_list.append(nn.Linear(input_nodes, hidden_nodes))
         module_list.append(nn.Dropout(percentage))
         module_list.append(nn.ReLU())
@@ -574,9 +574,12 @@ def nn_f1(params):
     #这里似乎可以采用分层采样吧，原来这个就是分层随机采样，妈的吓我一跳还以为要重新修改。
     #我现在在train_test_split中也采用了分层划分的数据集，一般使用分层的效果更好一点的。
     skf = StratifiedKFold(Y_train, n_folds=8, shuffle=True, random_state=None)
-    
+
     init_module(clf.module, params["weight_mode"], params["bias"])
-    
+
+    # 之前的Dropout居然在输出之前没用这个
+    #clf.module.eval() 现在还是训练不需要这个
+
     metric = cross_val_score(clf, X_train_scaled.values.astype(np.float32), Y_train.values.astype(np.longlong), cv=skf, scoring="accuracy").mean()
     
     print(metric)
@@ -617,7 +620,10 @@ def nn_f2(params):
                                   )
     
         init_module(clf.module, params["weight_mode"], params["bias"])
-        
+
+        #之前的Dropout居然在输出之前没用这个
+        #clf.module.eval() 现在还是训练不需要这个
+
         clf.fit(X_split_train.values.astype(np.float32), Y_split_train.values.astype(np.longlong))
         Y_pred = clf.predict(X_split_test.values.astype(np.float32))
         acc = cal_acc(Y_pred, Y_split_test)  
@@ -972,7 +978,10 @@ def get_oof(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5, max_eval
         X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
         
         best_model, best_acc = train_nn_model(nodes, X_split_train, Y_split_train, max_evals)
-            
+
+        #之前的Dropout居然在输出之前没用这个
+        best_model.module.eval()
+
         acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
         print_nnclf_acc(acc1)
         train_acc.append(acc1)
@@ -1004,7 +1013,10 @@ def get_oof_validate1(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 5
         X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
         
         best_model, best_acc = train_nn_model_validate1(nodes, X_split_train, Y_split_train, max_evals)
-        
+
+        #之前的Dropout居然在输出之前没用这个
+        best_model.module.eval()
+
         #这里输出的是最佳模型的训练集和验证集上面的结果咯
         #很容易和上面的训练过程的最后一个输出重叠
         #这三个输出结果肯定是不一样的：
@@ -1041,7 +1053,10 @@ def get_oof_validate2(nodes, X_train_scaled, Y_train, X_test_scaled, n_folds = 8
         X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
         
         best_model, best_acc = train_nn_model_validate2(nodes, X_split_train, Y_split_train, max_evals)
-        
+
+        #之前的Dropout居然在输出之前没用这个
+        best_model.module.eval()
+
         acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
         print_nnclf_acc(acc1)
         train_acc.append(acc1)
@@ -1073,7 +1088,10 @@ def get_oof_noise_validate1(nodes, X_train_scaled, Y_train, X_test_scaled, n_fol
         X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
         
         best_model, best_acc = train_nn_model_noise_validate1(nodes, X_split_train, Y_split_train, max_evals)
-        
+
+        #之前的Dropout居然在输出之前没用这个
+        best_model.module.eval()
+
         acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
         print_nnclf_acc(acc1)
         train_acc.append(acc1)
@@ -1105,7 +1123,10 @@ def get_oof_noise_validate2(nodes, X_train_scaled, Y_train, X_test_scaled, n_fol
         X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
         
         best_model, best_acc = train_nn_model_noise_validate2(nodes, X_split_train, Y_split_train, max_evals)
-        
+
+        #之前的Dropout居然在输出之前没用这个
+        best_model.module.eval()
+
         acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
         print_nnclf_acc(acc1)
         train_acc.append(acc1)
@@ -1137,7 +1158,10 @@ def get_oof_noise_validate3(nodes, X_train_scaled, Y_train, X_test_scaled, n_fol
         X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
         
         best_model, best_acc = train_nn_model_noise_validate3(nodes, X_split_train, Y_split_train, max_evals)
-        
+
+        #之前的Dropout居然在输出之前没用这个
+        best_model.module.eval()
+
         acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
         print_nnclf_acc(acc1)
         train_acc.append(acc1)
@@ -1169,7 +1193,10 @@ def get_oof_noise_validate4(nodes, X_train_scaled, Y_train, X_test_scaled, n_fol
         X_split_valida, Y_split_valida = X_train_scaled[valida_index], Y_train[valida_index]
         
         best_model, best_acc = train_nn_model_noise_validate4(nodes, X_split_train, Y_split_train, max_evals)
-        
+
+        #之前的Dropout居然在输出之前没用这个
+        best_model.module.eval()
+
         acc1 = cal_nnclf_acc(best_model, X_split_train, Y_split_train)
         print_nnclf_acc(acc1)
         train_acc.append(acc1)
@@ -1352,16 +1379,19 @@ def nn_predict(best_nodes, X_train_scaled, Y_train, X_test_scaled, folds=10, max
                                   optimizer = best_nodes["optimizer"]
                                   )
         init_module(clf.module, best_nodes["weight_mode"], best_nodes["bias"])
-                
+
         #这边的折数由5折修改为10折吧，这样子的话应该更加能够表示出稳定性吧
         skf = StratifiedKFold(Y_train, n_folds=folds, shuffle=True, random_state=None)
         metric = cross_val_score(clf, X_train_scaled.astype(np.float32), Y_train.astype(np.longlong), cv=skf, scoring="accuracy").mean()
         print_nnclf_acc(metric)
         
         best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
-    
+
     best_model.fit(X_train_scaled.astype(np.float32), Y_train.astype(np.longlong))
-    
+
+    # 之前的Dropout居然在输出之前没用这个
+    best_model.module.eval()
+
     acc = cal_nnclf_acc(best_model,  X_train_scaled, Y_train)
     print_nnclf_acc(acc)
     
@@ -1407,14 +1437,17 @@ def nn_stacking_predict(best_nodes, data_test, stacked_train, Y_train, stacked_t
                                   )
         
         init_module(clf.module, best_nodes["weight_mode"], best_nodes["bias"])
-        
+
         clf.fit(stacked_train.values.astype(np.float32), Y_train.values.astype(np.longlong))
         
         metric = cal_nnclf_acc(clf, stacked_train.values, Y_train.values)
         print_nnclf_acc(metric)
         
         best_model, best_acc, flag = record_best_model_acc(clf, metric, best_model, best_acc)
-    
+
+        #之前的Dropout居然在输出之前没用这个
+        best_model.module.eval()
+
         if (flag):
             #这个版本的best_model终于是全局的版本咯，真是开森呢。。
             save_best_model(best_model, best_nodes["title"]+"_"+str(len(nodes_list)))
