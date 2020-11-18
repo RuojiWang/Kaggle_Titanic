@@ -199,6 +199,11 @@
     （3）尽量使用conda安装其次使用pip安装，可以修改.condarc文件配置镜像源，大部分时候直接pip安装都不太行。
     （4）也可以下载离线安装包然后通过conda进行安装，Linux下面我试过成功了但是Windows下面有点问题。可能是我那里设置出现问题了吧。
     （5）还有一种很靠谱的方式就是在Google里面输入“包名 国内 镜像源 下载”，之前要是早点用这个方式可能安装包的时候没有那么坎坷咯
+
+    （6）写了上面的总结的几个月之后我才知道，豆瓣镜像源：http://pypi.douban.com/simple/ 可能比清华、中科大镜像源更好用
+    绝大多数包貌似都可以用豆瓣镜像源安装成功，具体用法比如说我要安装微软的nni
+    pip install nni==版本号 -i http://pypi.douban.com/simple/ 一般都可以安装成功
+    （7）如果在conda安装的过程中出现部分包无法安装成功，也可以用（6）中的办法先单独安装再执行conda安装后续的包！！！
     ================================================================================================
     ================================================================================================
     决定了，以后我用automl解决比赛的问题咯，现在的问题就是不知道哪个autmoml比较屌，
@@ -263,7 +268,9 @@
     （8）执行这个 pip install git+https://github.com/keras-team/keras-tuner.git@1.0.2rc0#egg=keras-tuner-1.0.2rc0 否则报错
     pip install autokeras==1.0.4
 
-    I安装:
+    NNI安装:
     Microsoft NNI的安装就很顺利咯，具体参考右侧的链接https://zhuanlan.zhihu.com/p/92812335
     也就是直接用命令pip install -i https://pypi.tuna.tsinghua.edu.cn/simple nni 就安装好了，比起autokeras真的太节省力气了。
+
+
 """
